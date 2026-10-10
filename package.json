@@ -1,0 +1,10 @@
+{
+  "name": "ocscript",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Phase 1 read-only account intelligence foundation",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/test.mjs"
+  }
+}
