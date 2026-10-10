@@ -54,14 +54,14 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	end
 	if context.SceneReady == false then decision.Reason = context.Blocker or "Waiting for actual zone inspection before selecting a farming activity" return decision end
 	if config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then
-		decision.Goal = "Isolated stationary Coins/Gems credit experiment"
+		decision.Goal = "Stationary Coins/Gems farming with isolated balance logging"
 		if not FarmingPolicy.IsStationaryArea(config, context.Current) then
 			decision.Reason = "Manually position on an unlocked selected island; isolated test never travels"
 		elseif not context.CanInteract then decision.Reason = context.Blocker or "Native interaction guard"
 		elseif context.Cluster then
 			decision.Kind, decision.Mode, decision.Cluster = "FARM", "PICKUPS", context.Cluster
 			decision.Currency = context.Cluster.Currency or "Coins"
-			decision.Reason = "Bounded stationary ID experiment; verify LocalData credit, no movement or other OC earning actions"
+			decision.Reason = "Continuous paced stationary ID batches; verify LocalData credit"
 		else
 			decision.Kind = "INSPECT"
 			decision.Reason = context.PickupUnavailableReason or "Waiting for live stationary pickup IDs; no movement fallback"

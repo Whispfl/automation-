@@ -1,5 +1,6 @@
 --!nonstrict
--- Called only by the existing foreground farming task. No action thread or movement fallback.
+-- Existing foreground collector, retained under its compatibility module name.
+-- Discovery observes genuine Tutorial IDs; only the scheduler sends requests.
 local StationaryExperiment = {}
 StationaryExperiment.__index = StationaryExperiment
 
@@ -8,67 +9,47 @@ function StationaryExperiment.new(owner)
 end
 
 function StationaryExperiment:LimitReason()
-	local settings = self.Owner.Config.PICKUP_SETTINGS
-	if self.Invalidated then return self.Invalidated end
-	if self.Requests >= settings.STATIONARY_MAXIMUM_REQUESTS then return "Stationary request budget exhausted; no movement fallback" end
-	if self.StartedAt and os.clock() - self.StartedAt >= settings.STATIONARY_TEST_DURATION_SECONDS then return "Stationary experiment expired; no movement fallback" end
-	local current, root = self.Owner.Tracker.Current, self.Owner.Tracker:Root()
-	if self.StartedAt and (not current or current.Key ~= self.AreaKey or not root or (root.Position - self.Anchor).Magnitude > settings.STATIONARY_MAXIMUM_DRIFT_STUDS) then
-		self.Invalidated = "Stationary position/island changed; experiment invalidated, no movement fallback"
-		return self.Invalidated
-	end
-	if os.clock() - (self.Owner.Mechanics.LastPickupRequestAt or -math.huge) < settings.STATIONARY_REQUEST_COOLDOWN_SECONDS then return "Stationary request cooldown" end
+	if os.clock() < (self.NextBatchAt or 0) then return "Stationary batch cooldown" end
 	return nil
 end
 
+function StationaryExperiment:_eligible(record)
+	local state = self.PerId[record.Id]
+	return record.Id ~= nil and (record.Currency == "Coins" or record.Currency == "Gems")
+		and (not state or (not state.Dispatched and state.Attempts < self.Owner.Config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_ATTEMPTS_PER_ID and os.clock() >= state.Until))
+end
+
 function StationaryExperiment:Candidate(cluster)
+	local registry, now = self.Owner.Knowledge:ActivePickups(), os.clock()
+	-- Preserve deduplication through short Chunker unloads, reclaim retired IDs.
+	for id, state in pairs(self.PerId) do
+		if registry and registry[state.Key] then state.LastSeen = now
+		elseif registry and now - state.LastSeen > 60 then self.PerId[id] = nil end
+	end
 	local reason = self:LimitReason()
 	if reason then return nil, reason end
-	local settings = self.Owner.Config.PICKUP_SETTINGS
-	local best, attempts
 	for _, record in ipairs(cluster and cluster.Records or {}) do
-		local state = self.PerId[record.Id]
-		local count = state and state.Attempts or 0
-		if record.Id and (record.Currency == "Coins" or record.Currency == "Gems")
-			and count < settings.STATIONARY_MAXIMUM_ATTEMPTS_PER_ID and not (state and state.CreditObserved)
-			and (not state or os.clock() >= state.Until) then
-			if not best or count < attempts or (count == attempts and record.Currency ~= self.LastCurrency and best.Currency == self.LastCurrency) then best, attempts = record, count end
-		end
+		if self:_eligible(record) then return record end
 	end
-	return best, best and nil or "No eligible stationary IDs outside deduplication/retry backoff; no movement fallback"
+	return nil, "Waiting for new genuine Coins/Gems IDs; existing requests are deduplicated"
 end
 
 function StationaryExperiment:Collect(decision, token)
 	local owner, settings = self.Owner, self.Owner.Config.PICKUP_SETTINGS
 	if token:CheckCancelled() then return nil end
-	local record, reason = self:Candidate(decision.Cluster)
-	if not record then return { Verified = false, Reason = reason } end
-	local root = owner.Tracker:Root()
+	local candidate, reason = self:Candidate(decision.Cluster)
+	if not candidate then return { Verified = false, Reason = reason } end
 	local before = owner.Reader:ReadBalances()
-	if not root or type(before.Coins) ~= "number" or type(before.Gems) ~= "number" then return { Verified = false, Reason = "Ready LocalData Coins/Gems and root required; no request dispatched" } end
-	local initialPosition, areaKey = root.Position, owner.Tracker.Current.Key
+	if not owner.Tracker:Root() or type(before.Coins) ~= "number" or type(before.Gems) ~= "number" then return { Verified = false, Reason = "Ready LocalData Coins/Gems and root required; no request dispatched" } end
+	local areaKey, started = owner.Tracker.Current.Key, os.clock()
+	local deadline = started + owner.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS
 	local raw = owner.Reader:GetLiveProfile()
 	local initialBubble = raw and raw.Bubble and raw.Bubble.Amount
-	local saleSequence = owner.SaleSequence or 0
-	local started = os.clock()
-	local requested, invocation, evidence = owner.Mechanics:CollectStationary(record, token)
-	if not requested then return { Verified = false, Reason = invocation } end
-	self.StartedAt, self.Anchor, self.AreaKey = self.StartedAt or started, self.Anchor or initialPosition, self.AreaKey or areaKey
-	self.Requests += 1 self.LastCurrency = record.Currency
-	local state = self.PerId[record.Id] or { Attempts = 0 }
-	self.PerId[record.Id] = state
-	state.Attempts += 1 state.Until = started + settings.STATIONARY_ID_RETRY_SECONDS
-	owner.CollectionVisits += 1
-	owner.Controller:Log("PICKUP][STATIONARY_REQUEST", string.format("attempt=%d/%d id=%s currency=%s distance=%.2f radius=%.2f outsideNative=%s | %s; invocation is not credit",
-		self.Requests, settings.STATIONARY_MAXIMUM_REQUESTS, tostring(record.Id), record.Currency, evidence.Distance, evidence.Radius, tostring(evidence.OutsideNativeRange), invocation))
+	local saleSequence, previousBubble = owner.SaleSequence or 0, initialBubble
 	local previous, after = before, before
-	local previousBubble = initialBubble
-	local contaminated, drifted, missing = false, false, false
-	local deadline = math.min(started + owner.Config.FARMING_SETTINGS.EARNINGS_CONFIRMATION_TIMEOUT_SECONDS,
-		started + owner.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS, self.StartedAt + settings.STATIONARY_TEST_DURATION_SECONDS)
-	while not token:CheckCancelled() do
-		local currentRoot, current = owner.Tracker:Root(), owner.Tracker.Current
-		if not currentRoot or not current or current.Key ~= areaKey or (currentRoot.Position - self.Anchor).Magnitude > settings.STATIONARY_MAXIMUM_DRIFT_STUDS then drifted = true break end
+	local contaminated, missing, areaChanged = false, false, false
+	local ids, currencies, outside, invocationSucceeded = {}, {}, 0, true
+	local function observe()
 		after = owner.Reader:ReadBalances()
 		for _, currency in ipairs({ "Coins", "Gems" }) do
 			if type(after[currency]) ~= "number" then missing = true
@@ -80,46 +61,85 @@ function StationaryExperiment:Collect(decision, token)
 		if owner.PendingSale or saleSequence ~= (owner.SaleSequence or 0) or (type(previousBubble) == "number" and type(amount) == "number" and amount < previousBubble) then contaminated = true end
 		previousBubble = amount
 		if owner.Cycle and type(initialBubble) == "number" and type(amount) == "number" and amount > initialBubble then owner.Cycle.GrowthAt = os.clock() end
+		local current = owner.Tracker.Current
+		if not owner.Tracker:Root() or not current or current.Key ~= areaKey then areaChanged = true end
+	end
+	for _, record in ipairs(decision.Cluster.Records) do
+		if token:CheckCancelled() or os.clock() >= deadline or #ids >= settings.STATIONARY_MAXIMUM_BATCH_SIZE then break end
+		if not self:_eligible(record) then continue end
+		local delay = settings.STATIONARY_REQUEST_COOLDOWN_SECONDS - (os.clock() - (owner.Mechanics.LastPickupRequestAt or -math.huge))
+		while delay > 1e-6 and not token:CheckCancelled() and os.clock() < deadline do
+			task.wait(math.min(0.05, delay, deadline - os.clock())) observe()
+			delay = settings.STATIONARY_REQUEST_COOLDOWN_SECONDS - (os.clock() - (owner.Mechanics.LastPickupRequestAt or -math.huge))
+		end
+		if token:CheckCancelled() or areaChanged or os.clock() >= deadline then break end
+		local requested, invocation, evidence = owner.Mechanics:CollectStationary(record, token)
+		if not requested then reason = invocation continue end
+		self.StartedAt = self.StartedAt or started
+		self.Requests += 1
+		local state = self.PerId[record.Id] or { Attempts = 0, Key = record.RegistryKey or record.Id }
+		self.PerId[record.Id] = state
+		state.Attempts += 1 state.Until = os.clock() + settings.STATIONARY_ID_RETRY_SECONDS state.LastSeen = os.clock()
+		state.Dispatched = evidence.InvocationSucceeded -- Invocation deduplication, never credit evidence.
+		table.insert(ids, record.Id) currencies[record.Currency] = true
+		if evidence.OutsideNativeRange then outside += 1 end
+		invocationSucceeded = invocationSucceeded and evidence.InvocationSucceeded
+		owner.Controller:Log("PICKUP][STATIONARY_REQUEST", string.format("id=%s currency=%s distance=%.2f radius=%s outsideNative=%s | %s",
+			tostring(record.Id), record.Currency, evidence.Distance, tostring(evidence.Radius), tostring(evidence.OutsideNativeRange), invocation))
+		observe()
+		if decision.Mode == "COMBINED" and not settings.STATIONARY_ISOLATED_TEST then owner:_background(token) end
+	end
+	if #ids == 0 then return { Verified = false, Reason = reason or "No eligible live registry IDs dispatched" } end
+	self.NextBatchAt = os.clock() + settings.STATIONARY_BATCH_COOLDOWN_SECONDS
+	owner.CollectionVisits += 1
+	deadline = math.min(deadline, os.clock() + owner.Config.FARMING_SETTINGS.EARNINGS_CONFIRMATION_TIMEOUT_SECONDS)
+	while not token:CheckCancelled() and not areaChanged do
+		observe()
 		if os.clock() >= deadline then break end
 		if decision.Mode == "COMBINED" and not settings.STATIONARY_ISOLATED_TEST then owner:_background(token) end
 		task.wait(math.min(0.1, deadline - os.clock()))
 	end
 	if token:CheckCancelled() then
-		self.LastResult = { Cancelled = true, Id = record.Id, Reason = "Cancelled; attempt budget retained and credit window discarded" }
+		self.NextBatchAt = os.clock() + settings.STATIONARY_BATCH_COOLDOWN_SECONDS
+		self.LastResult = { Cancelled = true, Ids = ids, Reason = "Cancelled; dispatched IDs retained and credit window discarded" }
 		return nil
 	end
-	if drifted then self.Invalidated = "Stationary position/island changed; credit window discarded, no movement fallback" end
-	local gain = type(after[record.Currency]) == "number" and after[record.Currency] - before[record.Currency] or 0
-	local credit = gain > 0 and not contaminated and not drifted and not missing
-	local gains = credit and { [record.Currency] = gain } or {}
-	state.CreditObserved = credit
+	local gains, creditedAfter = {}, {}
+	if not contaminated and not missing and not areaChanged then
+		for currency in pairs(currencies) do
+			local gain = after[currency] - before[currency]
+			if gain > 0 then gains[currency] = gain creditedAfter[currency] = after[currency] end
+		end
+	end
+	local credit = next(gains) ~= nil
 	if credit then
-		self.CreditWindows += 1 self.Gains[record.Currency] = (self.Gains[record.Currency] or 0) + gain
-		owner.Metrics:ConfirmCycle(before, { [record.Currency] = after[record.Currency] }, "Stationary matching LocalData credit observed; request/native/external attribution unproven")
-		owner.PickupEvidence[areaKey .. ":" .. record.Currency] = os.clock()
-		if owner.PickupProbe and owner.PickupProbe.Currency == record.Currency then owner.PickupProbe.Confirmed = true owner.PickupProbe.Attempts = (owner.PickupProbe.Attempts or 0) + 1 end
+		self.CreditWindows += 1
+		owner.Metrics:ConfirmCycle(before, creditedAfter, "Stationary batch LocalData credit observed; request/native/external attribution unproven")
+		for currency, gain in pairs(gains) do
+			self.Gains[currency] = (self.Gains[currency] or 0) + gain owner.PickupEvidence[areaKey .. ":" .. currency] = os.clock()
+			if owner.PickupProbe and owner.PickupProbe.Currency == currency then owner.PickupProbe.Confirmed = true owner.PickupProbe.Attempts = (owner.PickupProbe.Attempts or 0) + 1 end
+		end
 		if decision.Mode == "COMBINED" and owner.Cycle then owner.Cycle.PickupAt = os.clock() end
 	else
 		self.UncreditedWindows += 1 owner.Metrics.UnconfirmedCycles += 1
-		owner.Metrics.LastConfirmation = drifted and self.Invalidated or contaminated and "Stationary window contaminated by sale/spending; credit unconfirmed"
+		owner.Metrics.LastConfirmation = areaChanged and "Current credit window discarded after island/root change; farming resumes on eligible IDs"
+			or contaminated and "Stationary window contaminated by sale/spending; credit unconfirmed"
 			or missing and "LocalData unavailable; stationary credit unconfirmed" or "No matching LocalData credit; server acceptance unknown; no movement fallback"
 	end
-	-- Include idle/cooldown time since the preceding window, without snapshot double counting.
 	owner.Metrics:AddSample("STATIONARY", areaKey, gains, os.clock() - (self.LastSampleAt or started), os.clock())
 	self.LastSampleAt = os.clock()
-	self.LastResult = { Id = record.Id, Currency = record.Currency, CreditObserved = credit, Gain = credit and gain or 0,
-		Before = before, After = after, OutsideNativeRange = evidence.OutsideNativeRange,
-		Distance = evidence.Distance, Radius = evidence.Radius, Contaminated = contaminated or missing or drifted,
-		InvocationSucceeded = evidence.InvocationSucceeded, Attribution = "UNPROVEN: native collection/external rewards can contribute" }
-	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("id=%s creditObserved=%s outsideNative=%s | Coins %s -> %s | Gems %s -> %s | %s",
-		tostring(record.Id), tostring(credit), tostring(evidence.OutsideNativeRange), tostring(before.Coins), tostring(after.Coins), tostring(before.Gems), tostring(after.Gems), owner.Metrics.LastConfirmation))
-	return { Verified = credit, CreditObserved = credit, CombinedCreditObserved = credit and decision.Mode == "COMBINED", Gains = gains,
-		Reason = credit and "Matching LocalData credit observed; distant-request attribution remains unproven" or owner.Metrics.LastConfirmation }
+	self.NextBatchAt = os.clock() + settings.STATIONARY_BATCH_COOLDOWN_SECONDS
+	self.LastResult = { Ids = ids, BatchSize = #ids, CreditObserved = credit, Gains = gains, Before = before, After = after,
+		OutsideNativeRange = outside > 0, OutsideNativeCount = outside, Contaminated = contaminated or missing or areaChanged,
+		InvocationSucceeded = invocationSucceeded, Attribution = "UNPROVEN: native collection/external rewards can contribute" }
+	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("batch=%d creditObserved=%s outsideNative=%d | Coins %s -> %s | Gems %s -> %s | %s",
+		#ids, tostring(credit), outside, tostring(before.Coins), tostring(after.Coins), tostring(before.Gems), tostring(after.Gems), owner.Metrics.LastConfirmation))
+	return { Verified = credit, CreditObserved = credit, CombinedCreditObserved = credit and decision.Mode == "COMBINED", Gains = gains, Reason = owner.Metrics.LastConfirmation }
 end
 
 function StationaryExperiment:GetStatus()
 	return { Experimental = true, Requests = self.Requests, StartedAt = self.StartedAt, CreditWindows = self.CreditWindows,
-		RequestLimit = self.Owner.Config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_REQUESTS, DurationLimit = self.Owner.Config.PICKUP_SETTINGS.STATIONARY_TEST_DURATION_SECONDS,
+		BatchLimit = self.Owner.Config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_BATCH_SIZE, Continuous = true,
 		UncreditedWindows = self.UncreditedWindows, Gains = table.clone(self.Gains), LastResult = self.LastResult,
 		Blocker = self:LimitReason(), ServerAcceptance = "UNKNOWN", MovementFallback = false }
 end

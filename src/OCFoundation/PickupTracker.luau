@@ -489,11 +489,10 @@ function PickupTracker:Cluster(currency)
 	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then return unavailable("Collection/scanning disabled") end
 	if not self:Root() or not self.Current then return unavailable("Character or current island geometry unavailable") end
 	local range = self:ReadRange()
-	if not range then return unavailable(self.RangeReason) end
 	local records = {}
 	for _, record in pairs(self.Models) do
 		if record.AreaKey == self.Current.Key and (record.Currency == "Coins" or record.Currency == "Gems")
-			and allowed(self.Config.PICKUP_SETTINGS.FARM_CURRENCY_TYPES, record.Currency) and record.RouteEligible ~= false
+			and allowed(self.Config.PICKUP_SETTINGS.FARM_CURRENCY_TYPES, record.Currency)
 			and not record.IsTransit and self:IsActive(record) and not self.Backoff[record.Id] then table.insert(records, record) end
 	end
 	table.sort(records, function(a, b)

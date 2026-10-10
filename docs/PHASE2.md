@@ -2,13 +2,17 @@
 
 Phase 1 is owner-tested and approved. Phase 2 is an implementation candidate, **not an owner-approved gameplay pass**. The definitive input is the user's final pasted specification and [updated Notion revision](https://app.notion.com/p/3f53d7e9278d8145a85aff38d5497e12). Older requests to install/test code through Studio are superseded: all code is maintained in this repository, Studio tools are read-only, and the owner executes the published bundle.
 
-## Latest follow-up: stationary-only experiment
+## Latest follow-up: continuous stationary-only batches
 
 The owner's critical instruction supersedes movement-based collection and fallback
 requirements below. See [STATIONARY_TEST.md](STATIONARY_TEST.md). Walking/pathfinding
 have been removed, genuine-ID requests are bounded through the existing scheduler,
-and the initial test is manually positioned on unlocked The Void or Zen with all
-other OC earning/travel actions disabled. Distant credit remains unverified.
+and the test is manually positioned on unlocked The Void or Zen with other OC
+earning/travel actions disabled for balance isolation. Flame's genuine-ID request
+approach is used without Model/registry mutation or unrelated automation. Paced
+batches continuously process existing and new IDs, with deduplication and controls.
+Session quotas, expiry and permanent position invalidation have been removed.
+Distant credit remains unverified.
 
 ## Earlier follow-up: pickup-first farming
 

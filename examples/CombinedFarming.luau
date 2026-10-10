@@ -8,7 +8,7 @@ local Config = {
 		AUTO_RESOURCE_FARM = true, --// Use the existing foreground scheduler.
 		ENABLE_EFFICIENCY_COMPARISON = true, --// Compare measured goal-currency earnings.
 		ENABLE_ACTIVITY_SWITCHING = true, --// Allow bounded trials and useful strategy changes.
-		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Limit movement with a full bubble before selling.
+		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Bound the full-bubble delay if selling is separately enabled.
 	},
 	ISLAND_SETTINGS = {
 		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Farm only these islands after verifying actual unlocks.
@@ -17,9 +17,9 @@ local Config = {
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapid island switching.
 	},
 	PICKUP_SETTINGS = {
-		COLLECTION_METHOD = "STATIONARY_EXPERIMENT", --// Never walk to pickups.
+		COLLECTION_METHOD = "STATIONARY", --// Never walk to pickups.
 		STATIONARY_ISOLATED_TEST = false, --// Explicitly allow cooperative blowing in this later comparison.
-		BULK_COLLECT_PICKUPS = true, --// Centrally scheduled single-ID stationary attempts.
+		BULK_COLLECT_PICKUPS = true, --// Centrally scheduled paced stationary batches.
 		ENABLE_CLUSTER_ROUTING = false, --// Pickup movement has been removed.
 		FARM_CURRENCY_TYPES = { "Coins", "Gems" }, --// Only the approved experiment currencies.
 	},
@@ -38,8 +38,8 @@ local Config = {
 	},
 	DIAGNOSTIC_SETTINGS = {
 		ENABLE_CONSOLE_LOGGING = true, --// Print action and verification evidence.
-		LOG_MOVEMENT_DIAGNOSTICS = true, --// Explain route recovery and skipped targets.
-		LOG_PICKUP_DIAGNOSTICS = true, --// Print actual disappearance and balance evidence.
+		LOG_MOVEMENT_DIAGNOSTICS = false, --// Pickup navigation has been removed.
+		LOG_PICKUP_DIAGNOSTICS = true, --// Print genuine IDs and actual balance evidence.
 		LOG_PICKUP_DETAIL_PATHS = false, --// Keep rejection summaries compact.
 		LOG_ACCOUNT_DETAILS = false, --// Keep full statistics in the status UI.
 	},

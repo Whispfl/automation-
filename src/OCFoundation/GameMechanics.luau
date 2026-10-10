@@ -87,8 +87,8 @@ end
 function GameMechanics:CollectStationary(record, token)
 	local settings = self.Config.PICKUP_SETTINGS
 	if token:CheckCancelled() then return false, "Cancelled" end
-	if settings.COLLECTION_METHOD ~= "STATIONARY_EXPERIMENT" or not settings.BULK_COLLECT_PICKUPS or not settings.ENABLE_CONTINUOUS_SCANNING then return false, "Stationary collection disabled" end
-	if os.clock() - (self.LastPickupRequestAt or -math.huge) < settings.STATIONARY_REQUEST_COOLDOWN_SECONDS then return false, "Stationary request cooldown" end
+	if settings.COLLECTION_METHOD ~= "STATIONARY" or not settings.BULK_COLLECT_PICKUPS or not settings.ENABLE_CONTINUOUS_SCANNING then return false, "Stationary collection disabled" end
+	if os.clock() - (self.LastPickupRequestAt or -math.huge) < settings.STATIONARY_REQUEST_COOLDOWN_SECONDS - 1e-6 then return false, "Stationary request cooldown" end
 	local permitted, reason, root = self:Guard()
 	if not permitted then return false, reason end
 	local area = self.Tracker.Current
@@ -105,11 +105,12 @@ function GameMechanics:CollectStationary(record, token)
 	if (type(key) == "number" and (key ~= key or math.abs(key) == math.huge)) or key == "" then return false, "Invalid native registry ID" end
 	if not registry or registry[key] ~= model or not model or not model.Parent or not model:IsA("Model")
 		or not model:IsDescendantOf(workspace) or tostring(key) ~= model.Name then return false, "Live native registry entry unavailable or changed" end
-	if record.Currency ~= "Coins" and record.Currency ~= "Gems" then return false, "Stationary experiment accepts only Coins/Gems" end
+	if record.Currency ~= "Coins" and record.Currency ~= "Gems" then return false, "Stationary collection accepts only Coins/Gems" end
 	local range = self.Tracker:ReadRange()
-	if not range then return false, "Actual native pickup radius unavailable" end
 	local distance = (model:GetPivot().Position - root.Position).Magnitude
-	if distance > range and not settings.STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE then return false, "Outside native radius; experimental distant requests disabled" end
+	local outsideNative = nil
+	if range then outsideNative = distance > range end
+	if not settings.STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE and (not range or distance > range) then return false, "Native radius unavailable or target outside configured native-only range" end
 	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 	local pickups = remotes and remotes:FindFirstChild("Pickups")
 	local remote = pickups and pickups:FindFirstChild("CollectPickup")
@@ -121,7 +122,7 @@ function GameMechanics:CollectStationary(record, token)
 	self.LastPickupRequestAt = os.clock()
 	local ok, errorText = pcall(function() remote:FireServer(key) end)
 	return true, ok and "Request invoked; credit awaits LocalData" or "Invocation error; credit unknown: " .. tostring(errorText),
-		{ Id = tostring(key), Distance = distance, Radius = range, OutsideNativeRange = distance > range, InvocationSucceeded = ok }
+		{ Id = tostring(key), Distance = distance, Radius = range, OutsideNativeRange = outsideNative, InvocationSucceeded = ok }
 end
 
 function GameMechanics:SellStations()

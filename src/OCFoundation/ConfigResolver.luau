@@ -34,17 +34,16 @@ function ConfigResolver.Resolve(defaults, overrides)
 	end
 	assert(result.FARMING_SETTINGS.FARMING_STRATEGY == "EFFICIENCY" or result.FARMING_SETTINGS.FARMING_STRATEGY == "PICKUP_FIRST", "[OC] Unknown FARMING_STRATEGY")
 	local pickup = result.PICKUP_SETTINGS
-	assert(pickup.COLLECTION_METHOD == "STATIONARY_EXPERIMENT", "[OC] Only STATIONARY_EXPERIMENT pickup collection is supported")
+	if pickup.COLLECTION_METHOD == "STATIONARY_EXPERIMENT" then pickup.COLLECTION_METHOD = "STATIONARY" end -- Old Config compatibility.
+	assert(pickup.COLLECTION_METHOD == "STATIONARY", "[OC] Only STATIONARY pickup collection is supported")
 	pickup.ENABLE_CLUSTER_ROUTING = false -- Legacy overrides cannot reactivate movement collection.
-	for key, minimum in pairs({ STATIONARY_REQUEST_COOLDOWN_SECONDS = 1, STATIONARY_ID_RETRY_SECONDS = 5,
-		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 1, STATIONARY_MAXIMUM_REQUESTS = 1,
-		STATIONARY_TEST_DURATION_SECONDS = 1, STATIONARY_MAXIMUM_DRIFT_STUDS = 0.05 }) do
+	for key, minimum in pairs({ STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, STATIONARY_ID_RETRY_SECONDS = 5,
+		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 1, STATIONARY_MAXIMUM_BATCH_SIZE = 1, STATIONARY_BATCH_COOLDOWN_SECONDS = 0.2 }) do
 		local value = pickup[key]
 		assert(value == value and value < math.huge and value >= minimum, "[OC] Invalid PICKUP_SETTINGS." .. key)
 	end
 	assert(pickup.STATIONARY_MAXIMUM_ATTEMPTS_PER_ID % 1 == 0 and pickup.STATIONARY_MAXIMUM_ATTEMPTS_PER_ID <= 2, "[OC] Stationary attempts per ID must be 1 or 2")
-	assert(pickup.STATIONARY_MAXIMUM_REQUESTS % 1 == 0 and pickup.STATIONARY_MAXIMUM_REQUESTS <= 24, "[OC] Stationary request budget must be an integer up to 24")
-	assert(pickup.STATIONARY_TEST_DURATION_SECONDS <= 120, "[OC] Stationary experiment duration cannot exceed 120 seconds")
+	assert(pickup.STATIONARY_MAXIMUM_BATCH_SIZE % 1 == 0 and pickup.STATIONARY_MAXIMUM_BATCH_SIZE <= 64, "[OC] Stationary batch size must be an integer up to 64")
 	return result
 end
 

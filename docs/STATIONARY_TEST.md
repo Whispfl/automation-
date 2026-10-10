@@ -1,101 +1,83 @@
-# Stationary-only Phase 2 experiment
+# Continuous stationary pickup farming — Phase 2 candidate
 
-The owner's latest instruction removes movement-based pickup farming. This build
-implements a controlled stationary experiment, not a verified distant collector.
-Phase 2 remains unapproved and Phase 3 is not implemented.
+Phase 2 remains unapproved. Phase 3 is not implemented. Studio remains read-only;
+the owner performs live gameplay tests.
 
-## Runtime behavior
+## Collection
 
-The existing OCBrain selects a pickup task and TaskScheduler grants the normal
-single foreground lease. StationaryExperiment chooses one classified Coins/Gems
-record. GameMechanics rechecks actual LocalData unlocks, The Void or Zen in The
-Overworld, configured selection, current island, the genuine native registry key,
-live Model and native radius, then invokes CollectPickup with that key. The
-request's server acceptance remains unknown.
+The Flame reference's pickup mechanism iterates Tutorial._activePickups and sends
+each real key to Remotes.Pickups.CollectPickup. OC uses this ID/request approach
+only. It does not import the reference UI, other automation, Model destruction,
+registry clearing or fragile Rendered:GetChildren()[14] listener.
 
-Outside-native-range probing is an explicit experimental setting. It changes no
-position, native radius, validation, ID or game data. Server rules remain in force.
-The registry covers loaded Models, not every island pickup. Chunker-only objects
-without a matching registry entry cannot dispatch. GameKnowledge, the reader cache,
-registry/Chunker discovery, spawn metadata, currency identification and central
-controls remain in use. Spawn listeners observe data and never send requests.
+The existing GameKnowledge, reader cache, registry/Chunker discovery and currency
+classification feed the existing Brain and single foreground scheduler task.
+Spawn listeners only observe metadata. Each task sends at most 32 classified,
+currently registered Coins/Gems IDs, paced at least 0.05 seconds apart. Remaining
+IDs and newly detected spawns enter subsequent batches after the confirmation
+window and a one-second batch cooldown. Each dispatch rechecks the genuine
+registry key/Model, actual LocalData unlocks and selected current-island identity.
+Only The Void and Zen in The Overworld are eligible. No native bulk remote is
+invented: a batch consists of individual native CollectPickup requests.
 
-Walking/pathfinding and the movement collector have been removed. The old Walk
-entry point rejects calls; ENABLE_CLUSTER_ROUTING is forced false even if an old
-Config passes true. Legacy route timing keys remain accepted but have no navigation
-effect. No runtime MoveTo, pathfinding or repositioning call exists. Future selling
-can use separately configured native travel/activation, never pickup walks.
+Normally invoked IDs are deduplicated even if their Models persist and no currency
+arrives. Invocation success is not collection success. Only transport errors may
+retry, after 15 seconds and at most two attempts per ID; delivery is uncertain.
+Deduplication survives Pause/Stop and short Chunker unload/reload cycles. OC prunes
+its own retired-ID history after 60 seconds absent from the native registry. It
+never changes the game's registry, Models, character position or native range.
 
-## Limits and controls
+There is no lifetime request quota, test expiry or original-position anchor.
+The old quota/duration/drift settings remain accepted as deprecated no-ops for
+existing Configs. STATIONARY_EXPERIMENT is accepted as an old method name and
+normalized to STATIONARY. Position changes never permanently disable collection.
+An island change or missing root discards only the current credit window; the
+scheduler can resume with new eligible IDs once the character is on an allowed,
+unlocked island. Outside the allowed islands OC sends no pickup requests.
 
-The initial Config permits one ID per scheduled attempt, a three-second global
-cooldown, fifteen seconds between retries of an uncredited ID, two attempts per
-ID, and 24 dispatched attempts per controller. Credit windows are bounded by the
-existing action slice/confirmation timeout and the session deadline. The experiment
-expires after 120 elapsed seconds from first dispatch. Budgets never refill
-automatically and exhaustion never enables movement.
+Pause/Stop cancel the foreground token. Cancellation is checked before every
+dispatch, during pacing waits and during credit observation. No remaining batch
+requests or cooperative blows follow cancellation. Dispatched requests cannot be
+recalled, and the game's own native collector runs independently.
 
-Per-ID state deduplicates repeated scans; new spawns enter the same candidate set.
-Observed-credit IDs are not retried. Invocation errors consume an attempt because
-delivery can be uncertain. Invalid IDs, locked islands and missing data do not send.
+## Balance evidence
 
-Pause/Stop immediately cancel the foreground token. No further OC request or
-cooperative blow follows cancellation, and the credit window is discarded. An
-already dispatched request cannot be recalled; the native game collector continues
-independently. Retry counts and session limits survive Pause/Stop. Position/island
-change after first dispatch invalidates the experiment. After manual repositioning,
-explicitly reload for a new test.
+STATIONARY_REQUEST logs genuine IDs, currency, distance and native radius when
+available. Radius is diagnostic when outside-range requests are enabled; it does
+not prevent real-ID requests. STATIONARY_RESULT logs batch size, actual LocalData
+Coins/Gems before and after, and whether matching balances increased.
 
-## Credit evidence and its limits
+Invocation success, Model disappearance and registry removal never establish
+credit. Missing balances, observed spending, bubble sale evidence, island/root
+change or cancellation discard the window's attribution. Actual positive matching
+balances are recorded without attributing credit to individual batch IDs. Native
+collection, manual movement and external rewards can contribute. Server acceptance
+and distant collection remain unverified until owner results establish them.
+Repeated no-credit windows are reported honestly; no movement fallback or server
+validation bypass exists.
 
-Results print actual LocalData Coins/Gems before and after, ID, distance, native
-radius and whether that target was outside the radius at dispatch. Positive
-matching currency change is required for creditObserved=true. Invocation success,
-Model disappearance and registry removal cannot establish credit. OC never destroys
-pickup Models, clears the game registry, fabricates IDs or forces Chunker loading.
+## Ready-to-run owner configuration
 
-Missing balances, observed spending, bubble decrease/sale evidence, root drift over
-0.5 studs, island change or cancellation invalidate the credit window. Explicit
-stationary samples include cooldown/idle time between windows and do not double
-count observer snapshots. Combined rates still require actual growth, pickup credit,
-sale and return; an unsold background blow cannot produce a currency income rate.
+Use examples/StationaryOnly.luau. Loader.luau and PickupOnly.luau contain the same
+complete configuration and public dist/OC.lua loader. This is continuous farming
+with isolated balance logging: blowing, selling, travel, exploration, purchases
+and equipment changes are disabled for this run. Isolation is optional and does
+not impose a session limit.
 
-Even matching currency credit cannot identify one request's contribution when the
-native collector or external rewards contributed. Status keeps server acceptance
-UNKNOWN and the method experimental. An outside-range target plus a positive balance
-window alone does not prove distant collection. No-credit results cannot distinguish
-server rejection from delayed/missing credit; they report acceptance as unknown.
+1. Manually stand on unlocked The Void or Zen. Observe a short native baseline,
+   then run the configuration without claiming rewards or manually selling.
+2. Check INIT build, PICKUP/SOURCES, genuine STATIONARY_REQUEST IDs and batch
+   STATIONARY_RESULT Coins/Gems deltas. New spawns must enter without toggling.
+3. Let farming continue beyond two minutes and 24 requests if enough new IDs spawn.
+   Manual repositioning must not require a reload; no OC movement should occur.
+4. Pause during a batch, then resume; test Stop and Start too. Remaining requests
+   must cancel, and previously dispatched IDs must stay deduplicated.
+5. Stop and manually test the other unlocked selected island. Compare actual Coins
+   and Gems per minute separately. No winner or distant credit is claimed in advance.
 
-## Initial owner test
+CombinedFarming.luau preserves cooperative background blowing in the same task,
+with isolation disabled. Existing native selling/teleportation remain separately
+configurable. Pickup walking/pathfinding and automatic movement fallback are absent.
 
-Use the complete examples/StationaryOnly.luau Config and public raw loader.
-Loader.luau and PickupOnly.luau contain the same isolated test.
-
-1. Manually stand on unlocked The Void or Zen in The Overworld, away from sell/
-   teleport activations. Record Coins/Gems and observe a short stationary native
-   baseline first. Do not manually collect, blow, sell, claim rewards or purchase.
-2. Run OC and check INIT build ID and PICKUP/SOURCES discovery. Automatic island
-   selection/exploration/travel, blowing, selling, upgrades and equipment changes
-   are disabled. Executor isolation also blocks stale non-pickup tasks.
-3. Let the bounded test run without moving. Send STATIONARY_REQUEST and
-   STATIONARY_RESULT logs, including distances/radius and actual Coins/Gems deltas.
-   Check new IDs enter without toggling. Persistent Models with no currency gain
-   are not successful collection.
-4. Test Pause/Stop during a window. Confirm no later OC attempt until explicit
-   resume/start and no request-counter reset. Drift, expiry and budget exhaustion
-   must leave collection inactive.
-5. Stop, manually position on the other accessible selected island and reload for
-   a separate experiment. Never unlock automatically. Compare actual Coins/Gems
-   deltas and durations separately; no island winner is claimed before owner data.
-
-CombinedFarming.luau retains a later stationary/background-blowing comparison with
-isolation explicitly disabled. It still disables selling and travel. Use the
-isolated configuration first. Future selling/travel requires separate configuration
-and uses the existing guarded native adapter. The upgrade example remains deferred.
-
-## Verification boundary
-
-Native source inspection, compilation, static checks, offline regressions and
-public byte comparison validate implementation behavior. They cannot verify live
-stationary credit or distant server acceptance. Studio remains strictly read-only;
-the owner performs gameplay testing.
+Build/compiler checks, offline regressions and public byte comparison verify the
+implementation and publication. They are not live gameplay verification.

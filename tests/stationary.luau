@@ -2,6 +2,7 @@
 local stationaryBefore = tests
 local function stationaryFixture(overrides)
 	local values = { GENERAL_SETTINGS = { AUTO_START = false }, STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = false },
+		PICKUP_SETTINGS = { STATIONARY_ISOLATED_TEST = true },
 		BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, FARMING_SETTINGS = { FARMING_STRATEGY = "PICKUP_FIRST" },
 		BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false, AUTO_BUY_FLAVORS = false },
 		UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false } }
@@ -48,9 +49,10 @@ local function stationaryFixture(overrides)
 	return scene
 end
 
-test("Production defaults enforce stationary-only isolation and legacy routing cannot reactivate walking", function()
+test("Production defaults enforce stationary-only collection and legacy routing cannot reactivate walking", function()
 	local settings = Resolver.Resolve(Defaults)
-	assert(settings.PICKUP_SETTINGS.COLLECTION_METHOD == "STATIONARY_EXPERIMENT" and settings.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST)
+	assert(settings.PICKUP_SETTINGS.COLLECTION_METHOD == "STATIONARY" and not settings.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST)
+	assert(Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { COLLECTION_METHOD = "STATIONARY_EXPERIMENT" } }).PICKUP_SETTINGS.COLLECTION_METHOD == "STATIONARY")
 	assert(not settings.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and not settings.ISLAND_SETTINGS.AUTO_EXPLORE_UNLOCKED_ISLANDS)
 	assert(table.concat(settings.ISLAND_SETTINGS.SELECTED_ISLANDS, ",") == "The Void,Zen")
 	assert(not Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { ENABLE_CLUSTER_ROUTING = true } }).PICKUP_SETTINGS.ENABLE_CLUSTER_ROUTING)
@@ -59,9 +61,9 @@ test("Production defaults enforce stationary-only isolation and legacy routing c
 	assert(not mechanics:Walk(Vector3.new(999, 0, 0))) mechanics:StopMovement()
 end)
 
-test("Stationary limits reject NaN infinity flooding budgets and excessive retries", function()
-	for key, value in pairs({ STATIONARY_REQUEST_COOLDOWN_SECONDS = 0, STATIONARY_ID_RETRY_SECONDS = 0, STATIONARY_MAXIMUM_REQUESTS = 25,
-		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 3, STATIONARY_TEST_DURATION_SECONDS = 121, STATIONARY_MAXIMUM_DRIFT_STUDS = math.huge }) do
+test("Stationary pacing rejects NaN infinity flooding batches and excessive transport retries", function()
+	for key, value in pairs({ STATIONARY_REQUEST_COOLDOWN_SECONDS = 0, STATIONARY_ID_RETRY_SECONDS = 0, STATIONARY_MAXIMUM_BATCH_SIZE = 65,
+		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 3, STATIONARY_BATCH_COOLDOWN_SECONDS = math.huge }) do
 		assert(not pcall(function() Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { [key] = value } }) end))
 	end
 	assert(not pcall(function() Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { STATIONARY_REQUEST_COOLDOWN_SECONDS = 0/0 } }) end))
@@ -108,15 +110,15 @@ test("Missing matching currency gain cannot be substituted with another currency
 	end)
 end)
 
-test("Global cooldown and per-ID retry exhaustion prevent repeated remote attempts", function()
+test("Repeated scans never redispatch normally invoked IDs even without credit", function()
 	simulated(function(clock)
 		local scene = stationaryFixture() scene:Add("retry")
 		assert(not scene:Collect().Verified and #scene.Calls == 1)
 		clock.Time = 2 assert(not scene:Collect().Verified and #scene.Calls == 1)
 		clock.Time = 10 assert(not scene:Collect().Verified and #scene.Calls == 1)
-		clock.Time = 15 assert(not scene:Collect().Verified and #scene.Calls == 2)
-		clock.Time = 40 assert(not scene:Collect().Verified and #scene.Calls == 2)
-		assert(scene.Coordinator.Stationary.PerId.retry.Attempts == 2) scene:Close()
+		clock.Time = 15 assert(not scene:Collect().Verified and #scene.Calls == 1)
+		clock.Time = 400 assert(not scene:Collect().Verified and #scene.Calls == 1)
+		assert(scene.Coordinator.Stationary.PerId.retry.Attempts == 1) scene:Close()
 	end)
 end)
 
@@ -129,12 +131,12 @@ test("New genuine spawned IDs participate continuously without clearing retry hi
 	end)
 end)
 
-test("Experiment session request cap and time expiry never enable another collection strategy", function()
+test("Legacy session quotas and expiry cannot stop continuous farming", function()
 	for _, settings in ipairs({ { STATIONARY_MAXIMUM_REQUESTS = 1 }, { STATIONARY_TEST_DURATION_SECONDS = 1 } }) do
 		simulated(function(clock)
 			local scene = stationaryFixture({ PICKUP_SETTINGS = settings }) scene:Add("first") scene:Collect()
-			clock.Time = 20 scene:Add("second") assert(not scene:Collect().Verified and #scene.Calls == 1)
-			assert(scene.Coordinator.Stationary:LimitReason():find("no movement fallback", 1, true)) scene:Close()
+			clock.Time = 3600 scene:Add("second") assert(not scene:Collect().Verified and #scene.Calls == 2)
+			clock.Time += 2 assert(not scene.Coordinator.Stationary:LimitReason()) scene:Close()
 		end)
 	end
 end)
@@ -196,12 +198,12 @@ test("Unavailable LocalData refuses dispatch and cannot fabricate balances", fun
 	end)
 end)
 
-test("Position drift invalidates positive credit and prevents any later requests", function()
+test("Position changes never permanently invalidate stationary batches", function()
 	simulated(function(clock)
 		local scene = stationaryFixture() scene:Add("drift")
 		clock.Tick = function() scene.Root.Position = scene.Root.Position + Vector3.new(1, 0, 0) scene.Profile.Coins += 10 end
-		assert(not scene:Collect().Verified and scene.Coordinator.Stationary.Invalidated)
-		clock.Tick = nil clock.Time = 20 scene:Add("later") assert(not scene:Collect().Verified and #scene.Calls == 1) scene:Close()
+		assert(scene:Collect().Verified and not scene.Coordinator.Stationary.Invalidated)
+		clock.Tick = nil clock.Time = 20 scene:Add("later") assert(not scene:Collect().Verified and #scene.Calls == 2) scene:Close()
 	end)
 end)
 
@@ -227,10 +229,10 @@ test("Cancellation after fresh guards prevents a stale stationary remote invocat
 	end)
 end)
 
-test("Pause and Stop cancel scheduled stationary windows and preserve attempt budgets", function()
+test("Pause and Stop cancel scheduled stationary windows and retain deduplication", function()
 	for _, control in ipairs({ "Pause", "Stop" }) do
 		simulated(function(clock)
-			local scene = stationaryFixture() scene:Add("scheduled")
+			local scene = stationaryFixture() scene:Add("scheduled") scene:Add("scheduled-later")
 			local scheduler = Scheduler.new(scene.Controller.Config.TASK_SETTINGS) scheduler:Resume()
 			clock.Tick = function() scheduler[control](scheduler) scene.Controller.State = "PAUSED" scene.Coordinator:Halt(true) end
 			scheduler:Submit(scene.Coordinator:Definition(scene:Decision(), 1)) flush()
@@ -238,6 +240,8 @@ test("Pause and Stop cancel scheduled stationary windows and preserve attempt bu
 			assert(scene.Coordinator.Stationary.LastResult.Cancelled and scene.Coordinator.Metrics.ConfirmedCycles == 0)
 			clock.Tick = nil clock.Time = 5 scene.Controller.State = "RUNNING" scene:Add("new")
 			scheduler:Submit(scene.Coordinator:Definition(scene:Decision(), 1)) flush() assert(#scene.Calls == 1)
+			scheduler:Resume() scheduler:Submit(scene.Coordinator:Definition(scene:Decision(), 1)) flush()
+			assert(#scene.Calls == 3 and scene.Calls[1].Id == "scheduled", "Resume/Start sends remaining and new IDs without repeating dispatched IDs")
 			scheduler:Destroy() scene:Close()
 		end)
 	end
@@ -258,7 +262,7 @@ test("Full bubbles do not schedule selling or travel during isolated stationary 
 	local data, context, plan, memory = policyFixture()
 	context.Current = { Key = "The Overworld/The Void", Name = "The Void", World = "The Overworld", Unlocked = true }
 	context.Cluster.AreaKey = context.Current.Key data.Bubble.Amount = data.Bubble.Capacity
-	local selected = Resolver.Resolve(Defaults, { BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } } })
+	local selected = Resolver.Resolve(Defaults, { BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, PICKUP_SETTINGS = { STATIONARY_ISOLATED_TEST = true } })
 	assert(Policy.Decide(selected, data, plan, context, memory).Mode == "PICKUPS")
 	context.Cluster = nil assert(Policy.Decide(selected, data, plan, context, memory).Kind == "INSPECT")
 	context.Current.Name = "Floating Island" assert(Policy.Decide(selected, data, plan, context, memory).Kind == "WAIT")
@@ -305,6 +309,72 @@ test("Invocation errors consume the bounded attempt without fabricating credit",
 		local scene = stationaryFixture() scene:Add("error-id") scene.OnDispatch = function() error("Simulated transport failure") end
 		assert(not scene:Collect().Verified and #scene.Calls == 1 and scene.Coordinator.Stationary.Requests == 1)
 		assert(not scene.Coordinator.Stationary.LastResult.InvocationSucceeded) scene:Close()
+	end)
+end)
+
+test("Rapid bounded batches process all real Coins and Gems IDs across successive tasks", function()
+	simulated(function(clock)
+		local scene = stationaryFixture()
+		for index = 1, 70 do scene:Add(string.format("batch-%03d", index), index % 2 == 0 and "Gems" or "Coins") end
+		scene.OnDispatch = function(id)
+			local currency = scene.Coordinator.Tracker.Models[scene.Registry[id]].Currency scene.Profile[currency] += 10
+		end
+		local first = scene:Collect()
+		assert(#scene.Calls == 32 and first.Gains.Coins == 160 and first.Gains.Gems == 160)
+		assert(scene.Calls[32].At - scene.Calls[1].At < 2, "Batch must not settle after each ID")
+		assert(not scene:Collect().Verified and #scene.Calls == 32, "Completed batches observe their cooldown")
+		clock.Time += 1 scene:Collect() assert(#scene.Calls == 64)
+		clock.Time += 1 scene:Collect() assert(#scene.Calls == 70)
+		local seen = {}
+		for index, call in ipairs(scene.Calls) do
+			assert(not seen[call.Id]) seen[call.Id] = true
+			if index > 1 then assert(call.At - scene.Calls[index - 1].At >= 0.05 - 1e-6) end
+		end
+		assert(scene.Coordinator.Stationary.Gains.Coins == 350 and scene.Coordinator.Stationary.Gains.Gems == 350)
+		clock.Time += 1 scene:Add("new-spawn", "Gems") scene:Collect() assert(#scene.Calls == 71)
+		scene:Close()
+	end)
+end)
+
+test("Failed transport attempts back off per ID without blocking new IDs", function()
+	simulated(function(clock)
+		local scene = stationaryFixture() scene:Add("transport-error")
+		scene.OnDispatch = function(id) if id == "transport-error" then error("Transport error") end end
+		scene:Collect() assert(#scene.Calls == 1)
+		clock.Time = 5 scene:Add("fresh-after-error", "Gems") scene:Collect() assert(#scene.Calls == 2)
+		clock.Time = 15 scene:Collect() assert(#scene.Calls == 3 and scene.Calls[3].Id == "transport-error")
+		clock.Time = 40 scene:Collect() assert(#scene.Calls == 3)
+		assert(scene.Coordinator.Stationary.PerId["transport-error"].Attempts == 2) scene:Close()
+	end)
+end)
+
+test("Island changes discard only the current window and resume on the other allowed island", function()
+	simulated(function(clock)
+		local scene = stationaryFixture() scene:Add("void-before-change")
+		clock.Tick = function() scene.Area.Name, scene.Area.Key = "Floating Island", "The Overworld/Floating Island" scene.Profile.Coins = 110 end
+		assert(not scene:Collect().Verified)
+		clock.Tick = nil clock.Time += 2 scene:Add("excluded") scene:Collect() assert(#scene.Calls == 1)
+		scene.Area.Name, scene.Area.Key = "Zen", "The Overworld/Zen" scene:Add("zen-after-change", "Gems")
+		scene:Collect() assert(#scene.Calls == 2 and scene.Calls[2].Id == "zen-after-change") scene:Close()
+	end)
+end)
+
+test("Movement route eligibility and missing radius diagnostics cannot block genuine stationary IDs", function()
+	simulated(function()
+		local scene = stationaryFixture() local record = scene:Add("not-a-walking-route") record.RouteEligible = false
+		scene.Coordinator.Tracker.ReadRange = function() return nil end
+		scene:Collect() assert(#scene.Calls == 1 and scene.Calls[1].Id == record.Id) scene:Close()
+	end)
+end)
+
+test("Deduplication survives Chunker unload reload and prunes only retired OC state", function()
+	simulated(function(clock)
+		local scene = stationaryFixture() local record = scene:Add("chunk-cycle") scene:Collect()
+		scene.Registry[record.Id] = nil clock.Time = 10 scene.Coordinator.Stationary:Candidate(nil)
+		scene.Registry[record.Id] = record.Model clock.Time = 20 scene:Collect() assert(#scene.Calls == 1)
+		scene.Registry[record.Id] = nil clock.Time = 100 scene.Coordinator.Stationary:Candidate(nil)
+		assert(not scene.Coordinator.Stationary.PerId[record.Id] and record.Model.Parent)
+		scene:Add("new-after-prune") scene:Collect() assert(#scene.Calls == 2) scene:Close()
 	end)
 end)
 

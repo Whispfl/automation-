@@ -647,7 +647,7 @@ function FarmingCoordinator:GetStatus()
 		Rates = self:_pickupRates(current and current.Key or "UNKNOWN", os.clock()), Scan = self.Tracker.ScanReport, CollectionBlocker = self.Tracker.ClusterReason,
 		ConfirmedCycles = self.Metrics.ConfirmedCycles, LastConfirmation = self.Metrics.LastConfirmation,
 		Error = self.Tracker.Error, GameKnowledge = self.Knowledge:GetStatus(), Stationary = self.Stationary:GetStatus(),
-		CollectionMethod = "Experimental stationary single-ID requests; actual credit unverified until owner testing; no movement fallback" }
+		CollectionMethod = "Continuous stationary ID batches; actual credit unverified until owner testing; no movement fallback" }
 end
 
 function FarmingCoordinator:Destroy()

@@ -117,8 +117,8 @@ function OCInterface:Render(status)
 		.. "\nObserved new models: " .. tostring(farming.ObservedSpawns or 0) .. "; respawn observations: " .. tostring(farming.RespawnObservations or 0)
 		.. (farming.Scan and string.format("\nNative registry: %s; active IDs=%d, positions=%d; Chunker folders=%d", farming.Scan.RegistryAvailable and "available" or "unavailable", farming.Scan.RegistryActiveIds, farming.Scan.PositionsResolved, farming.Scan.ChunkerFolders) or "")
 		.. (farming.CollectionBlocker and "\nCollection unavailable: " .. farming.CollectionBlocker or "")
-		.. (farming.Stationary and string.format("\nStationary experiment: %d/%d requests; %d credited windows, %d uncredited\n%s", farming.Stationary.Requests,
-			farming.Stationary.RequestLimit, farming.Stationary.CreditWindows, farming.Stationary.UncreditedWindows, farming.Stationary.Blocker or "Server acceptance remains unknown") or "")
+		.. (farming.Stationary and string.format("\nStationary batches: %d requests; %d credited windows, %d uncredited\n%s", farming.Stationary.Requests,
+			farming.Stationary.CreditWindows, farming.Stationary.UncreditedWindows, farming.Stationary.Blocker or "Continuous discovery; server acceptance remains unknown") or "")
 	local rates = {}
 	for mode, entry in pairs(farming.Rates or {}) do
 		if mode == "PICKUPS" and farming.Rates.STATIONARY then continue end
