@@ -62,11 +62,16 @@ before/after each batch and logs visualsCleaned separately from Coins/Gems gaine
 ## Automatic island travel
 
 The ready configuration enables AUTO_SELECT_BEST_ISLAND and AUTO_TRAVEL_BEST_ISLAND,
-with PREFERRED_FARMING_ISLAND = "Zen" and SELECTED_ISLANDS = {"The Void", "Zen"}.
-The existing policy checks actual LocalData world/island access before selecting
-Zen or The Void. If neither has confirmed access, it reports the blocker and never
+with PREFERRED_FARMING_ISLAND = "" and SELECTED_ISLANDS = {"The Void", "Zen"}.
+The active Coins goal selects The Void; Gems selects Zen. A named preference is
+retained only for an explicitly enabled isolated pickup diagnostic. The existing
+policy checks actual LocalData world/island access. If neither has confirmed access, it reports the blocker and never
 requests an unlock or invalid teleport. A missing preferred island can fall back
-to the other approved catalog island. It does not farm the main world or other islands.
+to the other approved catalog island with a matching currency pool and reports the
+limitation. Once selected, a valid fallback is retained for an unchanged resource
+goal, even if new unlocks or noisy income samples arrive. A change from Coins to
+Gems (or back) can choose the other preferred island. It does not farm the main
+world or other islands.
 
 Native WorldMap.TeleportTo/WorldUtil evidence establishes the Teleport command and
 Workspace.Worlds.<world>.Islands.<island>.Island.Portal.Spawn argument. OC reuses
@@ -88,7 +93,7 @@ unlocked island. Outside the allowed islands OC sends no pickup requests.
 
 Pause/Stop cancel the foreground token. Cancellation is checked before every
 dispatch, during pacing waits and during credit observation. No remaining batch
-requests or cooperative blows follow cancellation. Dispatched requests cannot be
+requests follow cancellation. Dispatched requests cannot be
 recalled, and the game's own native collector runs independently.
 
 ## Balance evidence
@@ -116,31 +121,45 @@ validation bypass exists.
 
 ## Ready-to-run owner configuration
 
-Use examples/StationaryOnly.luau. Loader.luau and PickupOnly.luau contain the same
-complete configuration and public dist/OC.lua loader. This is continuous farming
-with isolated balance logging: blowing, selling, exploration, purchases
-and equipment changes are disabled for this run. Isolation is optional and does
-not impose a session limit.
+Use examples/StationaryOnly.luau. Loader.luau, PickupOnly.luau and the compatibility
+CombinedFarming.luau contain the same complete configuration and public dist/OC.lua
+loader. This is continuous farming while a real active resource goal remains:
+blowing, selling, exploration, purchases and equipment changes are disabled.
+STATIONARY_ISOLATED_TEST is false so an absent or satisfied goal goes idle.
 
-1. Run the configuration with Zen or The Void unlocked. Confirm one native trip
-   to Zen (or The Void if Zen is locked), or no trip if already there. Wait for
+Supported actual goals are received unfinished native Coins/Gems collection tasks
+or unmet verified currency costs in the Brain's active recommendation. Lower-ranked
+goals cannot silently supply a different resource target. The reader uses the existing
+LocalData cache and native QuestUtil:GetRequirement, not catalog quest existence.
+Bubble tasks (`Bubbles`/`Sell`) can be recognized, but the ready currency Config keeps
+their action permissions off. Turning permissions on later does not authorize bubbles
+unless the active native task is still unfinished; live progress is checked again
+before every BlowBubble or selling-travel dispatch. No task acceptance, claiming,
+unlocks or unrelated Phase 3 actions are added. Unsupported requirements stay unknown.
+
+1. Run the configuration with Zen or The Void unlocked. Inspect GOAL and FARM/GOAL:
+   a Coins need selects The Void; a Gems need selects Zen. With no actual need,
+   expect WAIT and no automatic action. Confirm one native trip, or no trip if
+   already there. Wait for
    stable arrival before the first pickup batch. Do not claim rewards or sell.
 2. Check INIT build, PICKUP/SOURCES, genuine STATIONARY_REQUEST IDs and batch
    STATIONARY_RESULT Coins/Gems deltas and visualsCleaned. Requested local Models
    and registry entries should retire rather than accumulate; new spawns must enter
    without toggling. Actual currency gains remain the success check.
-3. Let farming continue beyond two minutes and 24 requests if enough new IDs spawn.
+3. Let farming continue beyond two minutes and 24 requests if the goal remains
+   unfinished and enough new IDs spawn. A full bubble must not trigger blowing or selling.
    Manual repositioning must not require a reload; no OC movement should occur.
 4. Pause during a batch, then resume; test Stop and Start too. Remaining requests
    must cancel, and previously dispatched IDs must stay deduplicated.
-5. Test Zen locked with The Void unlocked, then both locked: fallback should use
-   only The Void; neither unlocked should produce a blocker and no travel. To test
+5. If the preferred island is locked, verify the explicit fallback limitation. If
+   the other island has no matching native currency pool, expect WAIT. Neither
+   unlocked should produce a blocker and no travel. To test
    manually later, explicitly disable AUTO_TRAVEL_BEST_ISLAND in a separate run.
 
-CombinedFarming.luau preserves cooperative background blowing in the same task,
-with isolation disabled. Selling remains separately configurable. Pickup walking/
-pathfinding and automatic movement fallback are absent. Cleanup and startup travel
-in this build still require owner gameplay results; Phase 2 remains unapproved.
+Background blowing is cancelled, including old combined overrides. The collector's
+32-ID batches, cleanup, LocalData credit, manual recovery and controls are preserved
+from owner-confirmed 2ac673d. Goal-driven routing requires the next live results.
+Pickup walking/pathfinding and movement fallback remain absent. Phase 2 stays unapproved.
 
 Build/compiler checks, offline regressions and public byte comparison verify the
 implementation and publication. They are not live gameplay verification.

@@ -114,18 +114,18 @@ test("Full combined bubbles defer selling only with measured opportunity cost an
 	local data, context, plan, memory = policyFixture()
 	data.Bubble.Amount = data.Bubble.Capacity memory.Mode = "COMBINED" context.FullSince = 99
 	context.Rates = { PICKUPS = { Ready = true, PerMinute = { Coins = 10000 } }, BUBBLES = { Ready = true, PerMinute = { Coins = 100 } } }
-	assert(Policy.Decide(config(), data, plan, context, memory).Mode == "COMBINED")
-	context.FullSince = 90 assert(Policy.Decide(config(), data, plan, context, memory).Kind == "SELL")
-	context.FullSince = 99 context.Rates.PICKUPS.Ready = false assert(Policy.Decide(config(), data, plan, context, memory).Kind == "SELL")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Mode == "COMBINED")
+	context.FullSince = 90 assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind == "SELL")
+	context.FullSince = 99 context.Rates.PICKUPS.Ready = false assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind == "SELL")
 	context.Rates.PICKUPS.Ready = true
-	assert(Policy.Decide(config({ PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false } }), data, plan, context, memory).Kind == "SELL")
+	assert(Policy.CompareIncome(config({ PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false } }), data, plan, context, memory).Kind == "SELL")
 end)
 
 test("Measured combined income prevents a worse island switch", function()
 	local data, context, plan, memory = policyFixture()
 	context.Islands[2].Expected.Coins = 1000
 	context.Rates = { COMBINED = { Ready = true, PerMinute = { Coins = 100000 } }, BUBBLES = { Ready = true, PerMinute = { Coins = 100 } } }
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind ~= "TRAVEL")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind ~= "TRAVEL")
 end)
 
 test("Current currency defaults no longer imply retained Fall catalogs are active", function()
@@ -162,7 +162,7 @@ test("Unavailable combined pickup targets cannot suppress a useful island switch
 	local data, context, plan, memory = policyFixture()
 	context.Cluster = nil context.Islands[1].Available = {} context.Islands[2].Expected.Coins = 1000
 	context.Rates = { COMBINED = { Ready = true, PerMinute = { Coins = 100000 } }, BUBBLES = { Ready = true, PerMinute = { Coins = 100 } } }
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "TRAVEL")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind == "TRAVEL")
 end)
 
 

@@ -4,8 +4,9 @@ This is the owner's global architecture instruction. Phase 1 is owner-approved;
 Phase 2 bubbles, selling and island teleportation have owner-observed success.
 Prior movement-based pickups had owner verification. The owner's latest instruction
 removes movement collection; the owner now reports continuous stationary batches
-earning real Coins and Gems. Post-dispatch visual cleanup and automatic preferred
-island travel await this build's owner test. Combined farming, upgrades and Phase 2 approval remain pending. Phases 3–9 remain plans and have
+earning real Coins and Gems, with visual cleanup and native island travel confirmed
+at 2ac673d. Background combined farming is cancelled. Goal-driven routing, upgrades
+and overall Phase 2 approval remain pending. Phases 3–9 remain plans and have
 no new executors in this build.
 
 ## Sources and reusable layers
@@ -40,6 +41,17 @@ upvalue manipulation, hidden-model container or independent automation loop is u
 pickup contract. `ServerOnlyRules` remains `UNAVAILABLE`. The Brain receives native
 definitions through existing account progression catalogs and world observations;
 executors never choose independent objectives.
+
+The active FarmingPolicy.Decide follows only the current Brain goal: unmet Coins
+prefer The Void, Gems prefer Zen, with confirmed native access and stable arrival.
+Current targets are retained for an unchanged currency to avoid unnecessary switches.
+No verified resource need means idle. Read-only received native quest Tasks/Progress
+and QuestUtil:GetRequirement supply supported collection/bubble task requirements;
+catalogs and bubble fullness cannot invent those tasks. Bubble actions default off
+and, when explicitly enabled, require an unfinished matching task at dispatch.
+No background blowing, task acceptance/claims, unlock actions or independent loops
+are added. The retained CompareIncome evaluator exists for historical pure economics
+regressions; the active Brain never calls it and executors reject combined tasks.
 
 `UpgradePolicy` is a pure, reusable catalog/economics evaluator called only by the
 existing FarmingPolicy/Brain. It returns candidate facts and explicit blockers;

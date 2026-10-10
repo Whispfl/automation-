@@ -11,10 +11,10 @@ test("Pickup-first prefers cooperative combined work over higher bubble-only rat
 	local data, context, plan, memory = policyFixture()
 	context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 999999 } }
 	memory.Mode, memory.StartedAt = "BUBBLES", 99
-	local decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Kind == "FARM" and decision.Mode == "COMBINED")
 	context.CanBlow, context.BlowBlocker = false, "Bubble Lock"
-	decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Mode == "PICKUPS" and decision.Reason:find("Bubble Lock", 1, true))
 end)
 
@@ -22,7 +22,7 @@ test("Background blowing remains available for pickup goals paid in another curr
 	local data, context, plan, memory = policyFixture()
 	plan.Objective.Metadata.Cost = { Type = "Currency", Currency = "Gems", Amount = 1000 }
 	data.Balances.Gems = 0 context.CanTravel = false
-	assert(Policy.Decide(pickupFirstConfig(), data, plan, context, memory).Mode == "COMBINED")
+	assert(Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory).Mode == "COMBINED")
 end)
 
 test("Excluded current island cannot farm despite dwell, pending sweep or high income", function()
@@ -30,22 +30,22 @@ test("Excluded current island cannot farm despite dwell, pending sweep or high i
 	context.ArrivedAt, context.ActiveSweepPending = 99, true
 	context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 999999 } }
 	local selected = pickupFirstConfig({ ISLAND_SETTINGS = { SELECTED_ISLANDS = { "B" } } })
-	local decision = Policy.Decide(selected, data, plan, context, memory)
+	local decision = Policy.CompareIncome(selected, data, plan, context, memory)
 	assert(decision.Kind == "TRAVEL" and decision.Island.Name == "B")
-	context.CanTravel = false decision = Policy.Decide(selected, data, plan, context, memory)
+	context.CanTravel = false decision = Policy.CompareIncome(selected, data, plan, context, memory)
 	assert(decision.Kind == "INSPECT" and decision.Background and not decision.Cluster)
 	context.Islands[2].InBackoff = true
-	assert(Policy.Decide(selected, data, plan, context, memory).Kind ~= "FARM")
+	assert(Policy.CompareIncome(selected, data, plan, context, memory).Kind ~= "FARM")
 end)
 
 test("Saved return beats dwell and income while failed origins select an eligible alternative", function()
 	local data, context, plan, memory = policyFixture()
 	context.ReturnKey = context.Islands[2].Key context.ArrivedAt = 99 context.ActiveSweepPending = true
 	context.Rates.COMBINED = { Ready = true, PerMinute = { Coins = 999999 } }
-	local decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Kind == "TRAVEL" and decision.Returning and decision.Island.Name == "B")
 	context.Islands[2].InBackoff = true
-	decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Kind == "INSPECT", "Do not repeatedly issue a backed-off return")
 end)
 
@@ -53,9 +53,9 @@ test("Full probes sell before loading or exploration and blocked sales remain ex
 	local data, context, plan, memory = policyFixture()
 	data.Bubble.Amount = data.Bubble.Capacity context.FullSince = 1
 	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", ReadyAt = 200 }
-	assert(Policy.Decide(pickupFirstConfig(), data, plan, context, memory).Kind == "SELL")
+	assert(Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory).Kind == "SELL")
 	context.CanInteract = false context.Blocker = "Transition"
-	local decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Kind == "WAIT" and decision.Reason:find("Transition", 1, true))
 end)
 
@@ -63,16 +63,16 @@ test("Final-mode decision reason cannot cite the replaced bubble score", functio
 	local data, context, plan, memory = policyFixture()
 	memory.Mode, memory.StartedAt = "PICKUPS", 99
 	context.Rates = { PICKUPS = { Ready = true, PerMinute = { Coins = 10 } }, BUBBLES = { Ready = true, PerMinute = { Coins = 999 } } }
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Mode == "PICKUPS" and decision.Reason:find("10.00", 1, true) and not decision.Reason:find("999", 1, true))
 end)
 
 test("Observed model latency cannot inflate definition-based island rates", function()
 	local data, context, plan, memory = policyFixture()
 	context.Islands[2].RespawnSeconds = 0.001
-	local first = Policy.Decide(config(), data, plan, context, memory).IslandCandidates[1].PerMinute
+	local first = Policy.CompareIncome(config(), data, plan, context, memory).IslandCandidates[1].PerMinute
 	context.Islands[2].RespawnSeconds = 999
-	assert(Policy.Decide(config(), data, plan, context, memory).IslandCandidates[1].PerMinute == first)
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).IslandCandidates[1].PerMinute == first)
 end)
 
 test("Invalid strategy names are rejected and qualified selected-island names work", function()
@@ -89,7 +89,8 @@ local function coordinatorFixture()
 	local controller = { Config = pickupFirstConfig(), Reader = reader, Generation = 1, State = "RUNNING",
 		Log = function(_, tag, message) table.insert(logs, tag .. " " .. message) end }
 	local coordinator = requireOC("FarmingCoordinator").new(controller, {})
-	local area = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, EligibleCount = 1 }
+	syntheticBubbleTask(coordinator) -- Capability/credit fixtures now explicitly require bubbles instead of assuming background production.
+	local area = { Key = "The Overworld/The Void", Name = "The Void", World = "The Overworld", Unlocked = true, EligibleCount = 1 }
 	local root = { Position = Vector3.new(0, 3.5, 0) }
 	coordinator.Tracker.Current = area coordinator.Tracker.Root = function() return root end
 	coordinator.Tracker.Refresh = function() end coordinator.Tracker.BackOff = function() end
@@ -197,11 +198,11 @@ end)
 test("Pickup-first exploration uses combined farming rather than an isolated arrival probe", function()
 	local data, context, plan, memory = policyFixture()
 	context.IslandProbeHistory["Synthetic/B:Coins"] = nil
-	local decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Kind == "TRAVEL" and decision.Exploration and not decision.Probe)
 	context.Current, context.ArrivedAt = context.Islands[2], context.Now
 	context.IslandProbeHistory["Synthetic/B:Coins"] = context.Now
-	decision = Policy.Decide(pickupFirstConfig(), data, plan, context, memory)
+	decision = Policy.CompareIncome(pickupFirstConfig(), data, plan, context, memory)
 	assert(decision.Kind == "FARM" and decision.Mode == "COMBINED" and not decision.Probe)
 end)
 

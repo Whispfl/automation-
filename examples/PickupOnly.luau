@@ -1,4 +1,4 @@
--- Continuous stationary farming: native travel to unlocked Zen, with The Void as fallback.
+-- Goal-driven stationary farming: Coins prefer The Void; Gems prefer Zen.
 -- Native island teleportation only; no pickup movement, blowing, selling, or purchases.
 -- Omitted values inherit central OCConfig; each batch checks real balances without assuming every ID succeeded.
 local Config = {
@@ -8,21 +8,21 @@ local Config = {
 	FARMING_SETTINGS = {
 		FARMING_STRATEGY = "PICKUP_FIRST", --// Select pickup work through the existing Brain.
 		AUTO_RESOURCE_FARM = true, --// Enable continuous stationary batch tasks.
-		ENABLE_EFFICIENCY_COMPARISON = false, --// Measure this isolated island before strategy comparison.
-		ENABLE_ACTIVITY_SWITCHING = false, --// Keep the isolated activity fixed.
+		ENABLE_EFFICIENCY_COMPARISON = false, --// Actual active requirements choose the activity; income does not invent goals.
+		ENABLE_ACTIVITY_SWITCHING = false, --// Avoid income-driven switching; a changed active currency can change islands.
 		AUTO_FARM_FALLBACK = false, --// Fail honestly without another farming action.
-		CURRENCY_PRIORITIES = { "Coins", "Gems" }, --// Test these actual LocalData currencies separately.
+		CURRENCY_PRIORITIES = { "Coins", "Gems" }, --// Used only if an explicit isolated pickup diagnostic is enabled.
 	},
 	ISLAND_SETTINGS = {
 		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Actual unlock membership is rechecked before every request.
 		AUTO_SELECT_BEST_ISLAND = true, --// Select an actually unlocked approved island.
-		PREFERRED_FARMING_ISLAND = "Zen", --// Fall back to The Void when Zen is unavailable or locked.
+		PREFERRED_FARMING_ISLAND = "", --// Active Coins goal selects The Void; Gems goal selects Zen; report permitted fallback.
 		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Never explore automatically during isolation.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Native island travel followed by stable arrival; never approach pickups.
 	},
 	PICKUP_SETTINGS = {
 		COLLECTION_METHOD = "STATIONARY", --// Only supported OC pickup strategy.
-		STATIONARY_ISOLATED_TEST = true, --// Permit approved island travel and pickups; block other farming actions.
+		STATIONARY_ISOLATED_TEST = false, --// Require a real active resource goal; do not invent an endless diagnostic goal.
 		STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, --// Pace requests at least 50 ms apart.
 		STATIONARY_MAXIMUM_BATCH_SIZE = 32, --// Process remaining IDs in subsequent scheduler batches.
 		STATIONARY_BATCH_COOLDOWN_SECONDS = 1, --// Idle at least one second between completed batches.
@@ -36,9 +36,9 @@ local Config = {
 		FARM_CURRENCY_TYPES = { "Coins", "Gems" }, --// Only collect the approved Coins/Gems.
 	},
 	BUBBLE_SETTINGS = {
-		AUTO_BLOW_BUBBLES = false, --// Isolate stationary currency observations.
+		AUTO_BLOW_BUBBLES = false, --// Off for this currency run; true still requires an actual unfinished native bubble task.
 		AUTO_SELL_BUBBLES = false, --// No OC selling or selling excursions.
-		ENABLE_SIMULTANEOUS_BLOWING = false, --// Cooperative blowing is a later separately configured test.
+		ENABLE_SIMULTANEOUS_BLOWING = false, --// Background blowing is disabled even with legacy true overrides.
 		AUTO_BUY_GUM = false, --// No purchases.
 		AUTO_BUY_FLAVORS = false, --// No purchases.
 	},

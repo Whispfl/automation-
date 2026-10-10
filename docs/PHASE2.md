@@ -2,7 +2,34 @@
 
 Phase 1 is owner-tested and approved. Phase 2 is an implementation candidate, **not an owner-approved gameplay pass**. The definitive input is the user's final pasted specification and [updated Notion revision](https://app.notion.com/p/3f53d7e9278d8145a85aff38d5497e12). Older requests to install/test code through Studio are superseded: all code is maintained in this repository, Studio tools are read-only, and the owner executes the published bundle.
 
-## Latest follow-up: pickup visual cleanup and automatic native island travel
+## Latest follow-up: goal-driven stationary farming
+
+The owner confirms 2ac673d collects and cleans pickup visuals successfully, including
+native island travel. Its 32-ID pacing, continuous discovery, actual balance checks
+and controls remain intact. The active Brain now follows real unmet requirements:
+Coins prefer The Void; Gems prefer Zen. Only these unlocked Overworld islands are
+eligible. Unavailable preferred islands produce an explicit fallback limitation;
+an unchanged resource retains the selected accessible island to avoid switching.
+
+Currency goals cannot start blowing or selling, regardless of a full bubble or old
+combined settings. Bubble actions default off and can execute only with explicit
+permission plus an actual received unfinished native Bubbles/Sell task, rechecked
+from LocalData at dispatch. QuestUtil supplies native amounts; no quest is accepted
+or claimed. With no verified resource need, the Brain waits. No milestones, unlock
+prerequisites or server rules are invented. Return after required native selling
+remains preserved even when that task finishes. Purchases and exploration remain off.
+
+The ready configurations disable isolated diagnostic fallback and background bubbles.
+Offline tests cover active goal decisions separately from retained historical income
+math. Goal-driven gameplay and overall Phase 2 approval await the owner. Phase 3
+has not started. See [STATIONARY_TEST.md](STATIONARY_TEST.md).
+
+The sections below record earlier implementations and research; their combined,
+income-probe, movement and blanket Zen selection rules are superseded by the latest
+goal-driven stationary policy. CompareIncome retains pure historical regressions,
+but only Decide is called by the active Brain.
+
+## Earlier follow-up: pickup visual cleanup and automatic native island travel
 
 The owner confirms continuous stationary 32-ID collection earning real Coins/Gems,
 but reports accumulated local pickup Models. This targeted fix performs native
@@ -20,7 +47,7 @@ unknown islands block travel; there is no unlock action. Pause/Stop prevent new
 travel and pickup requests. Selling remains disabled in the ready configuration;
 the existing saved farming-origin/native return mechanism is preserved.
 
-The owner must test this build's cleanup and startup travel. Phase 2 remains pending
+The owner confirmed this cleanup and startup travel at 2ac673d. Phase 2 remains pending
 overall live approval; Phase 3 has not started. See [STATIONARY_TEST.md](STATIONARY_TEST.md).
 
 ## Earlier follow-up: continuous stationary-only batches

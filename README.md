@@ -4,12 +4,15 @@ Phase 1 remains owner-approved. Phase 2 remains unapproved; Phase 3 has not star
 Stationary pickup requests now use the Flame reference's genuine-ID approach in
 the existing Brain/scheduler. Only its pickup mechanism is used.
 
-Run [examples/StationaryOnly.luau](examples/StationaryOnly.luau). OC checks actual
-LocalData unlocks, prefers **Zen**, falls back to **The Void**, and uses native
-island teleportation in **The Overworld** before waiting for stable arrival.
+Run [examples/StationaryOnly.luau](examples/StationaryOnly.luau). The Brain's active
+**Coins** requirement prefers **The Void**; **Gems** prefers **Zen**. OC checks actual
+LocalData unlocks and uses native island teleportation in **The Overworld**, followed
+by stable arrival. An unavailable preferred island permits only the other selected,
+unlocked island, with an explicit limitation and a matching native currency pool.
 [Loader.luau](examples/Loader.luau) and [PickupOnly.luau](examples/PickupOnly.luau)
-contain the same complete continuous configuration. This test disables OC blowing,
-selling, exploration, purchases and equipment changes to isolate balances.
+contain the same complete goal-driven configuration. OC blowing, selling, exploration,
+purchases and equipment changes are disabled for this currency run. With no verified
+active resource need, OC waits; it does not invent a perpetual currency or bubble goal.
 
 ## Public loader
 
@@ -53,15 +56,24 @@ STATIONARY_RESULT prints actual Coins/Gems gains, before/after balances, batch s
 processing/window times, visuals cleaned and matching-credit or inconclusive outcomes. Matching balance
 increases are required for observed credit; invocation and disappearance never
 establish collection success. Native collection and other rewards can contribute.
-The owner reports continuous stationary collection earning actual Coins and Gems.
-Cleanup and automatic startup travel require this build's owner test. Each batch
+The owner confirms continuous stationary collection, cleanup and native island travel
+at commit 2ac673d. The new goal policy requires the owner's live test. Each batch
 still verifies balances; individual server acceptance remains
 unknown and the implementation does not assume all requests succeed.
 
 See [test instructions and evidence limits](docs/STATIONARY_TEST.md).
-[CombinedFarming.luau](examples/CombinedFarming.luau) preserves cooperative background
-blowing in the same lease. Selling remains separately configurable and preserves
-the farming island for native return travel; purchase toggles stay disabled in farming examples.
+[CombinedFarming.luau](examples/CombinedFarming.luau) is retained as a compatibility
+filename and now supplies the same goal-driven configuration. Background blowing is
+disabled even with older combined-mode settings. Full bubbles and measured bubble
+income cannot select blowing or selling for a currency goal.
+
+The reader recognizes already-received unfinished `LocalData.Quests.Tasks/Progress`
+requirements through native `QuestUtil:GetRequirement`: Coins/Gems collection,
+`Bubbles`, and `Sell`. It accepts or claims no quests. Bubble actions default off;
+explicitly enabling their existing permission toggles still requires an active,
+matching unfinished native bubble task at dispatch. Unsupported milestones or
+prerequisites remain unknown and cannot trigger bubbles. Required native selling
+retains the original farming island for return, including when that task finishes.
 
 Studio tools are strictly read-only. Source inspection, offline tests and bundle
 verification are not live gameplay verification. The owner-confirmed saved session

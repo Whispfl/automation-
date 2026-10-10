@@ -1,50 +1,61 @@
--- Later stationary/background-blowing comparison; use StationaryOnly.luau first.
+-- Goal-driven stationary farming: Coins prefer The Void; Gems prefer Zen.
+-- Native island teleportation only; no pickup movement, blowing, selling, or purchases.
+-- Omitted values inherit central OCConfig; each batch checks real balances without assuming every ID succeeded.
 local Config = {
-	GENERAL_SETTINGS = { AUTO_START = true }, --// Start the enabled Brain tasks.
-	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Restrict farming and exploration to this world.
+	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true }, --// Start the central Brain and scheduler.
+	ACCOUNT_SETTINGS = { ENABLE_ACCOUNT_READER = true, READ_UNLOCKS = true }, --// Require real LocalData balances/access.
+	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Only this world is approved for farming.
 	FARMING_SETTINGS = {
-		FARMING_STRATEGY = "PICKUP_FIRST", --// Pickups are primary; blowing is cooperative background work.
-		ISOLATED_PICKUP_PROBES = false, --// Measure real combined operation during this test.
-		AUTO_RESOURCE_FARM = true, --// Use the existing foreground scheduler.
-		ENABLE_EFFICIENCY_COMPARISON = true, --// Compare measured goal-currency earnings.
-		ENABLE_ACTIVITY_SWITCHING = true, --// Allow bounded trials and useful strategy changes.
-		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Bound the full-bubble delay if selling is separately enabled.
+		FARMING_STRATEGY = "PICKUP_FIRST", --// Select pickup work through the existing Brain.
+		AUTO_RESOURCE_FARM = true, --// Enable continuous stationary batch tasks.
+		ENABLE_EFFICIENCY_COMPARISON = false, --// Actual active requirements choose the activity; income does not invent goals.
+		ENABLE_ACTIVITY_SWITCHING = false, --// Avoid income-driven switching; a changed active currency can change islands.
+		AUTO_FARM_FALLBACK = false, --// Fail honestly without another farming action.
+		CURRENCY_PRIORITIES = { "Coins", "Gems" }, --// Used only if an explicit isolated pickup diagnostic is enabled.
 	},
 	ISLAND_SETTINGS = {
-		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Farm only these islands after verifying actual unlocks.
-		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Keep this stationary comparison on the manually selected island.
-		AUTO_TRAVEL_BEST_ISLAND = false, --// Future native travel requires separate configuration.
-		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapid island switching.
+		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Actual unlock membership is rechecked before every request.
+		AUTO_SELECT_BEST_ISLAND = true, --// Select an actually unlocked approved island.
+		PREFERRED_FARMING_ISLAND = "", --// Active Coins goal selects The Void; Gems goal selects Zen; report permitted fallback.
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Never explore automatically during isolation.
+		AUTO_TRAVEL_BEST_ISLAND = true, --// Native island travel followed by stable arrival; never approach pickups.
 	},
 	PICKUP_SETTINGS = {
-		COLLECTION_METHOD = "STATIONARY", --// Never walk to pickups.
-		STATIONARY_ISOLATED_TEST = false, --// Explicitly allow cooperative blowing in this later comparison.
-		BULK_COLLECT_PICKUPS = true, --// Centrally scheduled paced stationary batches.
-		ENABLE_CLUSTER_ROUTING = false, --// Pickup movement has been removed.
-		FARM_CURRENCY_TYPES = { "Coins", "Gems" }, --// Only the approved experiment currencies.
+		COLLECTION_METHOD = "STATIONARY", --// Only supported OC pickup strategy.
+		STATIONARY_ISOLATED_TEST = false, --// Require a real active resource goal; do not invent an endless diagnostic goal.
+		STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, --// Pace requests at least 50 ms apart.
+		STATIONARY_MAXIMUM_BATCH_SIZE = 32, --// Process remaining IDs in subsequent scheduler batches.
+		STATIONARY_BATCH_COOLDOWN_SECONDS = 1, --// Idle at least one second between completed batches.
+		STATIONARY_ID_RETRY_SECONDS = 15, --// Back off transport errors only; invoked IDs stay deduplicated.
+		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 2, --// Bound uncertain transport retries.
+		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Require fresh genuine native registry IDs.
+		ENABLE_CHUNKER_DISCOVERY = true, --// Preserve all native Chunker observations.
+		ENABLE_CONTINUOUS_SCANNING = true, --// Reconcile existing and newly spawned pickups.
+		BULK_COLLECT_PICKUPS = true, --// Allow stationary tasks; each sends a paced batch.
+		ENABLE_CLUSTER_ROUTING = false, --// Legacy true overrides are forced false too.
+		FARM_CURRENCY_TYPES = { "Coins", "Gems" }, --// Only collect the approved Coins/Gems.
 	},
 	BUBBLE_SETTINGS = {
-		AUTO_BLOW_BUBBLES = true, --// Blow in the background during pickup work when native guards allow.
-		AUTO_SELL_BUBBLES = false, --// Selling/travel are separately configured future tests.
-		ENABLE_SIMULTANEOUS_BLOWING = true, --// Blow during a Brain-selected collection task.
-		AUTO_BUY_GUM = false, --// Disable purchases while measuring farming.
-		AUTO_BUY_FLAVORS = false, --// Disable purchases while measuring farming.
+		AUTO_BLOW_BUBBLES = false, --// Off for this currency run; true still requires an actual unfinished native bubble task.
+		AUTO_SELL_BUBBLES = false, --// No OC selling or selling excursions.
+		ENABLE_SIMULTANEOUS_BLOWING = false, --// Background blowing is disabled even with legacy true overrides.
+		AUTO_BUY_GUM = false, --// No purchases.
+		AUTO_BUY_FLAVORS = false, --// No purchases.
 	},
 	UPGRADE_SETTINGS = {
-		ENABLE_SMART_UPGRADES = false, --// Prevent all upgrade tasks during this test.
-		ENABLE_CAPACITY_UPGRADES = false, --// Keep capacity purchases disabled.
-		ENABLE_FLAVOR_UPGRADES = false, --// Keep flavor purchases disabled.
-		AUTO_EQUIP_OWNED_UPGRADES = false, --// Keep equipment unchanged for comparisons.
+		ENABLE_SMART_UPGRADES = false, --// Block upgrade tasks.
+		ENABLE_CAPACITY_UPGRADES = false, --// No capacity purchases.
+		ENABLE_FLAVOR_UPGRADES = false, --// No flavor purchases.
+		AUTO_EQUIP_OWNED_UPGRADES = false, --// Preserve the current equipment.
 	},
 	DIAGNOSTIC_SETTINGS = {
-		ENABLE_CONSOLE_LOGGING = true, --// Print action and verification evidence.
-		LOG_MOVEMENT_DIAGNOSTICS = false, --// Pickup navigation has been removed.
-		LOG_PICKUP_DIAGNOSTICS = true, --// Print genuine IDs and actual balance evidence.
-		LOG_PICKUP_DETAIL_PATHS = false, --// Keep rejection summaries compact.
-		LOG_ACCOUNT_DETAILS = false, --// Keep full statistics in the status UI.
+		ENABLE_CONSOLE_LOGGING = true, --// Print distances, actual Coins/Gems gains, batch size, processing time and inconclusive outcomes.
+		LOG_PICKUP_DIAGNOSTICS = true, --// Explain registry discovery, credit and blockers.
+		LOG_PICKUP_DETAIL_PATHS = false, --// Keep routine output compact.
+		LOG_ACCOUNT_DETAILS = false, --// Keep full account facts in the status panel.
 	},
 }
 
-loadstring(game:HttpGet(
+local OC = loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
 ))()(Config)

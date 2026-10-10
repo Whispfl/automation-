@@ -71,7 +71,7 @@ test("Production defaults enforce stationary-only collection and legacy routing 
 	local settings = Resolver.Resolve(Defaults)
 	assert(settings.PICKUP_SETTINGS.COLLECTION_METHOD == "STATIONARY" and not settings.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST)
 	assert(Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { COLLECTION_METHOD = "STATIONARY_EXPERIMENT" } }).PICKUP_SETTINGS.COLLECTION_METHOD == "STATIONARY")
-	assert(settings.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and settings.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND == "Zen" and not settings.ISLAND_SETTINGS.AUTO_EXPLORE_UNLOCKED_ISLANDS)
+	assert(settings.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and settings.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND == "" and not settings.ISLAND_SETTINGS.AUTO_EXPLORE_UNLOCKED_ISLANDS)
 	assert(table.concat(settings.ISLAND_SETTINGS.SELECTED_ISLANDS, ",") == "The Void,Zen")
 	assert(not Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { ENABLE_CLUSTER_ROUTING = true } }).PICKUP_SETTINGS.ENABLE_CLUSTER_ROUTING)
 	assert(not pcall(function() Resolver.Resolve(Defaults, { PICKUP_SETTINGS = { COLLECTION_METHOD = "MOVEMENT" } }) end))
@@ -285,6 +285,8 @@ end)
 test("Full bubbles do not schedule selling or travel during isolated stationary observation", function()
 	local data, context, plan, memory = policyFixture()
 	context.Current = { Key = "The Overworld/The Void", Name = "The Void", World = "The Overworld", Unlocked = true }
+	context.Current.ActualUnlocked, context.Current.Currencies = true, { Coins = true, Gems = true }
+	context.Islands = { context.Current }
 	context.Cluster.AreaKey = context.Current.Key data.Bubble.Amount = data.Bubble.Capacity
 	local selected = Resolver.Resolve(Defaults, { BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, PICKUP_SETTINGS = { STATIONARY_ISOLATED_TEST = true }, ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false } })
 	assert(Policy.Decide(selected, data, plan, context, memory).Mode == "PICKUPS")
@@ -292,7 +294,7 @@ test("Full bubbles do not schedule selling or travel during isolated stationary 
 	context.Current.Name = "Floating Island" assert(Policy.Decide(selected, data, plan, context, memory).Kind == "WAIT")
 end)
 
-test("Cooperative bubbles share stationary task lease only when isolation is disabled", function()
+test("Legacy combined settings cannot start background bubbles or a combined pickup task", function()
 	simulated(function(clock)
 		local scene = stationaryFixture({ PICKUP_SETTINGS = { STATIONARY_ISOLATED_TEST = false },
 			BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = true, ENABLE_SIMULTANEOUS_BLOWING = true } })
@@ -300,8 +302,7 @@ test("Cooperative bubbles share stationary task lease only when isolation is dis
 		scene.Coordinator:_beginCombined(scene.Area.Key)
 		clock.Tick = function() if clock.Time >= 0.5 then scene.Profile.Coins = 115 end end
 		local initial = scene.Root.Position local result = scene:Collect(nil, "COMBINED")
-		assert(result.CombinedCreditObserved and scene.Blows > 0 and scene.Profile.Bubble.Amount > 0 and #scene.Calls == 1 and scene.Root.Position == initial)
-		assert(scene.Coordinator.Cycle.GrowthAt and scene.Coordinator.Cycle.PickupAt)
+		assert(not result.Verified and scene.Blows == 0 and scene.Profile.Bubble.Amount == 0 and #scene.Calls == 0 and scene.Root.Position == initial)
 		assert(scene.Coordinator:_pickupRates(scene.Area.Key, clock.Time).COMBINED == nil)
 		scene:Close()
 	end)

@@ -24,7 +24,7 @@ function FarmingPolicy.IsStationaryArea(config, area)
 	return FarmingPolicy.IsFarmingArea(config, area) and area.World == "The Overworld" and (area.Name == "The Void" or area.Name == "Zen")
 end
 
-function FarmingPolicy.Target(config, snapshot, plan, context)
+function FarmingPolicy.IncomeTarget(config, snapshot, plan, context)
 	local candidates = {}
 	if plan.Objective then table.insert(candidates, plan.Objective) end
 	for _, candidate in ipairs(plan.Candidates or {}) do if candidate ~= plan.Objective then table.insert(candidates, candidate) end end
@@ -47,7 +47,9 @@ function FarmingPolicy.Target(config, snapshot, plan, context)
 	return nil, plan.Objective, nil
 end
 
-function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
+function FarmingPolicy.CompareIncome(config, snapshot, plan, context, memory)
+	-- Retained pure historical income evaluator. Active Brain decisions use Decide below;
+	-- its combined/probe recommendations are never submitted as gameplay tasks.
 	local decision = { Kind = "WAIT", Reason = "Waiting for supported farming data", IslandCandidates = {}, IslandDiagnostics = {}, Currency = nil }
 	if not config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or not snapshot.Ready or not config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS then
 		decision.Reason = "Farming disabled or real account/planner not ready" return decision
@@ -95,7 +97,7 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		end
 		return decision
 	end
-	local currency, goal, deficit = FarmingPolicy.Target(config, snapshot, plan, context)
+	local currency, goal, deficit = FarmingPolicy.IncomeTarget(config, snapshot, plan, context)
 	decision.Currency, decision.Goal, decision.Deficit = currency, goal and goal.Title, deficit
 	if not currency then decision.Reason = "No allowed goal currency with an accessible earning source" return decision end
 	local current = context.Current
@@ -321,6 +323,122 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		decision.Reason = upgrade.Upgrade.Owned and "Use a verified better owned upgrade without spending"
 			or string.format("Native stat projection; estimated discounted payback %.1fs; protected goal funds %.0f", upgrade.Row.Payback, upgrade.Row.GoalReserve)
 	end
+	return decision
+end
+
+function FarmingPolicy.Requirement(snapshot, plan)
+	local expected = plan and plan.Objective and plan.Objective.Metadata and plan.Objective.Metadata.Requirement
+	if not expected then return nil end
+	for _, actual in ipairs(snapshot.TaskRequirements or {}) do
+		if actual.QuestId == expected.QuestId and actual.TaskIndex == expected.TaskIndex and actual.Type == expected.Type
+			and actual.Currency == expected.Currency and actual.Current < actual.Required then return actual end
+	end
+	return nil
+end
+
+function FarmingPolicy.Target(config, snapshot, plan, context)
+	local goal = plan and plan.Objective
+	if not goal then return nil end
+	local requirement = FarmingPolicy.Requirement(snapshot, plan)
+	if requirement and requirement.Type == "Collect" then return requirement.Currency, goal, requirement.Required - requirement.Current end
+	local cost = goal.Metadata and goal.Metadata.Cost
+	local balances = snapshot.Balances or {}
+	if cost and cost.Type == "Currency" and (cost.Currency == "Coins" or cost.Currency == "Gems")
+		and type(cost.Amount) == "number" and cost.Amount >= 0 and cost.Amount < math.huge and type(balances[cost.Currency]) == "number" then
+		local required = cost.Amount + reserve(config, cost.Currency)
+		if goal.Metadata.Upgrade then required = cost.Amount / config.RESOURCE_SETTINGS.MAXIMUM_UPGRADE_BALANCE_FRACTION + reserve(config, cost.Currency) end
+		if balances[cost.Currency] < required then return cost.Currency, goal, required - balances[cost.Currency] end
+	end
+	return nil, goal
+end
+
+function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
+	local decision = { Kind = "WAIT", Reason = "No verified resource requirement in the active goal; bubble production and selling remain off",
+		IslandCandidates = {}, IslandDiagnostics = {}, Goal = plan.Objective and plan.Objective.Title, GoalId = plan.Objective and plan.Objective.Id }
+	if not config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or not snapshot.Ready or not config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS then
+		decision.Reason = "Farming disabled or actual account/planner not ready" return decision
+	end
+	local currency, _, deficit = FarmingPolicy.Target(config, snapshot, plan, context)
+	local requirement = FarmingPolicy.Requirement(snapshot, plan)
+	local bubbleGoal = requirement and (requirement.Type == "Bubbles" or requirement.Type == "Sell")
+	local diagnostic = config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and not currency and not bubbleGoal
+	if diagnostic then currency = config.FARMING_SETTINGS.CURRENCY_PRIORITIES[1] end -- Explicit pickup diagnostic; no bubble objective is invented.
+	decision.Currency, decision.Deficit, decision.Requirement = currency, deficit, requirement
+	if not currency and not bubbleGoal and not context.ReturnKey then
+		if context.PendingCleanup then decision.Kind, decision.Reason = "INSPECT", "Finish pending cleanup of an already-dispatched pickup; no new farming goal" end
+		return decision
+	end
+	if currency and currency ~= "Coins" and currency ~= "Gems" then decision.Reason = "Only Coins/Gems pickup farming is approved" return decision end
+	if context.SceneReady == false then decision.Reason = context.Blocker or "Waiting for native scene observations" return decision end
+	local preferred = currency == "Coins" and "The Void" or currency == "Gems" and "Zen" or nil
+	if diagnostic then preferred = config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND ~= "" and config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND or preferred end
+	local destination, fallback, returning
+	for _, area in ipairs(context.Islands or {}) do
+		local access = area.ActualUnlocked
+		if access == nil then access = snapshot.UnlockedWorlds and snapshot.UnlockedWorlds[area.World] ~= nil and snapshot.UnlockedIslands and snapshot.UnlockedIslands[area.Name] ~= nil end
+		if not FarmingPolicy.IsStationaryArea(config, area) or not access then continue end
+		if context.ReturnKey == area.Key then returning = area end
+		if area.Name == preferred then destination = area
+		elseif not fallback or area.Key == (context.Current and context.Current.Key) then fallback = area end
+	end
+	if destination and (destination.MappingWarning or (destination.InBackoff and destination.Key ~= (context.Current and context.Current.Key))
+		or (destination.Key ~= (context.Current and context.Current.Key) and not destination.Spawn and not destination.DestinationPath)) then destination = nil end
+	local retained
+	if memory.TargetCurrency == currency then
+		for _, area in ipairs(context.Islands or {}) do
+			if area.Key == memory.TargetIsland and FarmingPolicy.IsStationaryArea(config, area) and area.ActualUnlocked == true and not area.MappingWarning
+				and (not area.InBackoff or area.Key == (context.Current and context.Current.Key)) then retained = area end
+		end
+	end
+	destination = returning or retained or destination or fallback
+	if not destination then decision.Reason = "Neither selected farming island has confirmed LocalData access; no invalid teleport or unlock attempted" return decision end
+	local limitation
+	if preferred and destination.Name ~= preferred and not returning then
+		if retained and destination == retained then
+			limitation = "Retain " .. destination.Name .. " for unchanged " .. currency .. " goal; preferred " .. preferred .. " previously unavailable"
+		else limitation = preferred .. " unavailable/locked; evaluate " .. destination.Name .. " for " .. currency end
+	end
+	decision.Limitation, decision.PreferredIsland = limitation, destination.Key
+	if currency and not returning and not (destination.Currencies or {})[currency] then
+		decision.Reason = (limitation and limitation .. "; " or "") .. "Native reward pool has no matching currency"
+		return decision
+	end
+	if currency and not returning then memory.TargetCurrency, memory.TargetIsland = currency, destination.Key end
+	local current = context.Current
+	if not current or current.Key ~= destination.Key then
+		if config.ISLAND_SETTINGS.AUTO_SELECT_BEST_ISLAND and config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and context.CanTravel and context.CanInteract
+			and not destination.InBackoff and not destination.MappingWarning and (destination.Spawn or destination.DestinationPath) then
+			decision.Kind, decision.Island, decision.Returning = "TRAVEL", destination, returning ~= nil
+			decision.Reason = returning and "Return to intended farming island after required bubble selling" or (limitation or "Active " .. tostring(currency or "bubble") .. " goal prefers " .. destination.Name)
+		else decision.Kind, decision.Reason = "INSPECT", (limitation and limitation .. "; " or "") .. "Native selected-island travel pending: " .. tostring(context.Blocker or "disabled, cooldown/backoff or missing destination") end
+		return decision
+	end
+	if config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and context.Now - (context.ArrivedAt or context.Now) < config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS then
+		decision.Kind, decision.Reason = "INSPECT", "Waiting for stable selected island arrival" return decision
+	end
+	if not context.CanInteract then decision.Reason = context.Blocker or "Native interaction guard" return decision end
+	if not currency and not bubbleGoal then return decision end -- A completed selling task still returns before going idle.
+	if currency then
+		decision.Kind = "INSPECT"
+		decision.Reason = (limitation and limitation .. "; " or "") .. "Wait for genuine stationary " .. currency .. " pickup IDs; bubbles and selling off"
+		if context.Cluster and config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then
+			decision.Kind, decision.Mode, decision.Cluster = "FARM", "PICKUPS", context.Cluster
+			decision.Reason = (limitation and limitation .. "; " or "") .. "Stationary pickups for active " .. currency .. " requirement; no bubble cycle"
+		end
+		return decision
+	end
+	if config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then decision.Reason = "Pickup diagnostic blocks bubble actions" return decision end
+	local amount, capacity = (snapshot.Bubble or {}).Amount, (snapshot.Bubble or {}).Capacity
+	local needsSale = requirement.Type == "Sell" and amount and amount > 0 or amount and capacity and capacity > 0 and amount / capacity >= config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
+	if needsSale then
+		if not config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES then decision.Reason = "Real bubble task requires selling; AUTO_SELL_BUBBLES is off" return decision end
+		local sell
+		for _, station in ipairs(context.Sells or {}) do if not sell or station.Distance < sell.Distance then sell = station end end
+		if sell and context.CanTravel then decision.Kind, decision.Sell, decision.Reason = "SELL", sell, "Native selling required by the actual bubble task"
+		else decision.Reason = "Actual bubble task awaits an accessible native selling route" end
+	elseif config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES and context.CanBlow then
+		decision.Kind, decision.Mode, decision.Reason = "FARM", "BUBBLES", "Blow only for the actual unfinished native bubble task"
+	else decision.Reason = "Actual bubble task pending: " .. tostring(context.BlowBlocker or "AUTO_BLOW_BUBBLES is off") end
 	return decision
 end
 

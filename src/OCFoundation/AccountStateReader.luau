@@ -51,6 +51,29 @@ function AccountStateReader.new(config, player)
 	return self
 end
 
+function AccountStateReader:GetTaskRequirement(questId, index, profile)
+	local raw = profile or self:GetLiveProfile()
+	local util = self:_dependency("QuestUtil")
+	if not raw or type(raw.Quests) ~= "table" or not util or type(util.GetRequirement) ~= "function" then return nil end
+	for _, quest in pairs(raw.Quests) do
+		if type(quest) ~= "table" or quest.Id ~= questId or type(quest.Tasks) ~= "table" or type(quest.Progress) ~= "table" then continue end
+		local taskDefinition = quest.Tasks[index]
+		if type(taskDefinition) ~= "table" then return nil end
+		local kind, currency = taskDefinition.Type, nil
+		if kind == "Collect" then
+			local item = taskDefinition.Item
+			if type(item) ~= "table" or item.Type ~= "Currency" or (item.Currency ~= "Coins" and item.Currency ~= "Gems") then return nil end
+			currency = item.Currency
+		elseif kind ~= "Bubbles" and kind ~= "Sell" then return nil end
+		local ok, required = pcall(util.GetRequirement, util, taskDefinition)
+		local current = number(quest.Progress[index])
+		if not ok or not number(required) or required >= math.huge or required <= 0 or not current or current >= math.huge or current >= required then return nil end
+		return { QuestId = questId, TaskIndex = index, Type = kind, Currency = currency, Required = required, Current = current,
+			Source = "LocalData.Quests.Tasks/Progress + Shared.Utils.Stats.QuestUtil:GetRequirement" }
+	end
+	return nil
+end
+
 function AccountStateReader:_load(name, path, expectedType)
 	local entry = { Status = "LOADING", Path = path }
 	self.Dependencies[name] = entry
@@ -223,6 +246,14 @@ function AccountStateReader:Read()
 				snapshot.Ready = true
 				snapshot.Status = "READY"
 				snapshot.Source = "ReplicatedStorage.Client.Framework.Services.LocalData:Get()"
+				snapshot.TaskRequirements = {}
+				for _, quest in pairs(type(raw.Quests) == "table" and raw.Quests or {}) do
+					if type(quest) ~= "table" or type(quest.Id) ~= "string" then continue end
+					for index in pairs(type(quest.Tasks) == "table" and quest.Tasks or {}) do
+						local requirement = self:GetTaskRequirement(quest.Id, index, raw)
+						if requirement then table.insert(snapshot.TaskRequirements, requirement) end
+					end
+				end
 				for _, currency in ipairs(settings.SELECTED_CURRENCIES) do
 					snapshot.Balances[currency] = number(raw[currency])
 				end
@@ -378,6 +409,7 @@ function AccountStateReader:Start()
 			end
 			self:_load("GetPickupZones", "Shared.Utils.GetPickupZones", "function")
 			self:_load("Remote", "Shared.Framework.Network.Remote")
+			self:_load("QuestUtil", "Shared.Utils.Stats.QuestUtil")
 			self:_load("GuiFrame", "Client.Gui.GuiFrame")
 			self:_load("PhysicalItem", "Client.Effects.PhysicalItem")
 			self:_load("FishingPlayerRods", "Client.Gui.Frames.Fishing.FishingPlayerRods")

@@ -23,6 +23,13 @@ function FarmingCoordinator.new(controller, player)
 	self.Knowledge = controller.Knowledge or GameKnowledge.new(self.Reader)
 	self.Tracker = PickupTracker.new(self.Config, self.Reader, player, self.Knowledge)
 	self.Mechanics = GameMechanics.new(self.Config, self.Reader, self.Tracker, player, function(tag, message) controller:Log(tag, message) end)
+	self.Mechanics.BubbleGoalProvider = function()
+		local plan = self.Controller.Plan
+		local expected = plan and plan.Objective and plan.Objective.Metadata and plan.Objective.Metadata.Requirement
+		if not expected or (expected.Type ~= "Bubbles" and expected.Type ~= "Sell") or type(self.Reader.GetTaskRequirement) ~= "function" then return nil end
+		local actual = self.Reader:GetTaskRequirement(expected.QuestId, expected.TaskIndex)
+		return actual and actual.Type == expected.Type and actual or nil
+	end
 	self.Metrics = ResourceMetrics.new(self.Config.FARMING_SETTINGS)
 	self.Stationary = StationaryExperiment.new(self)
 	return self
@@ -59,14 +66,7 @@ function FarmingCoordinator:_finishCombined()
 end
 
 function FarmingCoordinator:_background(token)
-	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false end
-	if token:CheckCancelled() or not self.Config.BUBBLE_SETTINGS.ENABLE_SIMULTANEOUS_BLOWING then return end
-	local raw = self.Reader:GetLiveProfile()
-	local capacity = raw and self.Reader:_stat("GetBubbleStorage", raw, {})
-	if raw and raw.Bubble and type(raw.Bubble.Amount) == "number" and capacity and capacity > 0 and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO then return false end
-	local requested = self.Mechanics:Blow(token)
-	if requested and self.Cycle then self.Cycle.Requests += 1 end
-	return requested
+	return false -- Currency pickup work never starts a bubble cycle, including legacy combined overrides.
 end
 
 function FarmingCoordinator:Observe()
@@ -174,7 +174,7 @@ function FarmingCoordinator:Observe()
 			and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
 		if full and not self.FullSince then self.Controller:Log("FARM][SELL_TIMING", "Threshold observed; stable discretionary-delay clock started") end
 		self.FullSince = full and (self.FullSince or now) or nil
-		if self.Activity and self.Activity.Kind ~= "SELL" and full and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST
+		if self.Activity and self.Activity.Kind ~= "SELL" and full and self.Mechanics:BubbleRequirement() and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST
 			and (self.Activity.Kind == "TRAVEL" or self.Activity.Probe or self.Activity.Mode == "BUBBLES"
 				or now - self.FullSince >= self.Config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS) then
 			self.Controller.Scheduler:CancelActive("Bubble reached sell threshold") self.Mechanics:StopMovement()
@@ -276,6 +276,7 @@ function FarmingCoordinator:Context(plan)
 			and now - mechanics.LastTravelAt >= self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS,
 		Blocker = reason or tracker.Error, BlowBlocker = bubbleReason, Now = now, ArrivedAt = tracker.ArrivedAt,
 		ReturnKey = self.ReturnKey,
+		PendingCleanup = mechanics.PendingPickupCleanup ~= nil,
 		UpgradeBackoff = {}, EffectiveUpgrades = {},
 		FullSince = self.FullSince,
 		CombinedProbePending = self.CombinedProbeStart and now - self.CombinedProbeStart < self.Config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS
@@ -300,7 +301,8 @@ function FarmingCoordinator:Context(plan)
 			end
 		end
 	end
-	local currency = self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and "Coins" or FarmingPolicy.Target(self.Config, snapshot, plan, context)
+	local currency = FarmingPolicy.Target(self.Config, snapshot, plan, context)
+	if not currency and self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then currency = self.Config.FARMING_SETTINGS.CURRENCY_PRIORITIES[1] end
 	context.Cluster = currency and tracker:Cluster(currency) or nil
 	local candidate, stationaryReason = self.Stationary:Candidate(context.Cluster)
 	if not candidate then context.Cluster = nil tracker.ClusterReason = stationaryReason end
@@ -416,6 +418,7 @@ end
 
 function FarmingCoordinator:_collection(decision, token)
 	if token:CheckCancelled() then return nil end
+	if decision.Mode ~= "PICKUPS" then return { Verified = false, Reason = "Currency goals permit stationary pickups only; no combined bubble task" } end
 	local cluster = decision.Cluster
 	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not cluster then return { Verified = false, Reason = "Stationary collection disabled or IDs unavailable" } end
 	if not FarmingPolicy.IsStationaryArea(self.Config, self.Tracker.Current) or self.Tracker.Current.Key ~= cluster.AreaKey then
@@ -456,6 +459,7 @@ function FarmingCoordinator:_bubble(token)
 end
 
 function FarmingCoordinator:_sell(decision, token)
+	if not self.Mechanics:BubbleRequirement() then return { Verified = false, Reason = "Selling blocked: no active verified bubble requirement" } end
 	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return { Verified = false, Reason = "Isolated stationary test blocks selling and travel" } end
 	local sell = decision.Sell
 	if not self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES or not sell then return { Verified = false, Reason = "Selling disabled" } end
@@ -477,7 +481,7 @@ function FarmingCoordinator:_sell(decision, token)
 		permitted = true -- Native activation already in range; no OC movement.
 	else
 		self.Controller:Log("FARM][TRAVEL", "Native selling-station travel to " .. sell.Key .. " | currency=" .. sell.Currency .. " | multiplier=" .. sell.Multiplier)
-		permitted, reason = self.Mechanics:Travel(sell.Root, sell.World, sell.Area, token)
+		permitted, reason = self.Mechanics:Travel(sell.Root, sell.World, sell.Area, token, false, true)
 	end
 	if not permitted or token:CheckCancelled() then
 		if not token:CheckCancelled() then self.Mechanics:Failure("SELL:" .. sell.Key, self.Config.BUBBLE_SETTINGS.SELL_RETRY_COOLDOWN_SECONDS, reason) end
@@ -533,12 +537,24 @@ function FarmingCoordinator:Definition(decision, generation)
 		CanRun = function() return not self.Destroyed and self.Controller.State == "RUNNING" and generation == self.Controller.Generation end,
 		Execute = function(token)
 			if token:CheckCancelled() or generation ~= self.Controller.Generation then return nil end
+			if decision.Mode == "COMBINED" then return { Verified = false, Reason = "Background bubble farming is disabled; active goals choose one activity" } end
+			if decision.Kind == "SELL" or decision.Mode == "BUBBLES" then
+				local actual = self.Mechanics:BubbleRequirement()
+				local expected = decision.Requirement
+				if not actual or not expected or actual.QuestId ~= expected.QuestId or actual.TaskIndex ~= expected.TaskIndex
+					or decision.GoalId ~= (self.Controller.Plan and self.Controller.Plan.Objective and self.Controller.Plan.Objective.Id) then
+					return { Verified = false, Reason = "Stale or unverified bubble goal; no action dispatched" }
+				end
+			end
+			if decision.GoalId and decision.GoalId ~= (self.Controller.Plan and self.Controller.Plan.Objective and self.Controller.Plan.Objective.Id) then
+				return { Verified = false, Reason = "Active goal changed before farming dispatch" }
+			end
 			if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and decision.Kind ~= "INSPECT"
 				and (decision.Kind ~= "FARM" or decision.Mode ~= "PICKUPS")
 				and (decision.Kind ~= "TRAVEL" or not self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND or not FarmingPolicy.IsStationaryArea(self.Config, decision.Island)) then
 				return { Verified = false, Reason = "Pickup-only mode permits selected-island travel, inspection and stationary collection only" }
 			end
-			if decision.Kind == "TRAVEL" and not FarmingPolicy.IsFarmingArea(self.Config, decision.Island) then return { Verified = false, Reason = "Travel destination excluded or stale" } end
+			if decision.Kind == "TRAVEL" and not FarmingPolicy.IsStationaryArea(self.Config, decision.Island) then return { Verified = false, Reason = "Travel destination excluded or stale" } end
 			if decision.Kind == "FARM" and decision.Mode ~= "BUBBLES" and
 				(not FarmingPolicy.IsFarmingArea(self.Config, self.Tracker.Current) or not decision.Cluster or decision.Cluster.AreaKey ~= self.Tracker.Current.Key) then
 				return { Verified = false, Reason = "Pickup execution rejected: excluded or stale island" }

@@ -36,6 +36,7 @@ function GameMechanics:Guard()
 end
 
 function GameMechanics:CanBlow()
+	if not self:BubbleRequirement() then return false, "No active verified unfinished bubble task" end
 	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks blowing" end
 	if not self.Config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES then return false, "Bubble blowing is disabled" end
 	local allowed, reason = self:Guard()
@@ -57,16 +58,22 @@ end
 
 function GameMechanics:Blow(token)
 	if token:CheckCancelled() then return false end
+	if not self:BubbleRequirement() then return false end
 	if os.clock() - self.LastBlowAt < self.Config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS then return false end
 	local permitted, reason = self:CanBlow()
 	if not permitted then self.LastBlocker = reason return false end
 	local remote = self.Reader:_dependency("Remote")
 	if not remote or type(remote.FireServer) ~= "function" then self.LastBlocker = "Native Remote module unavailable" return false end
 	if token:CheckCancelled() then return false end
+	if not self:BubbleRequirement() then return false end
 	self.LastBlowAt = os.clock()
 	remote:FireServer("BlowBubble")
 	self.LastBlocker = nil
 	return true
+end
+
+function GameMechanics:BubbleRequirement()
+	return self.BubbleGoalProvider and self.BubbleGoalProvider() or nil
 end
 
 function GameMechanics:Failure(key, seconds, reason)
@@ -194,7 +201,8 @@ function GameMechanics:SellStations()
 	return result
 end
 
-function GameMechanics:Travel(destination, world, area, token, islandTravel)
+function GameMechanics:Travel(destination, world, area, token, islandTravel, sellingTravel)
+	if sellingTravel and not self:BubbleRequirement() then return false, "Selling travel requires an active verified bubble task" end
 	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and not islandTravel then return false, "Pickup-only mode blocks selling excursions" end
 	local permitted, reason = self:Guard()
 	if not permitted then return false, reason end
@@ -210,6 +218,7 @@ function GameMechanics:Travel(destination, world, area, token, islandTravel)
 	local started = os.clock()
 	self.LastTravelAt = started
 	if token:CheckCancelled() then return false, "Cancelled" end
+	if sellingTravel and not self:BubbleRequirement() then return false, "Bubble task ended before selling travel" end
 	local sent, transportError = pcall(function() remote:FireServer("Teleport", path) end)
 	if not sent then
 		self:Failure("TRAVEL:" .. path, self.Config.ISLAND_SETTINGS.TRAVEL_RETRY_COOLDOWN_SECONDS, tostring(transportError))
@@ -236,11 +245,9 @@ function GameMechanics:TravelIsland(area, token)
 	if token:CheckCancelled() then return false, "Cancelled" end
 	if not self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND or not self.Config.ISLAND_SETTINGS.AUTO_SELECT_BEST_ISLAND then return false, "Native island selection/travel disabled" end
 	if not self:Unlocked(area.World, area.Name) then return false, "Actual LocalData island/world access is locked or unavailable" end
-	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST or self.Config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND ~= "" then
-		local selected = self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS
-		if area.World ~= "The Overworld" or (area.Name ~= "Zen" and area.Name ~= "The Void")
-			or (#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key)) then return false, "Farming teleport destination is excluded" end
-	end
+	local selected = self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS
+	if area.World ~= "The Overworld" or (area.Name ~= "Zen" and area.Name ~= "The Void")
+		or (#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key)) then return false, "Farming teleport destination is excluded" end
 	if self.Tracker.Current and self.Tracker.Current.Key == area.Key then
 		local root = self.Tracker:Root()
 		for _, zone in ipairs(self.Tracker.Current.Zones or {}) do

@@ -18,6 +18,8 @@ for (const module of source.modules) {
 const mechanics = source.modules.find(m => m.name === 'GameMechanics').source;
 assert(!/PathfindingService|\bMoveTo\s*\(|\bMoveToFinished\b|\bPivotTo\s*\(/.test(generated.output), 'OC automatic navigation/repositioning must be absent');
 const coordinatorSource = source.modules.find(m => m.name === 'FarmingCoordinator').source;
+const brainSource = source.modules.find(m => m.name === 'OCBrain').source;
+assert(brainSource.includes('FarmingPolicy.Decide(') && !brainSource.includes('CompareIncome'), 'Historical income comparison must not choose active gameplay tasks');
 assert(!/\.Mechanics:Walk\s*\(/.test(coordinatorSource), 'No active farming or selling walking route');
 assert(mechanics.includes('if registry[key] == model then registry[key] = nil end'), 'Cleanup must preserve replacement registry entries');
 assert(mechanics.includes('chunker:Remove(pending.Position, model)'), 'Cleanup must release native Chunker references');
@@ -49,6 +51,7 @@ const farmingAssertions = await readFile(path.join(root, 'tests/farming.luau'), 
 const fixesAssertions = await readFile(path.join(root, 'tests/phase2-fixes.luau'), 'utf8');
 const pickupFirstAssertions = await readFile(path.join(root, 'tests/pickup-first.luau'), 'utf8');
 const stationaryAssertions = await readFile(path.join(root, 'tests/stationary.luau'), 'utf8');
+const goalAssertions = await readFile(path.join(root, 'tests/goal-driven.luau'), 'utf8');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -68,7 +71,7 @@ const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau')
 const pickupConfig = configPrefix(pickupExample);
 assertFarmingSelection(pickupConfig);
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + exampleCheck + pickupCheck);
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
@@ -80,10 +83,10 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
   if (filename === 'CombinedFarming.luau') {
     assertFarmingSelection(configText);
   }
-  if (filename === 'StationaryOnly.luau') {
+  if (filename === 'StationaryOnly.luau' || filename === 'CombinedFarming.luau') {
     assertFarmingSelection(configText);
-    assert(configText.includes('STATIONARY_ISOLATED_TEST = true'));
-    assert(configText.includes('AUTO_TRAVEL_BEST_ISLAND = true') && configText.includes('PREFERRED_FARMING_ISLAND = "Zen"'));
+    assert(configText.includes('STATIONARY_ISOLATED_TEST = false'));
+    assert(configText.includes('AUTO_TRAVEL_BEST_ISLAND = true') && configText.includes('PREFERRED_FARMING_ISLAND = ""'));
     for (const key of ['AUTO_EXPLORE_UNLOCKED_ISLANDS', 'AUTO_SELL_BUBBLES', 'AUTO_BLOW_BUBBLES', 'ENABLE_SMART_UPGRADES']) {
       assert(configText.includes(key + ' = false'), 'Initial stationary test must disable ' + key);
     }

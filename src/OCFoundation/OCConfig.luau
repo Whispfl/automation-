@@ -48,23 +48,23 @@ return {
 		TASK_TIMEOUT_SECONDS = 10, --// Cancel a stuck analysis and retain its foreground lease until it exits.
 	},
 	BUBBLE_SETTINGS = {
-		ENABLE_BUBBLE_RECOMMENDATIONS = true, --// Recommend selling a full bubble or improving capacity/output.
-		SELL_AT_CAPACITY_RATIO = 0.95, --// Recommend selling when this fraction of effective capacity is occupied.
-		AUTO_BLOW_BUBBLES = true, --// Permit Brain-selected blowing through the verified BlowBubble command.
-		AUTO_SELL_BUBBLES = true, --// Future separately configured native travel/activation may sell; isolated stationary tests block selling.
+		ENABLE_BUBBLE_RECOMMENDATIONS = true, --// Recognize received unfinished bubble tasks and verified upgrade recommendations; fullness alone creates no goal.
+		SELL_AT_CAPACITY_RATIO = 0.95, --// Sell at this capacity fraction only to continue an actual unfinished bubble task.
+		AUTO_BLOW_BUBBLES = false, --// Opt into blowing only for a verified unfinished bubble task; currency goals never blow.
+		AUTO_SELL_BUBBLES = false, --// Opt into native selling only when required by the active verified bubble task.
 		AUTO_BUY_GUM = false, --// Explicitly authorize nonpremium bubble-capacity gum purchases.
 		AUTO_BUY_FLAVORS = false, --// Explicitly authorize nonpremium bubble-power flavor purchases.
-		ENABLE_SIMULTANEOUS_BLOWING = true, --// Allow cooperative blowing during stationary tasks only when isolation is explicitly disabled.
+		ENABLE_SIMULTANEOUS_BLOWING = false, --// Retained compatibility setting; goal-driven pickup tasks never blow in the background.
 		BLOW_COOLDOWN_SECONDS = 0.5, --// Minimum spacing between verified blow commands; UI and Bubble Lock guards still apply.
 		SELL_CONFIRMATION_TIMEOUT_SECONDS = 8, --// Stop waiting if native selling does not reduce the actual bubble amount.
 		SELL_RETRY_COOLDOWN_SECONDS = 20, --// Back off after an unavailable or unconfirmed sell attempt.
 	},
 	FARMING_SETTINGS = {
-		FARMING_STRATEGY = "EFFICIENCY", --// EFFICIENCY preserves comparison trials; PICKUP_FIRST prioritizes pickups with guarded background blowing.
-		ISOLATED_PICKUP_PROBES = false, --// Opt into isolated diagnostic trials under PICKUP_FIRST; full bubbles still interrupt them.
+		FARMING_STRATEGY = "PICKUP_FIRST", --// Goal-driven stationary pickups; legacy EFFICIENCY is accepted but cannot invent earning or background bubble goals.
+		ISOLATED_PICKUP_PROBES = false, --// Retained historical diagnostic setting; current goals do not start income-comparison probes.
 		AUTO_RESOURCE_FARM = true, --// Permit the Brain to schedule Phase 2 actions; false retains account analysis only.
-		ENABLE_EFFICIENCY_COMPARISON = true, --// Compare measured currency gains for pickup, bubble, and combined sessions.
-		ENABLE_ACTIVITY_SWITCHING = true, --// Reevaluate modes as yields or availability change; safety and full-bubble selling remain active.
+		ENABLE_EFFICIENCY_COMPARISON = false, --// Retained historical income-comparison setting; active goals determine permitted work.
+		ENABLE_ACTIVITY_SWITCHING = false, --// Retained income-mode setting; meaningful active resource changes still update the farming island.
 		OBSERVATION_INTERVAL_SECONDS = 1, --// Sample live balances and scene availability without running an independent action loop.
 		ACTION_SLICE_SECONDS = 6, --// Bound each foreground farming task before the Brain decides again.
 		MINIMUM_RATE_SAMPLE_SECONDS = 15, --// Show a measured per-minute rate only after this much activity time.
@@ -75,17 +75,17 @@ return {
 		EARNINGS_CONFIRMATION_TIMEOUT_SECONDS = 3, --// Allow delayed account credit to arrive before reporting a collection or sale as unconfirmed.
 		BUBBLE_PROBE_TIMEOUT_SECONDS = 180, --// Bound an initial unsold bubble trial; an unfinished trial is not a measured sale rate.
 		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Bound discretionary full-bubble pickup delay; native travel and confirmation have separate timeouts.
-		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Fallback earning priorities when the recommended goal has no unmet currency cost.
-		AUTO_FARM_FALLBACK = true, --// Permit another useful eligible activity when the preferred farming method is unavailable.
+		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Explicit isolated pickup diagnostics only; normal farming follows the active goal's unmet requirement.
+		AUTO_FARM_FALLBACK = false, --// Retained activity-fallback setting; no bubble or movement fallback exists for currency goals.
 	},
 	ISLAND_SETTINGS = {
 		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Do not explore beyond the configured preferred island and fallback.
 		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Wait this long before repeating an island/currency trial, including empty or failed trials.
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End a pickup trial at this limit if no adequate actual earning sample is obtained.
 		ARRIVAL_PICKUP_GRACE_SECONDS = 3, --// Keep scanning during this bounded arrival-loading period before measuring a pickup trial.
-		AUTO_SELECT_BEST_ISLAND = true, --// Apply configured preference, or rank unlocked islands by income when the preference is empty.
+		AUTO_SELECT_BEST_ISLAND = true, --// Select unlocked The Void for Coins or Zen for Gems; retain the target for an unchanged resource goal.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Use verified native island teleportation; pickup collection remains stationary.
-		PREFERRED_FARMING_ISLAND = "Zen", --// Prefer this selected unlocked Overworld island, with The Void as fallback; empty retains efficiency-based selection.
+		PREFERRED_FARMING_ISLAND = "", --// Active Coins goals prefer The Void and Gems goals Zen; a named island applies only to explicit pickup diagnostics.
 		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Only these unlocked Overworld islands are approved farming destinations.
 		MIN_ISLAND_GAIN_ADVANTAGE_PERCENT = 25, --// Require this net earning advantage before leaving a useful current island.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Stay on a viable island for this long before another farming-island switch.

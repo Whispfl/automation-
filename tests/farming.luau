@@ -4,6 +4,13 @@ local Policy = requireOC("FarmingPolicy")
 local Mechanics = requireOC("GameMechanics")
 local farmingTestsBefore = tests
 
+local function syntheticBubbleTask(coordinator)
+	local requirement = { Type = "Bubbles", QuestId = "fixture-bubble-task", TaskIndex = 1, Current = 0, Required = 1000 }
+	coordinator.Controller.Plan = { Objective = { Id = "fixture-bubble-goal", Metadata = { Requirement = requirement } } }
+	coordinator.Mechanics.BubbleGoalProvider = function() return requirement end
+	return requirement
+end
+
 test("Discovered live currencies appear alongside preserved Phase 1 account fields", function()
 	local presentation = requireOC("AccountPresentation")
 	local data = fixture() data.Balances.SyntheticIslandCurrency = 77
@@ -60,30 +67,30 @@ test("Island selection compares only the goal currency and respects locked acces
 	local data, context, plan, memory = policyFixture()
 	plan.Objective.Metadata.Cost = { Type = "Currency", Currency = "Coins", Amount = 1000 }
 	context.Islands[2].Expected.Coins = 101
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Currency == "Coins" and decision.Kind == "FARM", "Thousands of gems must not outrank the coin goal")
 	context.Islands[2].Expected.Coins = 1000
 	context.Islands[2].Unlocked = false
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind ~= "TRAVEL", "Locked islands cannot be selected")
 	context.Islands[2].Unlocked = true
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind == "TRAVEL" and decision.Island.Name == "B")
 	context.ActiveSweepPending = true
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind ~= "TRAVEL", "Finish eligible frozen sweep before starting another island's sweep")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind ~= "TRAVEL", "Finish eligible frozen sweep before starting another island's sweep")
 end)
 
 test("Dwell prevents island ping-pong even when a cluster just emptied", function()
 	local data, context, plan, memory = policyFixture()
 	context.ArrivedAt = 95 context.Islands[1].Available = {} context.Cluster = nil
 	context.Islands[2].Expected.Coins = 1000
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind ~= "TRAVEL")
 	context.ArrivedAt = 0
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind == "TRAVEL")
 	context.Islands[2].InBackoff = true
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind ~= "TRAVEL", "Failed destinations must stay in backoff")
 end)
 
@@ -94,52 +101,52 @@ test("Activity uses goal-specific measured rates and probes a different untested
 		BUBBLES = { Ready = true, PerMinute = { Coins = 200 } },
 		COMBINED = { Ready = true, PerMinute = { Coins = 150 } },
 	}
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Mode == "BUBBLES")
 	memory.Mode, memory.StartedAt = "PICKUPS", 0
 	memory.LastTest.BUBBLES = nil memory.LastTest.COMBINED = nil
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Mode == "BUBBLES", "Probe must not get stuck reselecting the current mode")
 	plan.Objective.Metadata.Cost = { Type = "Currency", Currency = "Gems", Amount = 1000 }
 	data.Balances.Gems = 0
 	context.CanTravel = false
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Currency == "Gems" and decision.Mode == "PICKUPS", "Coin sales cannot pay a gem goal")
 end)
 
 test("Full bubbles sell first and incomplete bubble probes include the sale cycle", function()
 	local data, context, plan, memory = policyFixture()
 	data.Bubble.Amount = 99
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind == "SELL")
 	data.Bubble.Amount = 50
 	memory.Mode, memory.StartedAt = "BUBBLES", 0
 	context.BubbleProbePending = true
 	context.Rates = { PICKUPS = { Ready = true, PerMinute = { Coins = 1000 } }, BUBBLES = { Ready = false, PerMinute = {} } }
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Mode == "BUBBLES", "An unfinished fill must not be mislabeled as a complete sale measurement")
 end)
 
 test("Disabled farming, collection, simultaneous mode, travel and fallback cannot schedule their actions", function()
 	local data, context, plan, memory = policyFixture()
 	context.SceneReady = false
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "WAIT", "Do not start blindly blowing before native zone inspection")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind == "WAIT", "Do not start blindly blowing before native zone inspection")
 	context.SceneReady = true
-	assert(Policy.Decide(config({ FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false } }), data, plan, context, memory).Kind == "WAIT")
+	assert(Policy.CompareIncome(config({ FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false } }), data, plan, context, memory).Kind == "WAIT")
 	context.Rates.COMBINED = { Ready = true, PerMinute = { Coins = 1000 } }
 	local disabled = config({ BUBBLE_SETTINGS = { ENABLE_SIMULTANEOUS_BLOWING = false } })
-	assert(Policy.Decide(disabled, data, plan, context, memory).Mode ~= "COMBINED")
+	assert(Policy.CompareIncome(disabled, data, plan, context, memory).Mode ~= "COMBINED")
 	disabled = config({ PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false } })
-	assert(Policy.Decide(disabled, data, plan, context, memory).Mode == "BUBBLES")
+	assert(Policy.CompareIncome(disabled, data, plan, context, memory).Mode == "BUBBLES")
 	disabled = config({ FARMING_SETTINGS = { ENABLE_EFFICIENCY_COMPARISON = false } })
 	context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 1000000 } }
-	assert(Policy.Decide(disabled, data, plan, context, memory).Mode == "COMBINED", "Disabled comparison cannot pick by a measured yield")
+	assert(Policy.CompareIncome(disabled, data, plan, context, memory).Mode == "COMBINED", "Disabled comparison cannot pick by a measured yield")
 	context.Islands[2].Expected.Coins = 1000
 	disabled = config({ ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false } })
-	assert(Policy.Decide(disabled, data, plan, context, memory).Kind ~= "TRAVEL")
+	assert(Policy.CompareIncome(disabled, data, plan, context, memory).Kind ~= "TRAVEL")
 	memory.Mode = "PICKUPS" context.Cluster = nil
 	disabled = config({ FARMING_SETTINGS = { AUTO_FARM_FALLBACK = false } })
-	assert(Policy.Decide(disabled, data, plan, context, memory).Kind == "WAIT")
+	assert(Policy.CompareIncome(disabled, data, plan, context, memory).Kind == "WAIT")
 end)
 
 test("Upgrade purchases need measured bubble yield, affordability, gain and goal reserves", function()
@@ -147,15 +154,15 @@ test("Upgrade purchases need measured bubble yield, affordability, gain and goal
 	local enabled = config({ BUBBLE_SETTINGS = { AUTO_BUY_GUM = true, ENABLE_SIMULTANEOUS_BLOWING = false }, UPGRADE_SETTINGS = { MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION = 1 } })
 	context.EffectiveUpgrades = { ["Synthetic test gum"] = { Capacity = 200, Power = 20 } }
 	context.Rates = { PICKUPS = { Ready = true, PerMinute = { Coins = 1 } }, BUBBLES = { Ready = true, PerMinute = { Coins = 1000 } } }
-	local decision = Policy.Decide(enabled, data, plan, context, memory)
+	local decision = Policy.CompareIncome(enabled, data, plan, context, memory)
 	assert(decision.Kind == "UPGRADE" and decision.Upgrade.Kind == "Gum")
 	plan.Objective.Metadata.Cost = { Type = "Currency", Currency = "Coins", Amount = 90 }
-	assert(Policy.Decide(enabled, data, plan, context, memory).Kind ~= "UPGRADE")
+	assert(Policy.CompareIncome(enabled, data, plan, context, memory).Kind ~= "UPGRADE")
 	plan.Objective.Metadata.Cost = nil
 	context.Rates.BUBBLES.Ready = false
-	assert(Policy.Decide(enabled, data, plan, context, memory).Kind ~= "UPGRADE")
+	assert(Policy.CompareIncome(enabled, data, plan, context, memory).Kind ~= "UPGRADE")
 	context.Rates.BUBBLES.Ready = true
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind ~= "UPGRADE", "Purchases must remain opt-in by default")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind ~= "UPGRADE", "Purchases must remain opt-in by default")
 end)
 
 test("Native purchase adapter rechecks live funds and verifies received ownership", function()
@@ -193,13 +200,13 @@ test("Unknown yields stay visible and missing local spawns do not suppress suppo
 	area.Expected = {} area.Spawn = nil area.DestinationPath = "Workspace.Worlds.Synthetic.Islands.B.Island.Portal.Spawn"
 	context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 18000 } }
 	context.IslandProbeHistory["Synthetic/B:Coins"] = nil
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind == "TRAVEL" and decision.Probe and decision.Island == area, "Measured bubbles cannot permanently suppress unknown pickup trials")
 	local found
 	for _, candidate in ipairs(decision.IslandCandidates) do if candidate.Area == area then found = candidate end end
 	assert(found and found.PerMinute == nil and found.Evidence:find("UNKNOWN", 1, true), "Unknown income cannot become a fabricated estimate")
 	area.ZoneCount = 0
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Kind ~= "TRAVEL")
 	local reason
 	for _, row in ipairs(decision.IslandDiagnostics) do if row.Area == area then reason = row.Reason end end
@@ -209,25 +216,25 @@ end)
 test("Island discovery diagnostics explain every exclusion and trials respect configuration and dwell", function()
 	local data, context, plan, memory = policyFixture()
 	context.IslandProbeHistory = {}
-	local decision = Policy.Decide(config(), data, plan, context, memory)
+	local decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Probe and decision.Kind == "INSPECT", "Current-island loading trial precedes unknown destinations")
 	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = 100 }
 	memory.Mode = "BUBBLES" context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 18000 } }
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(decision.Mode == "PICKUPS", "Isolated trial must not become combined income or a global-mode hold")
 	context.Cluster = nil
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "INSPECT")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind == "INSPECT")
 	context.PickupProbe = nil context.Cluster = {}
 	local disabled = config({ ISLAND_SETTINGS = { AUTO_EXPLORE_UNLOCKED_ISLANDS = false } })
-	assert(not Policy.Decide(disabled, data, plan, context, memory).Probe)
+	assert(not Policy.CompareIncome(disabled, data, plan, context, memory).Probe)
 	context.ArrivedAt = 95
-	assert(not Policy.Decide(config(), data, plan, context, memory).Probe)
+	assert(not Policy.CompareIncome(config(), data, plan, context, memory).Probe)
 	context.ArrivedAt = 0 context.Islands[2].Unlocked = false
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(#decision.IslandDiagnostics == 2 and #decision.IslandCandidates == 1)
 	assert(decision.IslandDiagnostics[2].Reason:find("not discovered", 1, true))
 	context.Islands[2].Unlocked = true context.Islands[2].MappingWarning = "Mismatched native reward pool"
-	decision = Policy.Decide(config(), data, plan, context, memory)
+	decision = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(#decision.IslandCandidates == 1 and decision.IslandDiagnostics[2].Reason == context.Islands[2].MappingWarning)
 end)
 
@@ -293,12 +300,12 @@ test("Tracker keeps distinct Floating Island and Outer Space zones, counts, meta
 end)
 
 test("Native island path requests require real access and cannot report success without observed arrival", function()
-	local profile = { WorldsUnlocked = { Synthetic = true }, AreasUnlocked = { B = true } }
+	local profile = { WorldsUnlocked = { ["The Overworld"] = true }, AreasUnlocked = { ["The Void"] = true } }
 	local requests, cancelled = {}, false
 	local reader = { GetLiveProfile = function() return profile end, GetSnapshot = function() return {} end,
 		_dependency = function() return { FireServer = function(_, command, path) table.insert(requests, { command, path }) end } end }
-	local target = { Key = "Synthetic/B", World = "Synthetic", Name = "B", CatalogKnown = true,
-		DestinationPath = "Workspace.Worlds.Synthetic.Islands.B.Island.Portal.Spawn",
+	local target = { Key = "The Overworld/The Void", World = "The Overworld", Name = "The Void", CatalogKnown = true,
+		DestinationPath = "Workspace.Worlds.The Overworld.Islands.The Void.Island.Portal.Spawn",
 		Zones = { { Data = { Zone = { Height = 400, GetDistanceToPoint = function() return 0 end } } } } }
 	local tracker = { Current = { Key = target.Key, Zones = target.Zones }, Refresh = function() end,
 		Root = function() return { Position = Vector3.new(0, 0, 0) } end }
@@ -311,9 +318,9 @@ test("Native island path requests require real access and cannot report success 
 	assert(result == nil, "Matching name alone cannot verify arrival at a different island height")
 	cancelled = true assert(coroutine.resume(thread))
 	assert(result == false and reason == "Cancelled")
-	cancelled = false mechanics.LastTravelAt = -math.huge profile.AreasUnlocked.B = nil
+	cancelled = false mechanics.LastTravelAt = -math.huge profile.AreasUnlocked["The Void"] = nil
 	assert(not mechanics:TravelIsland(target, token) and #requests == 1, "Recheck fresh discovery before native request")
-	profile.AreasUnlocked.B = true target.CatalogKnown = false
+	profile.AreasUnlocked["The Void"] = true target.CatalogKnown = false
 	assert(not mechanics:TravelIsland(target, token) and #requests == 1, "Unknown paths cannot be requested")
 end)
 
@@ -346,7 +353,8 @@ test("Pickup trial ends on an actual sample or timeout and bubble sales cannot b
 	coordinator.Metrics:SetMode("STATIONARY", context.Current.Key, { Coins = 100 }, os.clock())
 	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = os.clock() }
 	coordinator._sell = function() assert(coordinator.Metrics.Active == nil and coordinator.PickupProbe == nil) return { Verified = true } end
-	local decision = { Kind = "SELL", Sell = {}, Currency = "Coins" }
+	local requirement = syntheticBubbleTask(coordinator)
+	local decision = { Kind = "SELL", Sell = {}, Currency = "Coins", Requirement = requirement, GoalId = "fixture-bubble-goal" }
 	assert(coordinator:Definition(decision, 1).Execute({ CheckCancelled = function() return false end }).Verified)
 	coordinator.Metrics:SetMode("BUBBLES", context.Current.Key, { Coins = 100 }, os.clock())
 	coordinator._sell = function() assert(coordinator.Metrics.Active.Mode == "BUBBLES") return { Verified = true } end
@@ -484,12 +492,12 @@ test("Full bubbles preempt both loading grace and an active isolated pickup tria
 	local data, context, plan, memory = policyFixture()
 	data.Bubble.Amount = data.Bubble.Capacity
 	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = 103, ReadyAt = 103 }
-	local result = Policy.Decide(config(), data, plan, context, memory)
+	local result = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(result.Kind == "SELL", "Full bubbles cannot be held for isolated loading grace")
-	context.Now = 104 result = Policy.Decide(config(), data, plan, context, memory)
+	context.Now = 104 result = Policy.CompareIncome(config(), data, plan, context, memory)
 	assert(result.Kind == "SELL")
 	context.PickupProbe = nil
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "SELL", "Presell already-full bubbles before a new trial")
+	assert(Policy.CompareIncome(config(), data, plan, context, memory).Kind == "SELL", "Presell already-full bubbles before a new trial")
 end)
 
 

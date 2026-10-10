@@ -30,7 +30,8 @@ function OCBrain:PlanFarming(snapshot, plan, context)
 	self.FarmingMemory = self.FarmingMemory or { Mode = nil, StartedAt = 0, LastTest = {} }
 	local scope = context.Current and context.Current.Key
 	if scope ~= self.FarmingMemory.Scope then
-		self.FarmingMemory = { Mode = nil, StartedAt = 0, LastTest = {}, Scope = scope }
+		self.FarmingMemory = { Mode = nil, StartedAt = 0, LastTest = {}, Scope = scope,
+			TargetCurrency = self.FarmingMemory.TargetCurrency, TargetIsland = self.FarmingMemory.TargetIsland }
 	end
 	local result = FarmingPolicy.Decide(self.Config, snapshot, plan, context, self.FarmingMemory)
 	if result.Kind == "FARM" and result.Mode ~= self.FarmingMemory.Mode then
@@ -106,11 +107,13 @@ function OCBrain:Plan(snapshot, token)
 					720, "EARNING_POWER", { "Choose suitable owned pets" })
 			end
 		end
-		if config.BUBBLE_SETTINGS.ENABLE_BUBBLE_RECOMMENDATIONS and bubble.Amount and bubble.Capacity and bubble.Capacity > 0 then
-			if bubble.Amount / bubble.Capacity >= config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO then
-				add("SELL_BUBBLES", "Sell the current bubble", "The bubble is at the configured fraction of effective capacity.",
-					800, "RESOLVE_BLOCKERS", { "Use an accessible selling station" })
-			end
+		for _, requirement in ipairs(snapshot.TaskRequirements or {}) do
+			if not config.BRAIN_SETTINGS.ENABLE_EARNING_RECOMMENDATIONS then continue end
+			if requirement.Type ~= "Collect" and not config.BUBBLE_SETTINGS.ENABLE_BUBBLE_RECOMMENDATIONS then continue end
+			local resource = requirement.Currency or (requirement.Type == "Sell" and "bubble selling" or "bubbles")
+			add("TASK:" .. requirement.QuestId .. ":" .. tostring(requirement.TaskIndex), "Progress " .. requirement.QuestId .. " (" .. resource .. ")",
+				string.format("Received native task: %.0f/%.0f %s. No task is accepted or claimed by OC.", requirement.Current, requirement.Required, resource),
+				700, "EARNING_POWER", {}, { Requirement = requirement })
 		end
 		if config.BRAIN_SETTINGS.ENABLE_EARNING_RECOMMENDATIONS and config.BUBBLE_SETTINGS.ENABLE_BUBBLE_RECOMMENDATIONS then
 			local smallCapacity = bubble.Capacity and bubble.PowerPerBlow and bubble.PowerPerBlow > 0
