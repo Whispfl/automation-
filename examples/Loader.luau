@@ -1,32 +1,68 @@
---!nonstrict
+-- Phase 2 test configuration. Omitted settings inherit the central OCConfig defaults.
 local Config = {
 	GENERAL_SETTINGS = {
-		OC_ENABLED = true, --// Permit initialization and OC controls.
-		AUTO_START = true, --// Immediately analyze the received account.
+		OC_ENABLED = true, --// Permit initialization and controls.
+		AUTO_START = true, --// Start account analysis and enabled farming tasks.
 	},
 	ACCOUNT_SETTINGS = {
-		ENABLE_ACCOUNT_READER = true, --// Read the game's actual LocalData profile.
-		READ_PET_INVENTORY = true, --// Read inventory and resolve equipped pet IDs.
-		READ_ITEM_INVENTORY = true, --// Read received potions and powerups.
-		READ_UPGRADES = true, --// Read owned gum and flavors.
-		READ_MASTERY = true, --// Read received Mastery levels and upgrades.
-		READ_UNLOCKS = true, --// Read unlocked worlds and discovered islands.
-		SNAPSHOT_REFRESH_SECONDS = 5, --// Refresh after manual account changes.
+		ENABLE_ACCOUNT_READER = true, --// Read the game's real LocalData profile.
+		READ_UPGRADES = true, --// Read actual owned gum and flavors.
+		READ_MASTERY = true, --// Preserve Mastery statistics and recommendations.
+		READ_UNLOCKS = true, --// Require actual world and island unlocks for travel.
+	},
+	FARMING_SETTINGS = {
+		AUTO_RESOURCE_FARM = true, --// Enable Brain-coordinated resource farming.
+		ENABLE_EFFICIENCY_COMPARISON = true, --// Measure and compare target-currency earnings.
+		ENABLE_ACTIVITY_SWITCHING = true, --// Adapt when yields or availability change.
+		AUTO_FARM_FALLBACK = true, --// Use another useful supported activity when needed.
+		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Fallback priorities; an unmet goal's currency takes precedence.
+	},
+	ISLAND_SETTINGS = {
+		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked, scene-present candidates.
+		AUTO_TRAVEL_BEST_ISLAND = true, --// Use verified native island/sell teleport destinations.
+		SELECTED_ISLANDS = {}, --// Empty considers all supported unlocked islands.
+		MIN_ISLAND_GAIN_ADVANTAGE_PERCENT = 25, --// Require a meaningful improvement to switch.
+		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapidly switching viable islands.
+	},
+	PICKUP_SETTINGS = {
+		BULK_COLLECT_PICKUPS = true, --// Use native radius clusters; no island-wide batch API was found.
+		ENABLE_CLUSTER_ROUTING = true, --// Walk to dense reachable clusters as the supported fallback.
+		FARM_CURRENCY_TYPES = {}, --// Empty allows all detected currency types, including live island currencies.
+		COLLECTION_REFRESH_SECONDS = 1, --// Bound scans and subsequent collection cycles.
+	},
+	BUBBLE_SETTINGS = {
+		AUTO_BLOW_BUBBLES = true, --// Allow bubble farming when the Brain selects it.
+		AUTO_SELL_BUBBLES = true, --// Use accessible native selling activations.
+		ENABLE_SIMULTANEOUS_BLOWING = true, --// Test blowing during collection when game guards permit it.
+		SELL_AT_CAPACITY_RATIO = 0.95, --// Sell at this fraction of actual capacity.
+		AUTO_BUY_GUM = true, --// Explicitly authorize useful nonpremium bubble-storage purchases.
+		AUTO_BUY_FLAVORS = true, --// Explicitly authorize useful nonpremium bubble-power purchases.
+	},
+	UPGRADE_SETTINGS = {
+		ENABLE_SMART_UPGRADES = true, --// Require meaningful gains and measured-income payback.
+		ENABLE_CAPACITY_UPGRADES = true, --// Gum increases bubble storage; pet storage is not purchased.
+		ENABLE_FLAVOR_UPGRADES = true, --// Evaluate supported flavor improvements.
+		AUTO_EQUIP_OWNED_UPGRADES = true, --// Use better owned gum or flavors without buying again.
+		ENABLE_GOAL_RESERVATION = true, --// Protect important world/Mastery goal funds.
+		MAXIMUM_PURCHASE_COST = 1000000, --// Per-purchase currency cap.
+		MAXIMUM_PAYBACK_SECONDS = 300, --// Maximum conservative estimated payback.
+	},
+	RESOURCE_SETTINGS = {
+		COIN_RESERVE = 0, --// Additional coins to preserve.
+		GEM_RESERVE = 0, --// Additional gems to preserve.
+		TICKET_RESERVE = 0, --// Additional tickets to preserve.
+		PEARL_RESERVE = 0, --// Additional pearls to preserve.
+		MAXIMUM_UPGRADE_BALANCE_FRACTION = 0.25, --// Spend at most this fraction after reserves.
 	},
 	STATUS_UI_SETTINGS = {
-		ENABLE_STATUS_UI = true, --// Show statistics, account details, goals, and controls.
-		SHOW_ACCOUNT_BALANCES = true, --// Show actual currencies and bubble statistics.
-		SHOW_PETS = true, --// Show equipped and inventory pet records.
-		SHOW_INVENTORY = true, --// Show potions, powerups, and storage.
-		SHOW_WORLDS = true, --// Show actual world and island unlocks.
-		SHOW_MASTERY = true, --// Show received Mastery levels and next tiers.
-		SHOW_UPGRADES = true, --// Show owned equipment and Mastery upgrades.
-		SHOW_PROGRESSION = true, --// Show the progression assessment.
-		SHOW_DIAGNOSTICS = true, --// Show unavailable fields and dependency errors.
+		ENABLE_STATUS_UI = true, --// Retain all Phase 1 statistics and controls.
+		SHOW_FARMING = true, --// Show the selected activity, area and collection outcome.
+		SHOW_FARMING_RATES = true, --// Show observed per-currency earnings and sample duration.
+		SHOW_ISLAND_CANDIDATES = true, --// Identify measured and estimated candidate yields.
 	},
 	DIAGNOSTIC_SETTINGS = {
-		ENABLE_CONSOLE_LOGGING = true, --// Print [OC] diagnostics for the test.
-		LOG_ACCOUNT_DETAILS = true, --// Print the received account sections.
+		ENABLE_CONSOLE_LOGGING = true, --// Print useful [OC] test diagnostics.
+		LOG_ACCOUNT_DETAILS = false, --// Keep farming logs compact; account details remain in the UI.
 	},
 }
 

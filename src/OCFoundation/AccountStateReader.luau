@@ -46,11 +46,12 @@ function AccountStateReader.new(config, player)
 	self.Destroyed = false
 	self.StartedAt = nil
 	self.Revision = 0
+	self.DiscoveredCurrencies = {}
 	self.Snapshot = { Ready = false, Status = "NOT_STARTED", Diagnostics = {}, Revision = 0 }
 	return self
 end
 
-function AccountStateReader:_load(name, path)
+function AccountStateReader:_load(name, path, expectedType)
 	local entry = { Status = "LOADING", Path = path }
 	self.Dependencies[name] = entry
 	local module = findPath(path)
@@ -62,9 +63,9 @@ function AccountStateReader:_load(name, path)
 	table.insert(self.Threads, task.defer(function()
 		local ok, result = pcall(require, module)
 		if self.Destroyed then return end
-		if ok and type(result) ~= "table" then
+		if ok and type(result) ~= (expectedType or "table") then
 			ok = false
-			result = "Observed game interface requires a table; module returned " .. type(result)
+			result = "Observed game interface requires " .. (expectedType or "table") .. "; module returned " .. type(result)
 		end
 		entry.Status = ok and "READY" or "ERROR"
 		entry.Value = ok and result or nil
@@ -127,7 +128,7 @@ function AccountStateReader:_catalog(snapshot)
 	if type(worlds) == "table" and sceneWorlds then
 		for name, definition in pairs(worlds) do
 			-- A retained seasonal definition is not proof that its event is active.
-			if type(definition) == "table" and not definition.Event and sceneWorlds:FindFirstChild(name) then
+			if type(definition) == "table" and not definition.Event and not definition.Removed and sceneWorlds:FindFirstChild(name) then
 				local gate = gates[name]
 				table.insert(result.Worlds, {
 					Name = name, Order = definition.Order or 999,
@@ -160,9 +161,9 @@ function AccountStateReader:_catalog(snapshot)
 			for name, definition in pairs(definitions) do
 				if type(definition) == "table" and type(definition.Cost) == "table"
 					and definition.Cost.Type == "Currency" and allowed(self.Config.BRAIN_SETTINGS.SELECTED_UPGRADES, name) then
-					local accessKnown = snapshot.UnlockedWorlds ~= nil and snapshot.UnlockedIslands ~= nil
-					local accessible = accessKnown and (snapshot.UnlockedWorlds[definition.Area] ~= nil
-						or snapshot.UnlockedIslands[definition.Area] ~= nil)
+					local accessKnown = definition.Area == nil or (snapshot.UnlockedWorlds ~= nil and snapshot.UnlockedIslands ~= nil)
+					local accessible = definition.Area == nil or (accessKnown and (snapshot.UnlockedWorlds[definition.Area] ~= nil
+						or snapshot.UnlockedIslands[definition.Area] ~= nil))
 					local owned = kind == "Gum" and snapshot.Upgrades.Gum or snapshot.Upgrades.Flavors
 					table.insert(result.Upgrades, {
 						Name = name, Kind = kind, Cost = copy(definition.Cost), Area = definition.Area,
@@ -225,6 +226,7 @@ function AccountStateReader:Read()
 				for _, currency in ipairs(settings.SELECTED_CURRENCIES) do
 					snapshot.Balances[currency] = number(raw[currency])
 				end
+				for currency in pairs(self.DiscoveredCurrencies) do snapshot.Balances[currency] = number(raw[currency]) end
 				if type(raw.Bubble) == "table" then
 					snapshot.Bubble.Amount = number(raw.Bubble.Amount)
 					snapshot.Bubble.Gum = raw.Bubble.Gum
@@ -336,6 +338,29 @@ function AccountStateReader:GetSnapshot()
 	return copy(self.Snapshot)
 end
 
+-- Internal consumers treat this native profile as read-only. No writes or synthetic values.
+function AccountStateReader:GetLiveProfile()
+	if self.Destroyed or not self.Config.ACCOUNT_SETTINGS.ENABLE_ACCOUNT_READER then return nil end
+	local service = self:_dependency("LocalData")
+	if not service or type(service.Get) ~= "function" or type(service.IsReady) ~= "function" then return nil end
+	local ok, ready = pcall(service.IsReady, service)
+	if not ok or not ready then return nil end
+	local received, profile = pcall(service.Get, service)
+	return received and type(profile) == "table" and profile or nil
+end
+
+function AccountStateReader:RegisterCurrency(name)
+	if type(name) == "string" then self.DiscoveredCurrencies[name] = true end
+end
+
+function AccountStateReader:ReadBalances()
+	local raw, result = self:GetLiveProfile(), {}
+	if not raw then return result end
+	for _, name in ipairs(self.Config.ACCOUNT_SETTINGS.SELECTED_CURRENCIES) do result[name] = number(raw[name]) end
+	for name in pairs(self.DiscoveredCurrencies) do result[name] = number(raw[name]) end
+	return result
+end
+
 function AccountStateReader:Start()
 	if self.StartedAt or self.Destroyed then return end
 	self.StartedAt = os.clock()
@@ -345,6 +370,14 @@ function AccountStateReader:Start()
 		for name, path in pairs({ Worlds = "Shared.Data.Worlds", Gum = "Shared.Data.Gum",
 			Flavors = "Shared.Data.Flavors", Mastery = "Shared.Data.Mastery", StatsUtil = "Shared.Utils.Stats.StatsUtil" }) do
 			self:_load(name, path)
+		end
+		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM then
+			self:_load("GetPickupZones", "Shared.Utils.GetPickupZones", "function")
+			self:_load("Remote", "Shared.Framework.Network.Remote")
+			self:_load("GuiFrame", "Client.Gui.GuiFrame")
+			self:_load("PhysicalItem", "Client.Effects.PhysicalItem")
+			self:_load("FishingPlayerRods", "Client.Gui.Frames.Fishing.FishingPlayerRods")
+			self:_load("IsTradingPlaza", "Shared.Utils.IsTradingPlaza", "function")
 		end
 	end
 	self:Refresh()

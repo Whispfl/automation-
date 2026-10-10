@@ -12,7 +12,13 @@ assert.equal(generated.output, await readFile(path.join(root, 'dist/OC.lua'), 'u
 assert.equal(generated.output, bundle(source).output, 'Build must be deterministic');
 assert(!/\bscript\./.test(generated.output), 'Bundle must not require a Script instance');
 assert(!/Instance\.new\(["'](?:Script|LocalScript|ModuleScript)["']/.test(generated.output), 'Bundle must not install scripts');
-assert(!/\b(?:FireServer|InvokeServer)\b/.test(generated.output), 'Phase 1 must not call gameplay remotes');
+for (const module of source.modules) {
+  if (module.name !== 'GameMechanics') assert(!/\b(?:FireServer|InvokeServer)\b/.test(module.source), 'Only the verified native mechanics adapter may invoke gameplay commands');
+}
+const mechanics = source.modules.find(m => m.name === 'GameMechanics').source;
+assert(!/CollectPickup\s*[:.]\s*FireServer/.test(generated.output), 'OC must not duplicate native pickup collection');
+assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics), 'No position or speed modification');
+assert(!/GitHubToken|Authorization|\bRequest\s*=/.test(generated.output), 'No client authentication');
 for (const { name, source: text } of source.modules) {
   if (name === 'OCConfig') for (const line of text.split('\n')) {
     if (/^\s+[A-Z][A-Z_]+\s*=/.test(line) && !line.endsWith('= {')) assert(line.includes('--//'), `Missing setting comment: ${line}`);
@@ -22,7 +28,7 @@ console.log('[OC] Static bundle and configuration checks passed');
 
 const executable = process.env.LUAU_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau.exe' : 'luau');
 const compiler = process.env.LUAU_COMPILE_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau-compile.exe' : 'luau-compile');
-const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua')], { encoding: 'utf8' });
+const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau')], { encoding: 'utf8' });
 if (compile.error) throw new Error('Official Luau CLI is required. Set LUAU_BIN and LUAU_COMPILE_BIN. ' + compile.error.message);
 process.stdout.write(compile.stdout);
 process.stderr.write(compile.stderr);
@@ -33,7 +39,12 @@ const harness = await readFile(path.join(root, 'tests/foundation.luau'), 'utf8')
 const [environment, assertions] = harness.split('-- BUNDLE INSERTION POINT');
 assert(assertions, 'Missing harness insertion point');
 const testPath = path.join(root, '.test-output/foundation.luau');
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions);
+const farmingAssertions = await readFile(path.join(root, 'tests/farming.luau'), 'utf8');
+const example = await readFile(path.join(root, 'examples/Loader.luau'), 'utf8');
+const exampleConfig = example.slice(0, example.indexOf('loadstring(game:HttpGet('));
+assert(exampleConfig.includes('local Config = {'), 'Copy-ready example is missing Config');
+const exampleCheck = `\nlocal exampleOverrides = (function()\n${exampleConfig}\nreturn Config\nend)()\nexampleOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal exampleController = requireOC("OCController").new(config(exampleOverrides))\nassert(exampleController.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == true)\nexampleController:Destroy()\nprint("[OC TEST] Published example Config validation passed")\n`;
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + exampleCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');

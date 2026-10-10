@@ -1,6 +1,7 @@
 --!nonstrict
 -- Pure recommendation engine. It never invokes remotes, purchases, or movement.
 local OCBrain = {}
+local FarmingPolicy = require(script.Parent.FarmingPolicy)
 OCBrain.__index = OCBrain
 
 local function countEntries(map)
@@ -22,6 +23,17 @@ end
 function OCBrain:Reset()
 	self.Previous = nil
 	self.SelectedAt = 0
+	self.FarmingMemory = { Mode = nil, StartedAt = 0, LastTest = {} }
+end
+
+function OCBrain:PlanFarming(snapshot, plan, context)
+	self.FarmingMemory = self.FarmingMemory or { Mode = nil, StartedAt = 0, LastTest = {} }
+	local result = FarmingPolicy.Decide(self.Config, snapshot, plan, context, self.FarmingMemory)
+	if result.Kind == "FARM" and result.Mode ~= self.FarmingMemory.Mode then
+		self.FarmingMemory.Mode, self.FarmingMemory.StartedAt = result.Mode, context.Now
+		self.FarmingMemory.LastTest[result.Mode] = context.Now
+	end
+	return result
 end
 
 function OCBrain:Classify(snapshot)
@@ -42,7 +54,7 @@ function OCBrain:Classify(snapshot)
 	elseif worlds <= 1 then stage = "DEVELOPING"
 	elseif worlds == 2 then stage = "MID_GAME"
 	else stage = "ADVANCED" end
-	return stage, string.format("%d unlocked worlds, %d discovered areas, %d pet records, %d Mastery levels. Full endgame completion is outside Phase 1.",
+	return stage, string.format("%d unlocked worlds, %d discovered areas, %d pet records, %d Mastery levels. Full endgame completion is not inferred.",
 		worlds, islands, pets, masteryTotal)
 end
 
@@ -119,7 +131,7 @@ function OCBrain:Plan(snapshot, token)
 								if upgrade.Kind == "Gum" and smallCapacity then priority += 90 end
 								add("BUY_UPGRADE:" .. upgrade.Name,
 									(withinBudget and "Consider " or "Save for ") .. upgrade.Name,
-									string.format("Base %s improvement %.0f%%; cost %.0f %s. No income/payback estimate is available in Phase 1.",
+									string.format("Base %s improvement %.0f%%; cost %.0f %s. Farming policy separately checks observed income and projected payback before purchasing.",
 										upgrade.Kind == "Gum" and "capacity" or "flavor output", gain * 100, cost.Amount, cost.Currency),
 									priority, "EARNING_POWER", withinBudget and {} or { "Meet the configured upgrade affordability budget" },
 									{ Cost = cost, Upgrade = upgrade.Name, Kind = upgrade.Kind })
@@ -169,7 +181,7 @@ function OCBrain:Plan(snapshot, token)
 					local funds = spendable(cost.Currency)
 					if funds and type(cost.Amount) == "number" then
 						add("MASTERY:" .. branch.Name, "Review " .. branch.Name .. " Mastery level " .. tostring(branch.Current + 1),
-							string.format("Next verified tier costs %.0f %s. Facility access and benefit evaluation are not automated in Phase 1.", cost.Amount, cost.Currency),
+							string.format("Next verified tier costs %.0f %s. Mastery purchasing remains a later-phase task.", cost.Amount, cost.Currency),
 							(funds >= cost.Amount and 550 or 300) - index, "MASTERY",
 							{ "Verify access to the Mastery facility", "Confirm the tier's benefit fits the selected goal" }, { Cost = cost })
 					end
@@ -207,7 +219,7 @@ function OCBrain:Plan(snapshot, token)
 		NextObjective = nextObjective,
 		Candidates = candidates, SnapshotRevision = snapshot.Revision,
 		Reservations = selected.Metadata.Cost and { selected.Metadata.Cost } or {},
-		ReservationPolicy = "Advisory only; Phase 1 never spends resources." }
+		ReservationPolicy = "Farming policy and native upgrade adapter enforce spending reserves before currency purchases." }
 end
 
 return OCBrain

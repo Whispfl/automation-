@@ -3,13 +3,15 @@ local AccountStateReader = require(script.Parent.AccountStateReader)
 local OCBrain = require(script.Parent.OCBrain)
 local TaskScheduler = require(script.Parent.TaskScheduler)
 local AccountPresentation = require(script.Parent.AccountPresentation)
+local FarmingCoordinator = require(script.Parent.FarmingCoordinator)
 
 local OCController = {}
 OCController.__index = OCController
 
 local function validate(config)
 	for _, name in ipairs({ "GENERAL_SETTINGS", "ACCOUNT_SETTINGS", "BRAIN_SETTINGS", "RESOURCE_SETTINGS",
-		"TASK_SETTINGS", "BUBBLE_SETTINGS", "FALL_EVENT_SETTINGS", "PET_SETTINGS", "STATUS_UI_SETTINGS", "DIAGNOSTIC_SETTINGS" }) do
+		"TASK_SETTINGS", "BUBBLE_SETTINGS", "FALL_EVENT_SETTINGS", "PET_SETTINGS", "STATUS_UI_SETTINGS", "DIAGNOSTIC_SETTINGS",
+		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS" }) do
 		assert(type(config[name]) == "table", "Missing configuration category: " .. name)
 	end
 	for category, entries in pairs(config) do
@@ -37,7 +39,7 @@ local function validate(config)
 	end
 	assert(type(config.ACCOUNT_SETTINGS.MINIMUM_SNAPSHOT_INTERVAL_SECONDS) == "number" and config.ACCOUNT_SETTINGS.MINIMUM_SNAPSHOT_INTERVAL_SECONDS >= 0,
 		"MINIMUM_SNAPSHOT_INTERVAL_SECONDS must be numeric and nonnegative")
-	assert(config.GENERAL_SETTINGS.PROGRESSION_PROFILE == "FULL_AUTO_PROGRESSION", "Only FULL_AUTO_PROGRESSION is implemented in Phase 1")
+	assert(config.GENERAL_SETTINGS.PROGRESSION_PROFILE == "FULL_AUTO_PROGRESSION", "Only FULL_AUTO_PROGRESSION is implemented")
 	assert(config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO > 0 and config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO <= 1, "Sell threshold must be in (0, 1]")
 	assert(config.RESOURCE_SETTINGS.MAXIMUM_UPGRADE_BALANCE_FRACTION > 0 and config.RESOURCE_SETTINGS.MAXIMUM_UPGRADE_BALANCE_FRACTION <= 1, "Upgrade budget fraction must be in (0, 1]")
 	assert(config.STATUS_UI_SETTINGS.PANEL_WIDTH_PIXELS >= 280 and config.STATUS_UI_SETTINGS.PANEL_HEIGHT_PIXELS >= 280, "Panel dimensions must be at least 280 pixels")
@@ -45,11 +47,21 @@ local function validate(config)
 		config.TASK_SETTINGS.MAXIMUM_PENDING_TASKS }) do
 		assert(limit >= 1 and limit % 1 == 0, "Entry and queue limits must be positive integers")
 	end
-	-- Future executors cannot be silently enabled in a Phase 1 build.
-	for _, category in ipairs({ "BUBBLE_SETTINGS", "PET_SETTINGS", "FALL_EVENT_SETTINGS" }) do
+	for _, value in ipairs({ config.FARMING_SETTINGS.OBSERVATION_INTERVAL_SECONDS, config.FARMING_SETTINGS.ACTION_SLICE_SECONDS,
+		config.FARMING_SETTINGS.MINIMUM_RATE_SAMPLE_SECONDS, config.FARMING_SETTINGS.RATE_WINDOW_SECONDS,
+		config.PICKUP_SETTINGS.COLLECTION_REFRESH_SECONDS, config.PICKUP_SETTINGS.ZONE_REFRESH_SECONDS,
+		config.PICKUP_SETTINGS.PATH_TIMEOUT_SECONDS, config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS,
+		config.UPGRADE_SETTINGS.PURCHASE_CONFIRMATION_TIMEOUT_SECONDS, config.BUBBLE_SETTINGS.SELL_CONFIRMATION_TIMEOUT_SECONDS }) do
+		assert(value >= 1, "Farming observation, sample, slice, and timeout intervals must be at least one second")
+	end
+	assert(config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS >= 0.5, "Native blowing cooldown must be at least 0.5 seconds")
+	assert(config.FARMING_SETTINGS.RATE_WINDOW_SECONDS >= config.FARMING_SETTINGS.MINIMUM_RATE_SAMPLE_SECONDS, "Rate window is smaller than the minimum sample")
+	assert(config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES >= 1 and config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES % 1 == 0, "Cluster candidate limit must be a positive integer")
+	-- Unimplemented future executors still cannot be silently enabled.
+	for _, category in ipairs({ "PET_SETTINGS", "FALL_EVENT_SETTINGS" }) do
 		for key, value in pairs(config[category]) do
 			if (key:match("^AUTO_") or key == "ENABLE_FALL_EVENT") and value then
-				error("[OC] " .. category .. "." .. key .. " is reserved; its executor is not implemented in Phase 1")
+				error("[OC] " .. category .. "." .. key .. " is reserved; its executor is not implemented in Phase 2")
 			end
 		end
 	end
@@ -71,6 +83,7 @@ function OCController.new(config, player)
 	self.LastPlanAt = -math.huge
 	self.Connections = {}
 	self.Snapshot = self.Reader:GetSnapshot()
+	self.Farming = FarmingCoordinator.new(self, player)
 	table.insert(self.Connections, self.Reader.Changed.Event:Connect(function(snapshot)
 		self.Snapshot = snapshot
 		self:_diagnoseSnapshot(snapshot)
@@ -78,8 +91,17 @@ function OCController.new(config, player)
 		self:_requestPlan(false)
 	end))
 	table.insert(self.Connections, self.Scheduler.Changed.Event:Connect(function() self:_notify() end))
-	table.insert(self.Connections, self.Scheduler.Completed.Event:Connect(function(id, status, result, reason)
-		if self.Destroyed or self.State ~= "RUNNING" or id ~= "ANALYZE_ACCOUNT" then return end
+	table.insert(self.Connections, self.Scheduler.Completed.Event:Connect(function(id, status, result, reason, definition)
+		if self.Destroyed or self.State ~= "RUNNING" then return end
+		if id == "OC_GAMEPLAY" then
+			if definition and definition.Generation == self.Generation then
+				self.Farming:Completed(status, result, reason)
+				self.Reader:Refresh()
+				self:_requestPlan(true)
+			end
+			return
+		end
+		if id ~= "ANALYZE_ACCOUNT" then return end
 		if status == "COMPLETED" and type(result) == "table" and result.Generation == self.Generation then
 			if result.SnapshotRevision < self.Snapshot.Revision then self:_requestPlan(true) return end
 			self.Plan = result
@@ -92,12 +114,19 @@ function OCController.new(config, player)
 				self:Log("PROGRESSION", result.Progression .. " | " .. result.ProgressionEvidence)
 				if #goal.Prerequisites > 0 then self:Log("PREREQUISITES", table.concat(goal.Prerequisites, "; ")) end
 			end
+			local decision = self.Farming:Select(result)
+			local taskDefinition = self.Farming:Definition(decision, self.Generation)
+			if taskDefinition then
+				local accepted, errorMessage = self.Scheduler:Submit(taskDefinition)
+				if not accepted then self.Error = errorMessage self:Log("FARM][ERROR", errorMessage) end
+			end
 		elseif status == "FAILED" then self.Error = tostring(result) self:Log("DIAGNOSTIC", self.Error)
-		elseif status == "CANCELLED" and reason == "Analysis timed out" then self.Error = reason self:Log("DIAGNOSTIC", reason) end
+		elseif status == "CANCELLED" and reason == "Task timed out" then self.Error = reason self:Log("DIAGNOSTIC", reason) end
 		self:_notify()
 	end))
 	-- Reading remains available while controls are stopped; no gameplay is executed.
 	self.Reader:Start()
+	self.Farming:StartObservations()
 	return self
 end
 
@@ -166,7 +195,7 @@ end
 
 function OCController:GetStatus()
 	return { State = self.State, Snapshot = self.Reader:GetSnapshot(), Plan = self.Plan,
-		Scheduler = self.Scheduler:GetStatus(), Error = self.Error, Phase = 1 }
+		Scheduler = self.Scheduler:GetStatus(), Farming = self.Farming:GetStatus(), Error = self.Error, Phase = 2 }
 end
 
 function OCController:_notify()
@@ -217,7 +246,7 @@ function OCController:Start()
 	self.Scheduler:Resume()
 	self:_requestPlan(true)
 	self:_notify()
-	self:Log("CONTROL", "START | account analysis running; gameplay executors absent")
+	self:Log("CONTROL", "START | account analysis and Brain-selected Phase 2 tasks enabled by Config")
 	return true
 end
 
@@ -227,6 +256,7 @@ function OCController:Pause()
 	self.State = "PAUSED"
 	self:_cancelReplan()
 	self.Scheduler:Pause()
+	self.Farming:Halt()
 	self:_notify()
 	self:Log("CONTROL", "PAUSE | recommendations paused; read-only account updates remain visible")
 	return true
@@ -250,6 +280,7 @@ function OCController:Stop()
 	self.State = "STOPPED"
 	self:_cancelReplan()
 	self.Scheduler:Stop()
+	self.Farming:Halt()
 	self.Plan = nil
 	self.Error = nil
 	self.Brain:Reset()
@@ -267,6 +298,7 @@ function OCController:Destroy()
 	if self.Interface then self.Interface:Destroy() end
 	for _, connection in ipairs(self.Connections) do connection:Disconnect() end
 	self.Reader:Destroy()
+	self.Farming:Destroy()
 	self.Scheduler:Destroy()
 	self.Changed:Destroy()
 	self:Log("CONTROL", "DESTROY | panel, subscriptions, and reader cleaned up")

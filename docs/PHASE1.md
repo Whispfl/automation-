@@ -1,5 +1,7 @@
 # Phase 1 plan and implemented architecture
 
+**Historical Phase 1 release documentation. USER APPROVED PASS:** the owner confirmed real-time statistics, account progression and goal selection on October 10, 2026. The current Phase 2 extension and changed bubble executor settings are documented in [PHASE2.md](PHASE2.md); the old reserved bubble settings below describe the Phase 1 release only.
+
 1. Inspect existing client data, shared stat helpers, definition tables, and scene gates using Studio read tools. Record uncertainty before defining an adapter.
 2. Build AccountStateReader snapshots from LocalData. Keep missing values unavailable, copy received inventory, resolve equipped IDs, and use game helpers for effective stats.
 3. Resolve partial user overrides against the single OCConfig. Replace arrays in full, validate types/unknown keys, and reject requests for unimplemented executors.

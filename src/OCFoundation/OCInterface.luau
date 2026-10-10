@@ -30,10 +30,10 @@ function OCInterface.new(controller, playerGui)
 	make("UIPadding", { PaddingTop = UDim.new(0, 16), PaddingBottom = UDim.new(0, 14),
 		PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }, self.Panel)
 	make("TextLabel", { Name = "Title", Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1,
-		Text = "BUBBLE OC  /  PHASE 1", TextSize = 18, Font = Enum.Font.GothamBold,
+		Text = "BUBBLE OC  /  PHASE 2", TextSize = 18, Font = Enum.Font.GothamBold,
 		TextColor3 = Color3.fromRGB(241, 246, 255), TextXAlignment = Enum.TextXAlignment.Left }, self.Panel)
 	make("TextLabel", { Name = "Scope", Position = UDim2.fromOffset(0, 29), Size = UDim2.new(1, 0, 0, 20),
-		BackgroundTransparency = 1, Text = "Account analysis and recommendations", TextSize = 12,
+		BackgroundTransparency = 1, Text = "Intelligent farming, selling and upgrades", TextSize = 12,
 		Font = Enum.Font.Gotham, TextColor3 = Color3.fromRGB(162, 178, 203), TextXAlignment = Enum.TextXAlignment.Left }, self.Panel)
 	local controls = make("Frame", { Name = "Controls", Position = UDim2.fromOffset(0, 61), Size = UDim2.new(1, 0, 0, 36),
 		BackgroundTransparency = 1 }, self.Panel)
@@ -55,7 +55,7 @@ function OCInterface.new(controller, playerGui)
 		CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 3 }, self.Panel)
 	make("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }, content)
 	self.Labels = {}
-	for index, name in ipairs({ "State", "Objective", "Reason", "Prerequisites", "Balances", "Progression", "Pets", "Inventory", "Worlds", "Upgrades", "Mastery", "Diagnostics" }) do
+	for index, name in ipairs({ "State", "Objective", "Reason", "Prerequisites", "Farming", "Rates", "Islands", "Balances", "Progression", "Pets", "Inventory", "Worlds", "Upgrades", "Mastery", "Diagnostics" }) do
 		self.Labels[name] = make("TextLabel", { Name = name, LayoutOrder = index, Size = UDim2.new(1, -8, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = "", TextWrapped = true,
 			TextSize = name == "Objective" and 17 or 13, Font = name == "Objective" and Enum.Font.GothamBold or Enum.Font.Gotham,
@@ -91,7 +91,7 @@ function OCInterface:Render(status)
 	local objective = plan and plan.Objective
 	self.Labels.State.Text = status.State .. "  ·  " .. (snapshot.Status or "NOT_STARTED")
 	self.Labels.Objective.Text = objective and objective.Title or (status.State == "STOPPED" and "Press START to analyze your account" or "Analyzing account")
-	self.Labels.Reason.Text = objective and objective.Reason or "Gameplay actions are not installed in this phase."
+	self.Labels.Reason.Text = objective and objective.Reason or "Waiting for real account data and configured controls."
 	self.Labels.Prerequisites.Visible = settings.SHOW_PREREQUISITES and objective ~= nil and #objective.Prerequisites > 0
 	self.Labels.Prerequisites.Text = objective and "Prerequisites: " .. table.concat(objective.Prerequisites, " · ") or ""
 	local sections = AccountPresentation.Sections(snapshot, self.Controller.Config, settings.MAXIMUM_DISPLAY_ENTRIES)
@@ -105,8 +105,36 @@ function OCInterface:Render(status)
 	self.Labels.Progression.Text = "Progression: " .. (plan and plan.Progression or "UNDETERMINED")
 		.. "\nWorlds: " .. count(snapshot.UnlockedWorlds) .. "   Areas: " .. count(snapshot.UnlockedIslands)
 		.. (plan and "\n" .. plan.ProgressionEvidence or "")
+	local farming = status.Farming or {}
+	local decision = farming.Decision or {}
+	self.Labels.Farming.Visible = settings.SHOW_FARMING
+	self.Labels.Farming.Text = "FARMING: " .. tostring(farming.Activity or decision.Mode or decision.Kind or "Waiting")
+		.. "\nArea: " .. tostring(farming.Area or "unavailable") .. " | target: " .. tostring(decision.Currency or "unavailable")
+		.. "\n" .. tostring(decision.Reason or "Observing accessible game mechanics")
+		.. string.format("\nPickups: %d eligible / %d visible; %d unidentified | radius: %s", farming.EligiblePickups or 0, farming.VisiblePickups or 0,
+			farming.UnknownPickups or 0, tostring(farming.Radius or "unavailable"))
+		.. "\n" .. tostring(farming.CollectionMethod or "") .. "\n" .. tostring(farming.LastConfirmation or "")
+		.. "\nObserved new models: " .. tostring(farming.ObservedSpawns or 0) .. "; respawn observations: " .. tostring(farming.RespawnObservations or 0)
+	local rates = {}
+	for mode, entry in pairs(farming.Rates or {}) do
+		local values = {}
+		for currency, value in pairs(entry.PerMinute) do table.insert(values, string.format("%.2f %s/min", value, currency)) end
+		table.sort(values)
+		table.insert(rates, mode .. " (" .. string.format("%.1fs", entry.Seconds) .. "): " .. (entry.Ready and (#values > 0 and table.concat(values, ", ") or "0 observed income") or "sampling"))
+	end
+	table.sort(rates)
+	self.Labels.Rates.Visible = settings.SHOW_FARMING_RATES
+	self.Labels.Rates.Text = "OBSERVED RATES (external rewards may affect attribution)\n" .. (#rates > 0 and table.concat(rates, "\n") or "No earning samples yet")
+	local islands = {}
+	for index, candidate in ipairs(decision.IslandCandidates or {}) do
+		if index > settings.MAXIMUM_DISPLAY_ENTRIES then break end
+		table.insert(islands, string.format("%s: %.2f %s/min | %s", candidate.Name, candidate.PerMinute, candidate.Currency, candidate.Evidence))
+	end
+	self.Labels.Islands.Visible = settings.SHOW_ISLAND_CANDIDATES and #islands > 0
+	self.Labels.Islands.Text = "ELIGIBLE ISLANDS\n" .. table.concat(islands, "\n")
 	local diagnostics = {}
 	if status.Error then table.insert(diagnostics, status.Error) end
+	if farming.Error then table.insert(diagnostics, farming.Error) end
 	if snapshot.UnavailableFields and #snapshot.UnavailableFields > 0 then
 		table.insert(diagnostics, "Unavailable fields: " .. table.concat(snapshot.UnavailableFields, ", "))
 	end

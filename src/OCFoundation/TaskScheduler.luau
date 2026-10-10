@@ -39,8 +39,8 @@ function TaskScheduler:_pump()
 	local active = { Definition = definition, Token = token }
 	self.Active = active
 	self.Changed:Fire(self:GetStatus())
-	active.TimeoutThread = task.delay(self.Settings.TASK_TIMEOUT_SECONDS, function()
-		if self.Active == active then self:CancelActive("Analysis timed out") end
+	active.TimeoutThread = task.delay(definition.TimeoutSeconds or self.Settings.TASK_TIMEOUT_SECONDS, function()
+		if self.Active == active then self:CancelActive("Task timed out") end
 	end)
 	-- Defer so the timeout/thread handles are installed before a synchronous task finishes.
 	active.Thread = task.defer(function()
@@ -59,7 +59,7 @@ function TaskScheduler:_pump()
 		if self.Active == active then self.Active = nil end
 		if self.Destroyed then return end
 		local status = token.Cancelled and "CANCELLED" or (skipped and "SKIPPED" or (ok and "COMPLETED" or "FAILED"))
-		self.Completed:Fire(definition.Id, status, result, token.Reason)
+		self.Completed:Fire(definition.Id, status, result, token.Reason, definition)
 		self.Changed:Fire(self:GetStatus())
 		self:_pump()
 	end)

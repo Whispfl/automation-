@@ -35,6 +35,13 @@ local function event()
 end
 local Instance = { new = function(kind) assert(kind == "BindableEvent", "Offline tests permit only events") return event() end }
 local workspace = { FindFirstChild = function() return nil end }
+-- Minimal offline vector arithmetic for coverage-scoring fixtures, not Roblox geometry verification.
+local vectorMeta = {}
+local Vector3 = {}
+function Vector3.new(x, y, z) return setmetatable({ X = x, Y = y, Z = z }, vectorMeta) end
+function vectorMeta.__sub(a, b) return Vector3.new(a.X - b.X, a.Y - b.Y, a.Z - b.Z) end
+function vectorMeta.__add(a, b) return Vector3.new(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end
+function vectorMeta.__index(a, key) if key == "Magnitude" then return math.sqrt(a.X*a.X + a.Y*a.Y + a.Z*a.Z) end end
 local services = {
 	Players = {}, ReplicatedStorage = { FindFirstChild = function() return nil end },
 	RunService = { IsClient = function() return true end },

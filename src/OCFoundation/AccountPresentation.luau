@@ -49,8 +49,13 @@ function AccountPresentation.Sections(snapshot, config, limit)
 	local sections = {}
 	local inventory, bubble, upgrades = snapshot.Inventory or {}, snapshot.Bubble or {}, snapshot.Upgrades or {}
 	local balances = {}
+	local displayed = {}
 	for _, name in ipairs(config.ACCOUNT_SETTINGS.SELECTED_CURRENCIES) do
 		table.insert(balances, name .. ": " .. AccountPresentation.Number((snapshot.Balances or {})[name]))
+		displayed[name] = true
+	end
+	for _, name in ipairs(keys(snapshot.Balances or {})) do
+		if not displayed[name] then table.insert(balances, name .. ": " .. AccountPresentation.Number(snapshot.Balances[name])) end
 	end
 	table.insert(balances, "Bubbles: " .. AccountPresentation.Number(bubble.Amount) .. " / " .. AccountPresentation.Number(bubble.Capacity))
 	table.insert(balances, "Power per blow: " .. AccountPresentation.Number(bubble.PowerPerBlow))

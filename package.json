@@ -1,8 +1,8 @@
 {
   "name": "ocscript",
   "private": true,
-  "version": "0.1.0",
-  "description": "Phase 1 read-only account intelligence foundation",
+  "version": "0.2.0",
+  "description": "Phase 2 intelligent resource farming, selling and upgrades",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node scripts/test.mjs"

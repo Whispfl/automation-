@@ -1,56 +1,50 @@
-# OCscript — Phase 1
+# OCscript — Phase 2 test candidate
 
-Read-only account intelligence for the inspected BGSI client structure. The single `dist/OC.lua` bundle returns an initializer: `loadstring(source)()(Config)`. No Script, LocalScript, or ModuleScript is installed by the bundle. Development uses Studio exclusively as a read-only reference; the owner runs every in-game test.
+**Phase 1: USER APPROVED PASS.** The owner confirmed live statistics, account progression and Brain goals in their authorized runtime on October 10, 2026. **Phase 2: READY FOR USER TEST after publication; in-game approval pending.**
 
-Implemented: AccountStateReader, one centralized OCConfig, OCBrain recommendations, one foreground TaskScheduler, Start/Pause/Resume/Stop controls, detailed status panel, and `[OC]` diagnostics. No gameplay executors are implemented. The reader reports missing fields as unavailable and never creates a player profile or substitutes zero for a missing statistic.
+Intelligent Island Farming, Bulk Currency Collection Fallback, Bubble Farming and Upgrades extend the existing account reader, configuration, OCBrain, foreground scheduler, controls and status panel. All source and the generated single-file entry live in this public [OCscript repository](https://github.com/ryanrooflead-source/OCscript). Development uses Roblox Studio only as a read-only reference. No Studio objects or scripts are installed or modified.
 
-## First test build
+## Run the single entry
 
-All development modules, configuration, documentation, examples, and the generated bundle live in this public [OCscript repository](https://github.com/ryanrooflead-source/OCscript). Future fixes are rebuilt into `dist/OC.lua` and pushed here before owner-run testing.
-
-Use [examples/Loader.luau](examples/Loader.luau), or paste a custom Config above this single line:
+Copy [examples/Loader.luau](examples/Loader.luau) into your already approved testing runtime, which supports `loadstring` and `game:HttpGet`. It contains one editable Config and one public download:
 
 ```lua
-local Config = {
-    GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true },
-    STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = true },
-}
 loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
 ))()(Config)
 ```
 
-The download is public and requires no GitHub token, Request function, custom headers, or authentication. Partial configuration overrides preserve the existing UPPER_SNAKE_CASE category/setting structure. Omitted settings inherit the single OCConfig defaults.
+There is no GitHub authentication in client code. Partial overrides preserve UPPER_SNAKE_CASE category/setting names; omitted keys inherit [OCConfig.luau](src/OCFoundation/OCConfig.luau). Purchases and owned-upgrade equips default to **false** in the module. The test example explicitly enables them with caps, payback evaluation and goal reserves. Set either purchase toggle to false to test farming without that spending.
 
-The entry expects an authorized client testing runtime with `loadstring` and `game:HttpGet`. These are runtime-specific capabilities, not a promise of ordinary LocalScript compatibility. Standard Roblox `loadstring` is server-only and disabled by default; a server entry cannot inspect a client's LocalData or PlayerGui. See [Roblox's loadstring documentation](https://create.roblox.com/docs/reference/engine/globals/LuaGlobals#loadstring). If your client runtime instead accepts local source/files, download the public `dist/OC.lua` and supply that single bundle; for a runtime with `readfile`:
+## What this candidate implements
 
-```lua
-local Config = { GENERAL_SETTINGS = { AUTO_START = true } }
-local OC = loadstring(readfile("OC.lua"))()(Config)
-```
+- Real Phase 1 account observations and goals, plus dynamically discovered live currency balances.
+- Goal-currency island ranking from unlocked scene zones, real pickup definitions, native stat multipliers and observed rates. Unknown availability, travel or respawn overhead is labeled **estimated**.
+- Native travel to supported unlocked island spawns and accessible selling roots, with arrival checks, dwell thresholds, cooldowns and failed/empty-destination backoff.
+- Full rendered-pickup scans, spawn metadata, unique prefab matching for preexisting pickups, fair frozen-set sweeps, cluster coverage and normal Humanoid pathfinding.
+- Pickup, bubble and combined activity measurements; no conversion that treats a coin as equal to a gem or event token.
+- Guarded `BlowBubble`, native activation selling, useful currency-only gum/flavor purchase/equip commands, live affordability checks and ownership/equipment confirmation.
+- Farming, area, rates, island evidence, real balances and confirmed/unconfirmed outcomes in the existing UI and `[OC]` logs.
 
-This does not require adding scripts to the Studio project. In-game require compatibility and account delivery still need owner-run testing.
+**Collection limitation:** the inspected native client exposes `CollectPickup(id)` and collects every pickup within `StatsUtil:GetPickupRange(profile)`. No genuine island-wide batch interface was found. OC does not send per-item collection remotes or disguise them as a batch. It groups live currency pickups into coverage clusters and walks to dense reachable positions; the native collector performs the actual per-ID calls. A cluster covering the whole island requires no per-item navigation. Other islands require multiple radius visits. This candidate cannot promise an unsupported instant sweep.
 
-## In-game verification checklist
+Bubble **storage** is purchased through gum. No verified pet-storage purchase interface was found. Seven Seas definitions have no currency pickup pool; fishing, hatching, unlocking new islands/worlds, Mastery spending, Rifts, rebirths and event shops/consumables remain outside this build. Live event currency pickups are observable only where actual scene zones exist; unverified special-event travel is not invented.
 
-1. Join the authorized client test environment, allow the game's account to load, then run the loader. Capture the `[OC][INIT]` build ID and all `[OC][DEPENDENCY]` messages.
-2. Compare exact coins, gems, bubbles, effective capacity, and bubble power against the game's account UI. Missing seasonal balances should show unavailable, not zero.
-3. Compare the active team IDs, equipped pet records, inventory, potions/powerups, unlocked worlds/islands, owned gum/flavors, and Mastery levels. Displays/logs show up to 30 entries per list by default. The initializer returns the controller and also stores it as `shared.__OC_PHASE1_INSTANCE` where supported. Its `GetStatus().Snapshot` retains the complete received tables; `shared.__OC_PHASE1_INSTANCE:PrintAccount(100)` prints a larger diagnostic listing.
-4. Check that a next goal and its reason/prerequisites appear. Progression categories are transparent heuristics from received unlock/pet/Mastery counts; they are not the game's official level/rank.
-5. Pause, change a balance/team manually, then Resume. The account view should refresh and recommendations should resume. Stop clears the goal; Start recomputes. Stop/Pause leave the read-only reader available. The controller's `Destroy()` closes the panel and removes reader subscriptions.
-6. Re-run the loader and check that only one hosted OC panel/reader remains. Existing legacy Studio installations are not modified by development tools or assumed to be this hosted instance.
+## Owner-run verification
 
-Return screenshots, `[OC]` console output, and any mismatched values. **Real player-statistics reading, game-module require compatibility, rendered UI, and controls in the user's actual runtime remain unverified.** Do not approve Phase 2 until this test passes.
+1. Check `[OC][INIT]` build ID and dependency statuses; compare all Phase 1 account statistics and goals against the game.
+2. Check `[OC][FARM][GOAL]` and `[ISLANDS]`: target currency, unlocked candidates, evidence and switch reason must make sense. Confirm locked islands are excluded.
+3. Confirm `[TRAVEL]` reports arrival at the selected island, with no rapid ping-pong travel.
+4. Check `[BULK]` eligible/cluster counts and the declared native radius fallback. Confirm actual before/after balances increase in `[EARNINGS]`; model disappearance alone is not success.
+5. Let pickups respawn. Confirm new cycles occur without duplicate OC collection calls or repeated unreachable targets.
+6. Allow at least one full bubble fill/sale and several activity samples. Confirm relevant measured currency/minute, fallback decisions and simultaneous blowing where permitted.
+7. Check sell-station currency/multiplier, real bubble decrease, affordable useful upgrades, ownership/equipment changes and reserves. Purchases can be intentionally skipped when no measured payback or budget supports them.
+8. Pause/Stop must halt OC movement and future commands; statistics keep updating. Set feature toggles false and rerun to verify exclusions. Check that rerunning leaves one hosted panel.
 
-## Build and local checks
+Send `[OC]` logs/screenshots and any mismatch. **Phase 2 remains pending until you explicitly approve it. No Phase 3 work begins before that approval.** The controller remains available at `shared.__OC_PHASE1_INSTANCE` for compatibility; `:PrintAccount(100)` prints longer account lists and `:GetStatus()` includes farming state. The initializer also returns the controller.
 
-```text
-node scripts/build.mjs
-node scripts/test.mjs
-```
+## Source and verification
 
-Node uses no external npm dependencies. Tests additionally need the official [Luau CLI](https://github.com/luau-lang/luau/releases). Set `LUAU_BIN` and `LUAU_COMPILE_BIN`, or place executables in ignored `.tools/luau/`. The build is deterministic and packages all OC modules as private function factories, replacing OC imports without creating ModuleScripts or overriding the game's native require.
+`node scripts/build.mjs` builds deterministic private module factories into `dist/OC.lua`; game ModuleScript require stays native. `node scripts/test.mjs` checks configuration/bundle constraints, compiles all Luau sources and runs synthetic offline tests plus the actual bundled initializer. Tests require the official [Luau CLI](https://github.com/luau-lang/luau/releases), configured by `LUAU_BIN`/`LUAU_COMPILE_BIN` or ignored `.tools/luau/` binaries. Node uses no third-party packages.
 
-Local verification: all modules and the bundle compile with Luau 0.742; nine offline tests cover configuration replacement/validation, unknown account handling, disabled features, resource-aware recommendation eligibility, scheduler priorities/completion/cancellation, and controller lifecycle/stale-result rejection. A separate bundle entry check confirms that the actual generated chunk returns an initializer, accepts Config overrides, and initializes the foundation without fabricating missing statistics. Test fixtures are explicitly synthetic, live outside `dist/`, and do not verify any real account data. The public raw file is downloaded without authentication and checked against the local build byte for byte before handoff.
-
-See [Phase 1 architecture and each setting's execution rules](docs/PHASE1.md) and [observed interfaces and limitations](docs/WORKSPACE_REFERENCE.md).
+See [Phase 2 plan and each configuration setting](docs/PHASE2.md), [read-only workspace interface evidence](docs/WORKSPACE_REFERENCE.md), and [historical Phase 1 architecture](docs/PHASE1.md). Static checks and synthetic tests are not live gameplay verification. The raw public artifact is downloaded without authentication and compared byte-for-byte before handoff.
