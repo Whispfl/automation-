@@ -79,6 +79,11 @@ Final decision reasons cite the final mode, not a candidate's discarded score.
 ## Next owner test
 
 Run `examples/CombinedFarming.luau` for 5–10 minutes with purchases/equips disabled.
+The next test selects only The Void and Zen in The Overworld. Farming and bounded
+exploration exclude Floating Island, Outer Space and the main Overworld. Travel
+rechecks LocalData unlocks; it never unlocks an island. Definitions establish reward
+possibilities, while live availability and confirmed currency earnings determine
+the comparison. Selling elsewhere is allowed, followed by a selected-island return.
 The separate upgrade gameplay test remains deferred. Send logs covering:
 
 1. `[FARM][BACKGROUND]` actual growth and requests while pickup visits are active;

@@ -6,7 +6,7 @@ Intelligent Island Farming, Bulk Currency Collection Fallback, Bubble Farming an
 
 ## Pickup fix and global architecture
 
-Use [examples/CombinedFarming.luau](examples/CombinedFarming.luau) for the next test: it selects `PICKUP_FIRST`, cooperative background blowing and Floating Island/Outer Space, with purchases/equips disabled. The separate upgrade gameplay test is deferred until the owner evaluates combined farming. [PickupOnly.luau](examples/PickupOnly.luau) remains available for isolation. Central defaults retain `EFFICIENCY` for compatibility; the explicit strategy selects the new behavior.
+Use [examples/CombinedFarming.luau](examples/CombinedFarming.luau) for the next test: it selects `PICKUP_FIRST`, cooperative background blowing and only The Void/Zen in The Overworld, with purchases/equips disabled. Travel rechecks actual unlocks and selling excursions return to an eligible selected island. The separate upgrade gameplay test is deferred until the owner evaluates combined farming. Central defaults retain `EFFICIENCY` for compatibility; the explicit strategy selects the new behavior.
 
 Read the [latest pickup-first behavior and owner checks](docs/PICKUP_FIRST.md). Farming restrictions now apply to current-island execution; selling saves a return intent. Full bubbles interrupt isolated probes. Progressing routes can continue across bounded slices, and complete combined measurements include selling/return overhead. These changes await owner gameplay verification.
 

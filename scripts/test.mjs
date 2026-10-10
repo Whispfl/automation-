@@ -59,6 +59,11 @@ assert.equal(run.status, 0, 'Foundation behavior tests failed');
 for (const [filename, enabled] of [['CombinedFarming.luau', false], ['UpgradeTest.luau', true]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
   const configText = contents.slice(0, contents.indexOf('loadstring(game:HttpGet('));
+  if (filename === 'CombinedFarming.luau') {
+    assert(configText.includes('SELECTED_ISLANDS = { "The Void", "Zen" }'));
+    assert(configText.includes('SELECTED_WORLDS = { "The Overworld" }'));
+    assert(!/Floating Island|Outer Space/.test(configText));
+  }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;
   await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);
   const exampleRun = spawnSync(executable, [testPath], { encoding: 'utf8' });

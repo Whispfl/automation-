@@ -260,4 +260,15 @@ test("Pickup-first exploration uses combined farming rather than an isolated arr
 	assert(decision.Kind == "FARM" and decision.Mode == "COMBINED" and not decision.Probe)
 end)
 
+test("Void and Zen restriction requires the selected world and actual unlocked evidence", function()
+	local selected = pickupFirstConfig({ BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } },
+		ISLAND_SETTINGS = { SELECTED_ISLANDS = { "The Void", "Zen" } } })
+	for _, name in ipairs({ "The Void", "Zen", "Floating Island", "Outer Space", "The Overworld" }) do
+		local area = { Name = name, World = "The Overworld", Key = "The Overworld/" .. name, Unlocked = true }
+		assert(Policy.IsFarmingArea(selected, area) == (name == "The Void" or name == "Zen"))
+		area.Unlocked = false assert(not Policy.IsFarmingArea(selected, area))
+		area.Unlocked, area.World = true, "Other World" assert(not Policy.IsFarmingArea(selected, area))
+	end
+end)
+
 print(string.format("[OC TEST] %d pickup-first regressions passed; %d total. Live owner testing remains pending.", tests - pickupFirstBefore, tests))

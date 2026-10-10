@@ -1,6 +1,7 @@
 -- Combined farming verification. Omitted values inherit central OCConfig.
 local Config = {
 	GENERAL_SETTINGS = { AUTO_START = true }, --// Start the enabled Brain tasks.
+	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Restrict farming and exploration to this world.
 	FARMING_SETTINGS = {
 		FARMING_STRATEGY = "PICKUP_FIRST", --// Pickups are primary; blowing is cooperative background work.
 		ISOLATED_PICKUP_PROBES = false, --// Measure real combined operation during this test.
@@ -10,7 +11,7 @@ local Config = {
 		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Limit movement with a full bubble before selling.
 	},
 	ISLAND_SETTINGS = {
-		SELECTED_ISLANDS = { "Floating Island", "Outer Space" }, --// Test these already discovered farming islands.
+		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Farm only these islands after verifying actual unlocks.
 		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Bounded allowed-island exploration without suppressing background blowing.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Permit supported unlocked island and selling travel.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapid island switching.
