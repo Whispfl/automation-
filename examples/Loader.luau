@@ -30,5 +30,6 @@ local Config = {
 	},
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript-builds/main/dist/OC.lua"))()(Config)
-return OC
+loadstring(game:HttpGet(
+	"https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
+))()(Config)

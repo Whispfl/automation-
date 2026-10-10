@@ -6,7 +6,7 @@ Implemented: AccountStateReader, one centralized OCConfig, OCBrain recommendatio
 
 ## First test build
 
-This development repository stays **private**. Only the generated bundle is published in the public [OCscript-builds repository](https://github.com/ryanrooflead-source/OCscript-builds). The public bundle necessarily contains the readable bundled Luau; separate source files and development history remain private.
+All development modules, configuration, documentation, examples, and the generated bundle live in this public [OCscript repository](https://github.com/ryanrooflead-source/OCscript). Future fixes are rebuilt into `dist/OC.lua` and pushed here before owner-run testing.
 
 Use [examples/Loader.luau](examples/Loader.luau), or paste a custom Config above this single line:
 
@@ -15,7 +15,9 @@ local Config = {
     GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true },
     STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = true },
 }
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript-builds/main/dist/OC.lua"))()(Config)
+loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
+))()(Config)
 ```
 
 The download is public and requires no GitHub token, Request function, custom headers, or authentication. Partial configuration overrides preserve the existing UPPER_SNAKE_CASE category/setting structure. Omitted settings inherit the single OCConfig defaults.
@@ -33,9 +35,9 @@ This does not require adding scripts to the Studio project. In-game require comp
 
 1. Join the authorized client test environment, allow the game's account to load, then run the loader. Capture the `[OC][INIT]` build ID and all `[OC][DEPENDENCY]` messages.
 2. Compare exact coins, gems, bubbles, effective capacity, and bubble power against the game's account UI. Missing seasonal balances should show unavailable, not zero.
-3. Compare the active team IDs, equipped pet records, inventory, potions/powerups, unlocked worlds/islands, owned gum/flavors, and Mastery levels. Displays/logs show up to 30 entries per list by default; `OC:GetStatus().Snapshot` retains the complete received tables. Use `OC:PrintAccount(100)` for a larger diagnostic listing.
+3. Compare the active team IDs, equipped pet records, inventory, potions/powerups, unlocked worlds/islands, owned gum/flavors, and Mastery levels. Displays/logs show up to 30 entries per list by default. The initializer returns the controller and also stores it as `shared.__OC_PHASE1_INSTANCE` where supported. Its `GetStatus().Snapshot` retains the complete received tables; `shared.__OC_PHASE1_INSTANCE:PrintAccount(100)` prints a larger diagnostic listing.
 4. Check that a next goal and its reason/prerequisites appear. Progression categories are transparent heuristics from received unlock/pet/Mastery counts; they are not the game's official level/rank.
-5. Pause, change a balance/team manually, then Resume. The account view should refresh and recommendations should resume. Stop clears the goal; Start recomputes. Stop/Pause leave the read-only reader available. `OC:Destroy()` closes the panel and removes reader subscriptions.
+5. Pause, change a balance/team manually, then Resume. The account view should refresh and recommendations should resume. Stop clears the goal; Start recomputes. Stop/Pause leave the read-only reader available. The controller's `Destroy()` closes the panel and removes reader subscriptions.
 6. Re-run the loader and check that only one hosted OC panel/reader remains. Existing legacy Studio installations are not modified by development tools or assumed to be this hosted instance.
 
 Return screenshots, `[OC]` console output, and any mismatched values. **Real player-statistics reading, game-module require compatibility, rendered UI, and controls in the user's actual runtime remain unverified.** Do not approve Phase 2 until this test passes.
@@ -49,6 +51,6 @@ node scripts/test.mjs
 
 Node uses no external npm dependencies. Tests additionally need the official [Luau CLI](https://github.com/luau-lang/luau/releases). Set `LUAU_BIN` and `LUAU_COMPILE_BIN`, or place executables in ignored `.tools/luau/`. The build is deterministic and packages all OC modules as private function factories, replacing OC imports without creating ModuleScripts or overriding the game's native require.
 
-Local verification: all modules and the bundle compile with Luau 0.742; nine offline tests cover configuration replacement/validation, unknown account handling, disabled features, resource-aware recommendation eligibility, scheduler priorities/completion/cancellation, and controller lifecycle/stale-result rejection. Test fixtures are explicitly synthetic, live outside `dist/`, and do not verify any real account data. The public raw file is downloaded without authentication and checked against the private build byte for byte before handoff.
+Local verification: all modules and the bundle compile with Luau 0.742; nine offline tests cover configuration replacement/validation, unknown account handling, disabled features, resource-aware recommendation eligibility, scheduler priorities/completion/cancellation, and controller lifecycle/stale-result rejection. A separate bundle entry check confirms that the actual generated chunk returns an initializer, accepts Config overrides, and initializes the foundation without fabricating missing statistics. Test fixtures are explicitly synthetic, live outside `dist/`, and do not verify any real account data. The public raw file is downloaded without authentication and checked against the local build byte for byte before handoff.
 
 See [Phase 1 architecture and each setting's execution rules](docs/PHASE1.md) and [observed interfaces and limitations](docs/WORKSPACE_REFERENCE.md).

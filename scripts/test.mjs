@@ -38,3 +38,26 @@ const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
 assert.equal(run.status, 0, 'Foundation behavior tests failed');
+
+const entryTestPath = path.join(root, '.test-output/bundle-entry.luau');
+await writeFile(entryTestPath, environment + '\nlocal function loadBundle()\n' + generated.output + `\nend
+-- Offline environment only: no server profile and no synthetic account statistics.
+services.Players.LocalPlayer = {}
+local initialize = loadBundle()
+assert(type(initialize) == "function", "Generated bundle must return an initializer")
+local controller = initialize({
+  GENERAL_SETTINGS = { AUTO_START = false },
+  STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = false },
+  DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = false },
+})
+assert(controller.Config.GENERAL_SETTINGS.AUTO_START == false, "Config override was not used")
+assert(controller.Reader and controller.Brain and controller.Scheduler and controller.Interface, "Missing foundation module")
+assert(controller.Interface.Gui == nil, "Disabled UI must not create a panel")
+assert(not controller:GetStatus().Snapshot.Ready and controller:GetStatus().Snapshot.Balances.Coins == nil, "Missing data must stay unknown")
+controller:Destroy()
+print("[OC TEST] Actual bundled initializer and custom Config entry passed. Live statistics remain unverified.")
+`);
+const entryRun = spawnSync(executable, [entryTestPath], { encoding: 'utf8' });
+process.stdout.write(entryRun.stdout || '');
+process.stderr.write(entryRun.stderr || '');
+assert.equal(entryRun.status, 0, 'Actual bundle initializer test failed');
