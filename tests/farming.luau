@@ -144,7 +144,7 @@ end)
 
 test("Upgrade purchases need measured bubble yield, affordability, gain and goal reserves", function()
 	local data, context, plan, memory = policyFixture()
-	local enabled = config({ BUBBLE_SETTINGS = { AUTO_BUY_GUM = true, ENABLE_SIMULTANEOUS_BLOWING = false } })
+	local enabled = config({ BUBBLE_SETTINGS = { AUTO_BUY_GUM = true, ENABLE_SIMULTANEOUS_BLOWING = false }, UPGRADE_SETTINGS = { MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION = 1 } })
 	context.EffectiveUpgrades = { ["Synthetic test gum"] = { Capacity = 200, Power = 20 } }
 	context.Rates = { PICKUPS = { Ready = true, PerMinute = { Coins = 1 } }, BUBBLES = { Ready = true, PerMinute = { Coins = 1000 } } }
 	local decision = Policy.Decide(enabled, data, plan, context, memory)
@@ -163,7 +163,7 @@ test("Native purchase adapter rechecks live funds and verifies received ownershi
 	local calls = {}
 	local dependencies = { Gum = { New = { Area = "A", Storage = 200, Cost = { Type = "Currency", Currency = "Coins", Amount = 10 } } },
 		Remote = { FireServer = function(_, command, name)
-			table.insert(calls, { command, name }) profile.Gum[name] = true
+			table.insert(calls, { command, name }) profile.Gum[name] = true profile.Coins -= 10
 		end } }
 	local reader = { GetLiveProfile = function() return profile end, _dependency = function(_, name) return dependencies[name] end }
 	local mechanics = Mechanics.new(config({ BUBBLE_SETTINGS = { AUTO_BUY_GUM = true } }), reader, {}, {})

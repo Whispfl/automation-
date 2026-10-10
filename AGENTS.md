@@ -23,8 +23,12 @@ use the public raw URL without tokens, headers or authentication.
 After each fix run node scripts/build.mjs and node scripts/test.mjs, commit/push
 source and bundle, verify the public raw artifact, and give the owner the Config
 and simple loadstring plus checks. Offline tests/source inspection are not live
-gameplay verification. The owner performs all in-game testing. Phase 2 pickup
-verification/approval is pending; do not implement Phase 3 without explicit approval.
+gameplay verification. The owner performs all in-game testing. Phase 2 pickups,
+bubbles, selling and island travel have owner verification; combined farming,
+movement recovery, upgrades and overall approval remain pending. Do not implement
+Phase 3 without explicit approval. The owner confirmed the connected Game session
+as the new saved workspace; MCP cannot independently expose its actual PlaceId.
+Retained Fall catalogs are not proof of an active event; the owner reports Halloween.
 
 Future phases follow docs/ARCHITECTURE.md and require inspection of each feature's
 native interfaces, prerequisites, results and stop conditions before implementation.

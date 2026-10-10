@@ -2,7 +2,8 @@
 
 This is the owner's global architecture instruction. Phase 1 is owner-approved;
 Phase 2 bubbles, selling and island teleportation have owner-observed success.
-Pickup collection is pending owner verification. Phases 3–9 remain plans and have
+Pickup collection/respawns and repeated real credit are now owner-verified. Movement
+recovery, combined farming, upgrades and Phase 2 approval remain pending. Phases 3–9 remain plans and have
 no new executors in this build.
 
 ## Sources and reusable layers
@@ -14,7 +15,7 @@ no new executors in this build.
 | Live account | AccountStateReader using Client.Framework.Services.LocalData | Actual balances, ownership/equipment, inventory, Mastery and unlock membership. No profile replacement or fabricated progress. Phase 1's approved reader/loader remains intact. |
 | Live world | PickupTracker / existing scene adapters | Rendered objects, native zone geometry, character location, interaction positions and changing availability. Resolve scene observations against definitions instead of deriving rewards from object names. |
 | Supported actions | GameMechanics, leased by OCBrain through TaskScheduler / OCController | Only inspected supported commands and ordinary movement. Shared controls and guards apply. No independent action-choice loops. Working blow/sell/teleport adapters are preserved. |
-| Action verification | FarmingCoordinator and ResourceMetrics, received LocalData updates | Observed arrival, disappearance plus matching balance credit, bubble changes and ownership/equipment updates. Timeouts/backoff and unconfirmed outcomes. External rewards remain an attribution limitation; source inspection/offline tests do not prove execution. |
+| Action verification | FarmingCoordinator and ResourceMetrics, received LocalData updates | Observed arrival, disappearance plus matching balance credit, bubble changes, purchase ownership **and** currency deduction, owned-equipment changes. Combined rates require growth/credit/sale evidence. Timeouts/backoff and unconfirmed outcomes. External rewards remain an attribution limitation; source inspection/offline tests do not prove execution. |
 
 GameKnowledge introduces no second module loader, discovery loop or action loop.
 It exposes the same game dependencies already cached by the approved reader,
@@ -28,6 +29,11 @@ native interfaces are inspected, rather than replacing working modules wholesale
 pickup contract. `ServerOnlyRules` remains `UNAVAILABLE`. The Brain receives native
 definitions through existing account progression catalogs and world observations;
 executors never choose independent objectives.
+
+`UpgradePolicy` is a pure, reusable catalog/economics evaluator called only by the
+existing FarmingPolicy/Brain. It returns candidate facts and explicit blockers;
+it neither requests actions nor creates another loop. Native stat helpers project
+equipment in detached tables; the live profile remains the source for verification.
 
 ## Research and implementation order
 

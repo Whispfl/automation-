@@ -4,9 +4,9 @@ local GameMechanics = {}
 GameMechanics.__index = GameMechanics
 local CollectionService = game:GetService("CollectionService")
 
-function GameMechanics.new(config, reader, tracker, player)
+function GameMechanics.new(config, reader, tracker, player, log)
 	return setmetatable({ Config = config, Reader = reader, Tracker = tracker, Player = player,
-		LastBlowAt = -math.huge, LastTravelAt = -math.huge, Failures = {}, PathThread = nil }, GameMechanics)
+		LastBlowAt = -math.huge, LastTravelAt = -math.huge, Failures = {}, PathThread = nil, Log = log }, GameMechanics)
 end
 
 function GameMechanics:Guard()
@@ -60,6 +60,7 @@ function GameMechanics:Blow(token)
 	if not permitted then self.LastBlocker = reason return false end
 	local remote = self.Reader:_dependency("Remote")
 	if not remote or type(remote.FireServer) ~= "function" then self.LastBlocker = "Native Remote module unavailable" return false end
+	if token:CheckCancelled() then return false end
 	self.LastBlowAt = os.clock()
 	remote:FireServer("BlowBubble")
 	self.LastBlocker = nil
@@ -108,6 +109,7 @@ function GameMechanics:SellStations()
 		self.Reader:RegisterCurrency(currency)
 		table.insert(result, { Model = model, Root = stationRoot, Key = model:GetFullName(), World = world, Area = area,
 			Currency = currency, Multiplier = multiplier, Distance = (stationRoot.Position - root.Position).Magnitude,
+			SellCycleSeconds = self.SellTimes and self.SellTimes[model:GetFullName()],
 			TravelSeconds = self.TravelTimes and self.TravelTimes[stationRoot:GetFullName()] })
 	end
 	return result
@@ -127,6 +129,7 @@ function GameMechanics:Travel(destination, world, area, token)
 	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote module unavailable" end
 	local started = os.clock()
 	self.LastTravelAt = started
+	if token:CheckCancelled() then return false, "Cancelled" end
 	remote:FireServer("Teleport", path)
 	local arrivedAt
 	while not token:CheckCancelled() and os.clock() - started < self.Config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS do
@@ -162,6 +165,7 @@ function GameMechanics:TravelIsland(area, token)
 	local started, stable = os.clock(), nil
 	self.LastTravelAt = started
 	-- Matches native WorldMap/WorldUtil; a server destination need not be replicated locally.
+	if token:CheckCancelled() then return false, "Cancelled" end
 	remote:FireServer("Teleport", path)
 	while not token:CheckCancelled() and os.clock() - started < self.Config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS do
 		self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
@@ -198,6 +202,7 @@ function GameMechanics:StopMovement()
 end
 
 function GameMechanics:Walk(point, token, deadline, tick, finished)
+	if token:CheckCancelled() then return false, "Cancelled" end
 	local permitted, reason, root, humanoid = self:Guard()
 	if not permitted then return false, reason end
 	local settings = self.Config.PICKUP_SETTINGS
@@ -207,58 +212,92 @@ function GameMechanics:Walk(point, token, deadline, tick, finished)
 		local dx, dz = position.X - waypoint.X, position.Z - waypoint.Z
 		return dx * dx + dz * dz <= 9 and math.abs(position.Y - waypoint.Y) <= math.min(8, settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS)
 	end
+	if finished and finished() then return true, "Targets no longer active" end
 	if (point - start).Magnitude <= 2 then return true, "Already in range" end
 	if math.abs(point.Y - start.Y) > settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then return false, "Destination is outside current island height" end
-	local path = game:GetService("PathfindingService"):CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
-	local computed, computeError
-	self.PathThread = task.spawn(function()
-		local success, message = pcall(function() path:ComputeAsync(start, point) end)
-		computed, computeError = success, message
-	end)
-	local computeDeadline = math.min(deadline, os.clock() + settings.PATH_TIMEOUT_SECONDS)
-	while computed == nil and not token:CheckCancelled() and os.clock() < computeDeadline do task.wait(0.1) end
-	if self.PathThread then pcall(task.cancel, self.PathThread) self.PathThread = nil end
-	if token:CheckCancelled() then path:Destroy() return false, "Cancelled" end
-	if computed ~= true or path.Status ~= Enum.PathStatus.Success then path:Destroy() return false, "No supported path: " .. tostring(computeError) end
-	local waypoints = path:GetWaypoints()
-	local length, previous = 0, start
-	for _, waypoint in ipairs(waypoints) do
-		length += (waypoint.Position - previous).Magnitude previous = waypoint.Position
-		if math.abs(waypoint.Position.Y - start.Y) > settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then path:Destroy() return false, "Path leaves current island height" end
-	end
-	if length > settings.MAXIMUM_ROUTE_DISTANCE_STUDS or length > math.max(8, (point - start).Magnitude * settings.MAXIMUM_PATH_DETOUR_RATIO) then
-		path:Destroy() return false, "Path requires excessive travel" end
-	local blocked
-	local connection = path.Blocked:Connect(function(index) blocked = index end)
-	local result, message = true, "Cluster reached"
-	for index, waypoint in ipairs(waypoints) do
-		if index == 1 then continue end
-		if finished and finished() then break end
-		if token:CheckCancelled() or os.clock() >= deadline then result, message = false, "Slice ended" break end
-		if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
-		self.MovementLease = { Root = root, Humanoid = humanoid }
-		humanoid:MoveTo(waypoint.Position)
-		local waypointDeadline = math.min(deadline, os.clock() + settings.PATH_TIMEOUT_SECONDS)
-		while not token:CheckCancelled() and os.clock() < waypointDeadline do
-			local liveRoot = self.Tracker:Root()
-			local active, blockReason = self:Guard()
-			if not liveRoot or not active then result, message = false, blockReason or "Character unavailable" break end
-			if blocked and blocked >= index then result, message = false, "Path was blocked" break end
-			if reached(liveRoot.Position, waypoint.Position) then break end
-			if finished and finished() then break end
-			if tick then tick() end
-			task.wait(0.1)
-		end
-		if not result then break end
+	local diagnostics = { Attempts = 0, Replans = 0 }
+	self.LastRoute = diagnostics
+	local function attempt()
 		local liveRoot = self.Tracker:Root()
-		if token:CheckCancelled() then result, message = false, "Cancelled" break end
-		if not (finished and finished()) and (not liveRoot or not reached(liveRoot.Position, waypoint.Position)) then
-			result, message = false, os.clock() >= deadline and "Slice ended" or "Waypoint stalled" break
-		end
+		if token:CheckCancelled() then return false, "Cancelled" end
+		if liveRoot ~= root then return false, "Character changed" end
+		local path = game:GetService("PathfindingService"):CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
+		local blockedConnection, moveConnection
+		local ok, success, message = xpcall(function()
+			local computed, computeError
+			self.PathThread = task.spawn(function()
+				computed, computeError = pcall(function() path:ComputeAsync(root.Position, point) end)
+			end)
+			local computeDeadline = math.min(deadline, os.clock() + settings.PATH_TIMEOUT_SECONDS)
+			while computed == nil and not token:CheckCancelled() and os.clock() < computeDeadline do task.wait(0.1) end
+			if self.PathThread then pcall(task.cancel, self.PathThread) self.PathThread = nil end
+			if token:CheckCancelled() then return false, "Cancelled" end
+			if os.clock() >= deadline then return false, "Slice ended" end
+			if finished and finished() then return true, "Targets no longer active" end
+			if computed ~= true or path.Status ~= Enum.PathStatus.Success then return false, "No supported path: " .. tostring(computeError) end
+			local waypoints, length, previous = path:GetWaypoints(), 0, root.Position
+			for _, waypoint in ipairs(waypoints) do
+				length += (waypoint.Position - previous).Magnitude previous = waypoint.Position
+				if math.abs(waypoint.Position.Y - start.Y) > settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then return false, "Path leaves current island height" end
+			end
+			if length > settings.MAXIMUM_ROUTE_DISTANCE_STUDS or length > math.max(8, (point - root.Position).Magnitude * settings.MAXIMUM_PATH_DETOUR_RATIO) then return false, "Path requires excessive travel" end
+			local blocked, moveResult
+			blockedConnection = path.Blocked:Connect(function(index) blocked = index end)
+			if humanoid.MoveToFinished then moveConnection = humanoid.MoveToFinished:Connect(function(result) moveResult = result end) end
+			for index, waypoint in ipairs(waypoints) do
+				if token:CheckCancelled() then return false, "Cancelled" end
+				if finished and finished() then return true, "Targets no longer active" end
+				if reached(root.Position, waypoint.Position) then continue end
+				if os.clock() >= deadline then return false, "Slice ended" end
+				if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
+				self.MovementLease = { Root = root, Humanoid = humanoid }
+				moveResult = nil humanoid:MoveTo(waypoint.Position)
+				local progressAt, issuedAt, bestDistance = os.clock(), os.clock(), (root.Position - waypoint.Position).Magnitude
+				while true do
+					if token:CheckCancelled() then return false, "Cancelled" end
+					local actualRoot, actualHumanoid = self.Tracker:Root()
+					local active, blockReason = self:Guard()
+					if actualRoot ~= root or (actualHumanoid and actualHumanoid ~= humanoid) then return false, "Character changed" end
+					if not active then return false, blockReason or "Character unavailable" end
+					if finished and finished() then return true, "Targets no longer active" end
+					if reached(root.Position, waypoint.Position) then break end
+					local now, distance = os.clock(), (root.Position - waypoint.Position).Magnitude
+					diagnostics.Waypoint, diagnostics.Distance = index, distance
+					if bestDistance - distance >= settings.MINIMUM_WAYPOINT_PROGRESS_STUDS then bestDistance, progressAt = distance, now end
+					if now >= deadline then return false, "Slice ended" end
+					if blocked and blocked >= index then return false, "Path was blocked" end
+					if moveResult == false then return false, "MoveTo failed before arrival" end
+					if now - progressAt >= settings.WAYPOINT_STALL_SECONDS then return false, "Waypoint stalled without forward progress" end
+					if now - issuedAt >= settings.MOVE_REISSUE_SECONDS then
+						if token:CheckCancelled() then return false, "Cancelled" end
+						moveResult = nil humanoid:MoveTo(waypoint.Position) issuedAt = now
+					end
+					if tick then tick() end
+					task.wait(0.1)
+				end
+			end
+			if not reached(root.Position, point) then return false, "Path ended outside destination tolerance" end
+			return true, "Cluster reached"
+		end, debug.traceback)
+		if blockedConnection then blockedConnection:Disconnect() end
+		if moveConnection then moveConnection:Disconnect() end
+		self:StopMovement() path:Destroy()
+		return ok and success or false, ok and message or "Path error: " .. tostring(success)
 	end
-	connection:Disconnect() path:Destroy()
-	self:StopMovement()
-	return result, message
+	local success, message
+	for number = 0, settings.MAXIMUM_PATH_RECOMPUTES do
+		if token:CheckCancelled() then return false, "Cancelled" end
+		if os.clock() >= deadline then return false, "Slice ended" end
+		diagnostics.Attempts += 1
+		success, message = attempt()
+		local recoverable = message == "Path was blocked" or message == "MoveTo failed before arrival"
+			or message == "Waypoint stalled without forward progress" or message:sub(1, 17) == "No supported path"
+		if success or not recoverable or number == settings.MAXIMUM_PATH_RECOMPUTES or token:CheckCancelled() or os.clock() >= deadline then break end
+		diagnostics.Replans += 1
+		if self.Log and self.Config.DIAGNOSTIC_SETTINGS.LOG_MOVEMENT_DIAGNOSTICS then self.Log("MOVE][RECOVERY", message .. " | recompute=" .. diagnostics.Replans .. " | remaining=" .. string.format("%.1fs", deadline - os.clock())) end
+	end
+	diagnostics.Reason = message
+	return success, message
 end
 
 function GameMechanics:Upgrade(upgrade, token)
@@ -269,14 +308,16 @@ function GameMechanics:Upgrade(upgrade, token)
 	if not config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or not config.UPGRADE_SETTINGS.ENABLE_SMART_UPGRADES then return false, "Upgrade automation disabled" end
 	if upgrade.Kind == "Gum" and not config.UPGRADE_SETTINGS.ENABLE_CAPACITY_UPGRADES then return false, "Capacity upgrades disabled" end
 	if upgrade.Kind == "Flavors" and not config.UPGRADE_SETTINGS.ENABLE_FLAVOR_UPGRADES then return false, "Flavor upgrades disabled" end
-	if not raw then return false, "No real account profile" end
+	if not raw or type(raw.Bubble) ~= "table" then return false, "No real account/equipment profile" end
 	if not self:Available("UPGRADE:" .. upgrade.Name) then return false, "Upgrade is in backoff" end
 	local definitions = self.Reader:_dependency(upgrade.Kind)
 	local definition = definitions and definitions[upgrade.Name]
 	if not definition or type(definition.Cost) ~= "table" or definition.Cost.Type ~= "Currency" then return false, "Verified nonpremium definition unavailable" end
 	if definition.Area and not ((raw.AreasUnlocked and raw.AreasUnlocked[definition.Area] ~= nil) or (raw.WorldsUnlocked and raw.WorldsUnlocked[definition.Area] ~= nil)) then
 		return false, "Upgrade area is locked" end
-	local currentOwned = raw[upgrade.Kind] and raw[upgrade.Kind][upgrade.Name] ~= nil
+	if type(raw[upgrade.Kind]) ~= "table" then return false, "Actual ownership map unavailable" end
+	local currentOwned = raw[upgrade.Kind][upgrade.Name] ~= nil
+	local evidence = { Name = upgrade.Name, Kind = upgrade.Kind, OwnedBefore = currentOwned, Cost = definition.Cost.Amount, Currency = definition.Cost.Currency }
 	local command
 	if currentOwned then
 		if not config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES then return false, "Owned upgrade equip disabled" end
@@ -285,16 +326,21 @@ function GameMechanics:Upgrade(upgrade, token)
 		local enabled = upgrade.Kind == "Gum" and config.BUBBLE_SETTINGS.AUTO_BUY_GUM or (upgrade.Kind == "Flavors" and config.BUBBLE_SETTINGS.AUTO_BUY_FLAVORS)
 		if not enabled then return false, "Purchase disabled" end
 		local cost = definition.Cost
+		if cost.Currency == "Robux" or not table.find(config.UPGRADE_SETTINGS.ALLOWED_PURCHASE_CURRENCIES, cost.Currency) then return false, "Purchase currency is not explicitly authorized" end
 		local funds = raw[cost.Currency]
 		if type(funds) ~= "number" or type(cost.Amount) ~= "number" or cost.Amount < 0 then return false, "Actual funds or cost unknown" end
 		local spendable = math.max(0, funds - (upgrade.Reserve or 0) - (upgrade.GoalReserve or 0))
 		if cost.Amount > config.UPGRADE_SETTINGS.MAXIMUM_PURCHASE_COST or cost.Amount > spendable * config.RESOURCE_SETTINGS.MAXIMUM_UPGRADE_BALANCE_FRACTION then
 			return false, "Actual funds no longer meet goal reserve and purchase budget" end
+		evidence.BeforeBalance = funds
 		command = "GumShopPurchase"
 	end
 	local remote = self.Reader:_dependency("Remote")
 	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote unavailable" end
+	if token:CheckCancelled() then return false, "Cancelled" end
+	self.LastUpgrade = evidence
 	self:Failure("UPGRADE:" .. upgrade.Name, config.UPGRADE_SETTINGS.PURCHASE_RETRY_COOLDOWN_SECONDS, "Awaiting ownership/equipment confirmation")
+	if self.Log then self.Log("UPGRADE][PURCHASE", upgrade.Name .. " | command=" .. command .. " | currency=" .. tostring(evidence.Currency) .. " cost=" .. tostring(evidence.Cost) .. " before=" .. tostring(evidence.BeforeBalance or "owned equip")) end
 	remote:FireServer(command, upgrade.Name)
 	local deadline = os.clock() + config.UPGRADE_SETTINGS.PURCHASE_CONFIRMATION_TIMEOUT_SECONDS
 	while not token:CheckCancelled() and os.clock() < deadline do
@@ -302,11 +348,22 @@ function GameMechanics:Upgrade(upgrade, token)
 		if live then
 			local owned = live[upgrade.Kind] and live[upgrade.Kind][upgrade.Name] ~= nil
 			local equipped = live.Bubble and live.Bubble[upgrade.Kind == "Gum" and "Gum" or "Flavor"] == upgrade.Name
-			if (not currentOwned and owned) or (currentOwned and equipped) then return true, currentOwned and "Actual equipped upgrade changed" or "Actual ownership received" end
+			evidence.OwnedAfter, evidence.Equipped = owned, equipped
+			evidence.AfterBalance = live[evidence.Currency]
+			if not currentOwned and type(evidence.AfterBalance) == "number" then
+				evidence.ObservedDeduction = math.max(evidence.ObservedDeduction or 0, evidence.BeforeBalance - evidence.AfterBalance)
+			end
+			local paid = not currentOwned and (evidence.Cost == 0 or (evidence.ObservedDeduction or 0) >= evidence.Cost)
+			if (not currentOwned and owned and paid) or (currentOwned and equipped) then
+				evidence.Verified = true
+				return true, currentOwned and "Actual equipped upgrade changed" or ("Actual ownership received and currency deduction observed: " .. tostring(evidence.ObservedDeduction)), evidence
+			end
 		end
 		task.wait(0.2)
 	end
-	return false, token:CheckCancelled() and "Cancelled" or "Ownership/equipment change was not confirmed"
+	local reason = token:CheckCancelled() and "Cancelled" or (currentOwned and "Equipment change unconfirmed" or
+		("Purchase unconfirmed: ownership=" .. tostring(evidence.OwnedAfter) .. "; observed deduction=" .. tostring(evidence.ObservedDeduction or 0) .. "; required=" .. tostring(evidence.Cost)))
+	return false, reason, evidence
 end
 
 return GameMechanics

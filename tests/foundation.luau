@@ -1,6 +1,7 @@
 -- Offline harness only. These synthetic fixtures never ship in dist/OC.lua and
 -- are not evidence that any real player profile or Roblox runtime works.
 local queue = {}
+local os = table.clone(os) -- Test-controlled clock; never included in the published bundle.
 local task = {}
 function task.defer(callback)
 	local thread = coroutine.create(callback)

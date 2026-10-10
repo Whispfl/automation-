@@ -1,6 +1,7 @@
 --!nonstrict
 -- Pure decision policy used exclusively by OCBrain. Executors cannot choose their own activities.
 local FarmingPolicy = {}
+local UpgradePolicy = require(script.Parent.UpgradePolicy)
 local function allowed(list, value) return #list == 0 or table.find(list, value) ~= nil end
 local function reserve(config, currency)
 	local field = ({ Coins = "COIN_RESERVE", Gems = "GEM_RESERVE", Tickets = "TICKET_RESERVE", Pearls = "PEARL_RESERVE" })[currency]
@@ -75,7 +76,23 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 				end
 			end
 		end
-		if sell then decision.Kind = "SELL" decision.Sell = sell decision.Reason = "Bubble reached sell threshold; verify native sale before producing more" return decision end
+		if sell then
+			local pickupRate, bubbleRate = rate(context, "PICKUPS", currency), rate(context, "BUBBLES", currency)
+			local sellSeconds = sell.SellCycleSeconds or (sell.TravelSeconds or sell.Distance / math.max(1, context.WalkSpeed or 16)) + 2
+			local fillSeconds = bubble.Capacity and bubble.PowerPerBlow and bubble.PowerPerBlow > 0 and bubble.Capacity / bubble.PowerPerBlow * config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS
+			local lostPickups = pickupRate and pickupRate * sellSeconds / 60
+			local saleEstimate = bubbleRate and fillSeconds and bubbleRate * (fillSeconds + sellSeconds) / 60
+			local delay = memory.Mode == "COMBINED" and config.BUBBLE_SETTINGS.ENABLE_SIMULTANEOUS_BLOWING and context.Cluster
+				and config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES and config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
+				and context.CanInteract and context.FullSince and context.Now - context.FullSince < config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS
+				and lostPickups and saleEstimate and lostPickups > saleEstimate
+			decision.SellComparison = { LostPickupEstimate = lostPickups, SaleValueEstimate = saleEstimate, SellSeconds = sellSeconds, Delayed = delay == true }
+			if delay then
+				decision.Kind, decision.Mode, decision.Cluster, decision.Sell = "FARM", "COMBINED", context.Cluster, sell
+				decision.Reason = "Briefly finish valuable pickup coverage with a full bubble; bounded sell delay, no further blowing"
+			else decision.Kind, decision.Sell, decision.Reason = "SELL", sell, "Bubble reached sell threshold; verify native sale before producing more" end
+			return decision
+		end
 	end
 	local bestIsland, currentScore = nil, nil
 	if config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then
@@ -194,12 +211,14 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		local currentRate = rate(context, memory.Mode, currency)
 		if not config.FARMING_SETTINGS.ENABLE_ACTIVITY_SWITCHING or age < config.FARMING_SETTINGS.MINIMUM_ACTIVITY_HOLD_SECONDS
 			or (modeScore and currentRate and modeScore <= currentRate * (1 + config.FARMING_SETTINGS.ACTIVITY_SWITCH_GAIN_RATIO)) then mode = memory.Mode end
-		if memory.Mode == "BUBBLES" and context.BubbleProbePending and age < config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS then mode = "BUBBLES" end
+		if (memory.Mode == "BUBBLES" and context.BubbleProbePending or memory.Mode == "COMBINED" and context.CombinedProbePending)
+			and age < config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS then mode = memory.Mode end
 	end
 	if bestIsland and bestIsland.Area ~= current and bestIsland.PerMinute > 0 and context.CanTravel and context.CanInteract
 		and not (context.ActiveSweepPending and pickupReady) then
-		local bubbleIncome = rate(context, "BUBBLES", currency)
-		if not bubbleReady or not bubbleIncome or bestIsland.PerMinute > bubbleIncome * (1 + config.FARMING_SETTINGS.ACTIVITY_SWITCH_GAIN_RATIO) then
+		local currentIncome = 0
+		for _, viable in ipairs(choices) do currentIncome = math.max(currentIncome, rate(context, viable, currency) or 0) end
+		if currentIncome == 0 or bestIsland.PerMinute > currentIncome * (1 + config.FARMING_SETTINGS.ACTIVITY_SWITCH_GAIN_RATIO) then
 			decision.Kind = "TRAVEL" decision.Island = bestIsland.Area
 			decision.Reason = string.format("Best eligible %s island: %s; %.2f/min %s after %.1fs travel overhead", currency, bestIsland.Name, bestIsland.PerMinute, bestIsland.Evidence, bestIsland.TravelSeconds)
 			return decision
@@ -209,68 +228,12 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	decision.Kind, decision.Mode, decision.Cluster, decision.Sell = "FARM", mode, cluster, bestSell
 	decision.Reason = modeScore and string.format("Observed %.2f %s/min supports the current goal", modeScore, currency)
 		or "Bounded " .. mode .. " trial; observed balances will establish earning efficiency"
-	local upgrades = config.UPGRADE_SETTINGS
-	if upgrades.ENABLE_SMART_UPGRADES and config.BRAIN_SETTINGS.ENABLE_EARNING_RECOMMENDATIONS and config.BUBBLE_SETTINGS.ENABLE_BUBBLE_RECOMMENDATIONS then
-		local income = rate(context, "BUBBLES", currency)
-		local orderedUpgrades = table.clone((snapshot.AvailableProgression or {}).Upgrades or {})
-		table.sort(orderedUpgrades, function(a, b)
-			if a.Owned ~= b.Owned then return a.Owned == true end
-			local left = a.Cost and a.Cost.Amount or math.huge
-			local right = b.Cost and b.Cost.Amount or math.huge
-			if left == right then return a.Name < b.Name end
-			return left < right
-		end)
-		for _, upgrade in ipairs(orderedUpgrades) do
-			local currentStat = upgrade.Kind == "Gum" and bubble.BaseCapacity or bubble.BaseOutput
-			local capacityAllowed = upgrade.Kind == "Gum" and upgrades.ENABLE_CAPACITY_UPGRADES
-			local flavorAllowed = upgrade.Kind == "Flavors" and upgrades.ENABLE_FLAVOR_UPGRADES
-			if not upgrade.Accessible or not upgrade.OwnershipKnown or not currentStat or currentStat <= 0 or not upgrade.BaseStat
-				or not (capacityAllowed or flavorAllowed) or not allowed(upgrades.SELECTED_UPGRADES, upgrade.Name) or context.UpgradeBackoff[upgrade.Name] then continue end
-			local gain = upgrade.BaseStat / currentStat - 1
-			if gain < config.BRAIN_SETTINGS.MINIMUM_UPGRADE_GAIN_RATIO then continue end
-			local gumBottleneck = bubble.Capacity and bubble.PowerPerBlow and bubble.PowerPerBlow > 0
-				and bubble.Capacity / bubble.PowerPerBlow < config.BRAIN_SETTINGS.MINIMUM_BLOWS_PER_FILL
-			if upgrade.Kind == "Gum" and not gumBottleneck then continue end
-			if upgrade.Owned and upgrades.AUTO_EQUIP_OWNED_UPGRADES then
-				decision.Kind, decision.Upgrade = "UPGRADE", table.clone(upgrade)
-				decision.Reason = "Use a verified better owned bubble upgrade without spending" return decision
-			end
-			local enabled = upgrade.Kind == "Gum" and config.BUBBLE_SETTINGS.AUTO_BUY_GUM or (upgrade.Kind == "Flavors" and config.BUBBLE_SETTINGS.AUTO_BUY_FLAVORS)
-			if upgrade.Owned or not enabled or mode == "PICKUPS" or not income or income <= 0 then continue end
-			local cost = upgrade.Cost
-			if not cost or cost.Currency ~= currency or type(cost.Amount) ~= "number" or cost.Amount < 0 then continue end
-			local funds = snapshot.Balances[cost.Currency]
-			local goalReserve = 0
-			if upgrades.ENABLE_GOAL_RESERVATION then
-				for _, reservedGoal in ipairs({ plan.Objective, goal }) do
-					local goalCost = reservedGoal and reservedGoal.Metadata and reservedGoal.Metadata.Cost
-					if goalCost and not reservedGoal.Metadata.Upgrade and goalCost.Currency == cost.Currency then
-						goalReserve = math.max(goalReserve, goalCost.Amount or 0)
-					end
-				end
-			end
-			local reserveAmount = reserve(config, cost.Currency)
-			local available = math.max(0, (funds or 0) - reserveAmount - goalReserve)
-			local projection = context.EffectiveUpgrades and context.EffectiveUpgrades[upgrade.Name]
-			if not projection or not projection.Capacity or not projection.Power or projection.Power <= 0 or not bubble.Capacity
-				or not bubble.PowerPerBlow or bubble.PowerPerBlow <= 0 then continue end
-			local fill = bubble.Capacity / bubble.PowerPerBlow * config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS
-			local projectedFill = projection.Capacity / projection.Power * config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS
-			local overhead = bestSell and (bestSell.TravelSeconds or math.min(config.ISLAND_SETTINGS.UNMEASURED_TRAVEL_OVERHEAD_SECONDS,
-				bestSell.Distance / math.max(1, context.WalkSpeed or 16))) or config.ISLAND_SETTINGS.UNMEASURED_TRAVEL_OVERHEAD_SECONDS
-			overhead += 2 -- Native Activation's observed sell interval.
-			local rateGain = projection.Capacity / bubble.Capacity * (fill + overhead) / math.max(0.1, projectedFill + overhead) - 1
-			-- Discount projected gain: catalog stat simulation is a model, not a verified new earning rate.
-			local incremental = income / 60 * math.max(0, rateGain) * 0.5
-			local payback = incremental > 0 and cost.Amount / incremental or math.huge
-			if cost.Amount <= available * config.RESOURCE_SETTINGS.MAXIMUM_UPGRADE_BALANCE_FRACTION and cost.Amount <= upgrades.MAXIMUM_PURCHASE_COST
-				and payback <= upgrades.MAXIMUM_PAYBACK_SECONDS then
-				decision.Kind, decision.Upgrade = "UPGRADE", table.clone(upgrade)
-				decision.Upgrade.Reserve, decision.Upgrade.GoalReserve = reserveAmount, goalReserve
-				decision.Reason = string.format("Verified %s improvement %.0f%%; conservative estimated payback %.1fs from observed bubble income", upgrade.Kind, gain * 100, payback)
-				return decision
-			end
-		end
+	local upgrade, evaluations = UpgradePolicy.Evaluate(config, snapshot, plan, context, currency, mode, bestSell, goal)
+	decision.UpgradeEvaluations = evaluations
+	if upgrade then
+		decision.Kind, decision.Upgrade = "UPGRADE", upgrade.Upgrade
+		decision.Reason = upgrade.Upgrade.Owned and "Use a verified better owned upgrade without spending"
+			or string.format("Native stat projection; estimated discounted payback %.1fs; protected goal funds %.0f", upgrade.Row.Payback, upgrade.Row.GoalReserve)
 	end
 	return decision
 end

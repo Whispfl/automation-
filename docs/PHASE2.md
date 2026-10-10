@@ -2,6 +2,104 @@
 
 Phase 1 is owner-tested and approved. Phase 2 is an implementation candidate, **not an owner-approved gameplay pass**. The definitive input is the user's final pasted specification and [updated Notion revision](https://app.notion.com/p/3f53d7e9278d8145a85aff38d5497e12). Older requests to install/test code through Studio are superseded: all code is maintained in this repository, Studio tools are read-only, and the owner executes the published bundle.
 
+## Latest follow-up: movement, combined farming and controlled upgrades
+
+The owner now confirms pickup-only collection, respawns, repeated matching credit
+(Coins413,649 →417,929) and Outer Space selection using actual observed income.
+Preserve that implementation. The following additions await owner execution;
+historical pending-pickup reports below describe earlier builds.
+
+Research used the owner-confirmed `Game` session and current ReplicatedStorage
+catalogs/native clients. The `.rbxl` launch filename identifies the intended saved
+workspace; MCP does **not** independently expose its actual PlaceId. See the
+[current reference](WORKSPACE_REFERENCE.md#current-native-research-for-movement-combined-farming-and-upgrades).
+The owner reports Halloween, with inactive Leaves. Retained Fall catalogs/flags
+are not active-event evidence; no event-specific automation is added.
+
+Movement checks actual proximity, floor/root height and cumulative forward
+progress rather than a fixed three-second waypoint cutoff. Normal MoveTo is
+refreshed during progress. A stall, failed MoveTo or ahead-of-route blockage can
+recompute from actual position within the original task deadline; exhausted
+routes retain the working per-ID temporary backoff. Path/event resources and
+OC-owned movement are released on every exit, including cancellation. Target
+disappearance ends stale navigation; it still cannot verify currency credit.
+
+The Brain compares goal-currency pickup-only, bubble-only and combined trials.
+Combined readiness additionally requires observed bubble growth, matching pickup
+credit without a mixed sale, and a completed sale within the rate window. Walking,
+waiting and selling time count toward the activity measurement. A full bubble
+normally sells first; brief continued collection needs measured pickup opportunity
+cost exceeding estimated sale value and cannot exceed the configured full-bubble
+movement delay. No further blowing occurs at the sell threshold. Confirmation
+waits can finish afterward without further gameplay actions. These estimates are
+decision inputs, not fabricated payouts or proof of combined profitability.
+
+UpgradePolicy, called by the existing Brain, evaluates all catalog candidates and
+returns actual blockers. MINIMUM_BLOWS_PER_FILL indicates urgency instead of
+prohibiting useful intermediate gum. Fixed resource reserves remain intact;
+optional goal reservation is capped to a configurable fraction of remaining
+funds so a distant goal cannot silently consume the entire upgrade budget.
+Both existing upgrade-name filters apply. Paid upgrades require a complete
+measured bubble-income trial, explicit currency authorization, affordable cost,
+native effective-stat projection and discounted estimated payback. Contrast's
+base flavor gain does not multiply effective pet power. If pickups win, projected
+bubble benefit must justify leaving that strategy. Shortest qualified payback
+determines upgrade priority; price alone does not.
+
+One native purchase request is issued. Verification requires **new received
+ownership and observed currency deduction at least equal to native cost**; a
+zero-cost catalog item requires ownership. Ownership alone or a balance decrease
+alone stays unconfirmed. Owned equip requires the actual equipment field to
+change. Failed verification uses existing retry backoff; successful changes clear
+old efficiency samples. Concurrent rewards can conceal deductions, conservatively
+leaving a real purchase unconfirmed; unrelated spending can affect attribution.
+The owner must compare before/after balances and equipment in the controlled test.
+
+### Additional configuration rules
+
+| Setting | Effect on decisions | Prerequisites | Stop/limit |
+| --- | --- | --- | --- |
+| FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS | Limit continued collection while the bubble is at its sell threshold | Combined enabled, useful live targets; Brain deferral additionally needs measured opportunity cost greater than estimated sale value | Timer ends movement; threshold blocks more blowing; native credit confirmation is read-only |
+| PICKUP_SETTINGS.WAYPOINT_STALL_SECONDS | Recompute when no forward progress lasts this long | Normal path and current root/humanoid; at least1s | Original slice and recompute count bound recovery |
+| PICKUP_SETTINGS.MINIMUM_WAYPOINT_PROGRESS_STUDS | Require cumulative distance improvement to refresh progress time | Actual root-to-waypoint distances; positive number | Jitter or moving away does not reset stall detection |
+| PICKUP_SETTINGS.MOVE_REISSUE_SECONDS | Refresh ordinary MoveTo while a route is progressing | Same alive character and noncancelled task; at least1s | Arrival, guards, cancellation or slice deadline ends commands |
+| PICKUP_SETTINGS.MAXIMUM_PATH_RECOMPUTES | Bound extra attempts after stall/block/failure | Recoverable route and remaining slice | Integer0–3; default1; zero means no recovery; exhausted IDs back off |
+| UPGRADE_SETTINGS.MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION | Cap distant goal savings at this fraction of post-resource-reserve funds | Goal reservation enabled, same-currency nonupgrade goal | In[0,1];1 protects all available needed goal funds; budget still applies after both reserves |
+| UPGRADE_SETTINGS.ALLOWED_PURCHASE_CURRENCIES | Explicit whitelist for actual spending, default Coins only | Native nonpremium Currency cost and all economic checks | Empty denies all purchases; Robux always excluded; no Gems/Tickets/Pearls without opt-in |
+| DIAGNOSTIC_SETTINGS.LOG_MOVEMENT_DIAGNOSTICS | Explain recovery and temporary skipped IDs | Console enabled and actual route issue | No new movement; bounded recovery messages and task outcome |
+| DIAGNOSTIC_SETTINGS.LOG_UPGRADE_DIAGNOSTICS | Print CANDIDATE/EVALUATION/REJECTED facts for available upgrade candidates | Catalog/account evaluation and console enabled | Changed blocking conditions logged with interval/entry bounds; purchase/verification logs remain action evidence |
+| ACCOUNT_SETTINGS.SELECTED_CURRENCIES | Current defaults include Candycorn26/HalloweenShards instead of retired Fall names | Actual received numeric balance | Missing remains unavailable; selecting a name does not activate an event; live pool discoveries can register further names |
+
+PATH_TIMEOUT_SECONDS bounds computing a route only; movement uses the slice,
+progress and stall limits. Purchases/equips remain disabled in central defaults
+and normal farming examples. The reserved FALL_EVENT_SETTINGS names remain for
+configuration compatibility, with no enabled event executor.
+
+### Owner test packet
+
+1. Run [CombinedFarming.luau](../examples/CombinedFarming.luau) for several minutes.
+   Check isolated trial results and eventual COMBINED trials, actual bubble
+   growth while walking, pickup credit, completed sales and measured strategy
+   changes. A valid better bubble/pickup strategy may win. Check stall recovery,
+   skipped IDs and new spawns. No purchases or equips are enabled.
+2. Pause during movement and Stop during travel/collection. No new OC route,
+   blow, teleport or purchase requests should follow cancellation. A previously
+   sent native command may finish server-side; native radius collection and
+   automatic selling can continue without OC. Statistics remain live.
+3. Run [UpgradeTest.luau](../examples/UpgradeTest.luau) separately. It explicitly
+   permits only Unreal Gum and Contrast using Coins, caps each at45,000, preserves
+   25,000 resource Coins plus bounded goal funds, and allows a7200s estimated
+   payback for this test (central default remains300s). Both named purchases may
+   qualify separately. Obtain a bubble-only fill/sell sample first. Inspect
+   every REJECTED reason or PURCHASE/VERIFIED ownership-and-deduction evidence;
+   equipped stats should refresh after native equip. This is not a forced buy.
+4. Send logs/screenshots, actual equipment/balance changes and any remaining
+   movement issue. Phase 2 stays unapproved; Phase 3 is not started.
+
+Offline checks:60 synthetic behavior tests (9 foundation,30 existing Phase 2,
+21 new regressions), source/bundle compilation, static constraints, custom Config
+examples and actual bundled initializer. This does not prove new live behavior.
+
 ## Island discovery follow-up, October 10, 2026
 
 The owner verified bubble blowing and automatic selling (Coins 43,714 → 78,466; approximately 18,000 Coins/min reported). The owner subsequently confirmed island teleportation to Floating Island and Outer Space. Pickup farming and upgrade purchases remain unverified. The original candidate silently filtered off-island rows when `Portal.Spawn` was not a local part; it also omitted unknown yields and could permanently prefer measured bubbles over untested islands. Read-only inspection found correct separate native Areas: Floating Island's `Island.Pickup` Folder has Count5; Outer Space's `Island.Pickups` holds four Pickup Parts with Count2 each. Neither inspected island has `Island.Portal.Spawn`. These are configured spawn counts, not available pickup counts or measured income.
@@ -136,12 +234,12 @@ All defaults are centralized in `src/OCFoundation/OCConfig.luau`. Partial overri
 | --- | --- | --- | --- |
 | ENABLE_SMART_UPGRADES | Evaluate currency gum/flavor purchase or owned equip | Earning/bubble recommendations, actual accessible catalog and ownership | False submits no upgrade task |
 | AUTO_EQUIP_OWNED_UPGRADES | Explicitly apply better owned gum/flavor | Supported kind toggle, actual ownership, meaningful improvement | Actual equipment change verifies completion; no purchase needed |
-| ENABLE_CAPACITY_UPGRADES | Permit gum as bubble-storage improvement | Small actual capacity/power fill ratio and gain threshold | False excludes gum equip/purchase; no pet-storage API invented |
+| ENABLE_CAPACITY_UPGRADES | Permit gum as bubble-storage improvement | Useful gain and economic checks; a small fill ratio increases urgency | False excludes gum equip/purchase; no pet-storage API invented |
 | ENABLE_FLAVOR_UPGRADES | Permit flavor production improvement | Actual higher base/effective output and useful bubble mode | False excludes flavor equip/purchase |
 | SELECTED_UPGRADES | Restrict purchase/equip names beyond BRAIN_SETTINGS filter | Actual verified currency-only entry | Empty allows verified candidates; excluded names never actioned |
 | MAXIMUM_PURCHASE_COST | Absolute per-purchase currency cap | Real native cost table | Larger costs rejected even if balance permits |
 | MAXIMUM_PAYBACK_SECONDS | Economic threshold from observed bubble yield and projected effective stats | Complete bubble-income evidence; valid native helper projections | Missing evidence/nonpositive gain/excessive estimate skips purchase |
-| PURCHASE_CONFIRMATION_TIMEOUT_SECONDS | Wait for received ownership/equipment | One native command issued | Timeout reports unconfirmed; no synthetic ownership/stat mutation |
+| PURCHASE_CONFIRMATION_TIMEOUT_SECONDS | Wait for new ownership and payment, or owned equipment change | One native command issued | Timeout reports unconfirmed with ownership/deduction facts; no synthetic ownership/stat mutation |
 | PURCHASE_RETRY_COOLDOWN_SECONDS | Space unconfirmed purchase/equip attempts | Command issued or confirmation pending | Backoff prevents retry storm; fresh state rechecked after expiry |
 | ENABLE_GOAL_RESERVATION | Preserve selected/resource world or Mastery cost before buying secondary equipment | Goal metadata has same currency and is not that upgrade | Reserved funds excluded from both planning and actual affordability check |
 

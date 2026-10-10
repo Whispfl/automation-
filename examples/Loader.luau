@@ -40,14 +40,14 @@ local Config = {
 		AUTO_SELL_BUBBLES = true, --// Use accessible native selling activations.
 		ENABLE_SIMULTANEOUS_BLOWING = true, --// Test blowing during collection when game guards permit it.
 		SELL_AT_CAPACITY_RATIO = 0.95, --// Sell at this fraction of actual capacity.
-		AUTO_BUY_GUM = true, --// Explicitly authorize useful nonpremium bubble-storage purchases.
-		AUTO_BUY_FLAVORS = true, --// Explicitly authorize useful nonpremium bubble-power purchases.
+		AUTO_BUY_GUM = false, --// Keep spending disabled during combined farming verification.
+		AUTO_BUY_FLAVORS = false, --// Keep spending disabled during combined farming verification.
 	},
 	UPGRADE_SETTINGS = {
 		ENABLE_SMART_UPGRADES = true, --// Require meaningful gains and measured-income payback.
 		ENABLE_CAPACITY_UPGRADES = true, --// Gum increases bubble storage; pet storage is not purchased.
 		ENABLE_FLAVOR_UPGRADES = true, --// Evaluate supported flavor improvements.
-		AUTO_EQUIP_OWNED_UPGRADES = true, --// Use better owned gum or flavors without buying again.
+		AUTO_EQUIP_OWNED_UPGRADES = false, --// Preserve current equipment during farming comparisons.
 		ENABLE_GOAL_RESERVATION = true, --// Protect important world/Mastery goal funds.
 		MAXIMUM_PURCHASE_COST = 1000000, --// Per-purchase currency cap.
 		MAXIMUM_PAYBACK_SECONDS = 300, --// Maximum conservative estimated payback.

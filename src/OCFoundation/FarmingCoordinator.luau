@@ -18,10 +18,10 @@ end
 function FarmingCoordinator.new(controller, player)
 	local self = setmetatable({ Controller = controller, Config = controller.Config, Reader = controller.Reader,
 		Activity = nil, Decision = nil, Destroyed = false, LastLogAt = -math.huge, SaleEvidence = {}, ProbeStart = nil,
-		IslandProbeHistory = {}, PickupProbe = nil, PickupEvidence = {}, LastPickupLogAt = -math.huge, CollectionVisits = 0 }, FarmingCoordinator)
+		IslandProbeHistory = {}, PickupProbe = nil, PickupEvidence = {}, CombinedEvidence = {}, LastPickupLogAt = -math.huge, CollectionVisits = 0 }, FarmingCoordinator)
 	self.Knowledge = controller.Knowledge or GameKnowledge.new(self.Reader)
 	self.Tracker = PickupTracker.new(self.Config, self.Reader, player, self.Knowledge)
-	self.Mechanics = GameMechanics.new(self.Config, self.Reader, self.Tracker, player)
+	self.Mechanics = GameMechanics.new(self.Config, self.Reader, self.Tracker, player, function(tag, message) controller:Log(tag, message) end)
 	self.Metrics = ResourceMetrics.new(self.Config.FARMING_SETTINGS)
 	return self
 end
@@ -49,7 +49,7 @@ function FarmingCoordinator:Observe()
 			if self.PickupProbe then self.PickupProbe.Confirmed = false end
 			self.Controller:Log("PICKUP][RESULT", "UNCONFIRMED: bubble amount decreased during isolated measurement; potentially mixed pickup/sale samples discarded")
 		end
-		self.PendingSale = { Scope = self.Metrics.Active.Scope, ExpiresAt = now + self.Config.FARMING_SETTINGS.EARNINGS_CONFIRMATION_TIMEOUT_SECONDS }
+		self.PendingSale = { Scope = self.Metrics.Active.Scope, Mode = self.Metrics.Active.Mode, ExpiresAt = now + self.Config.FARMING_SETTINGS.EARNINGS_CONFIRMATION_TIMEOUT_SECONDS }
 	end
 	if self.PendingSale and next(gains) and now <= self.PendingSale.ExpiresAt then
 		if self.Metrics.Active and self.Metrics.Active.Mode == "PICKUPS" then
@@ -59,6 +59,11 @@ function FarmingCoordinator:Observe()
 				if sample.Scope == scope and sample.Mode == "PICKUPS" then table.remove(self.Metrics.Samples, index) end
 			end
 			if self.PickupProbe then self.PickupProbe.Confirmed = false end
+		end
+		if self.PendingSale.Mode == "COMBINED" then
+			local scope = self.PendingSale.Scope
+			self.CombinedEvidence[scope] = self.CombinedEvidence[scope] or {}
+			self.CombinedEvidence[scope].SaleAt = now self.CombinedProbeStart = nil
 		end
 		self.SaleEvidence[self.PendingSale.Scope] = true self.ProbeStart = nil self.PendingSale = nil
 		self.Controller:Log("FARM][SELL", "Observed native sale: bubble amount decreased and actual balances subsequently increased")
@@ -99,8 +104,10 @@ function FarmingCoordinator:Observe()
 	if self.Controller.State == "RUNNING" then
 		local raw = self.Reader:GetLiveProfile()
 		local capacity = raw and self.Reader:_stat("GetBubbleStorage", raw, {})
-		if self.Activity and self.Activity.Kind == "FARM" and self.Activity.Mode ~= "PICKUPS" and raw and raw.Bubble and type(raw.Bubble.Amount) == "number" and capacity and capacity > 0
-			and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES then
+		local full = raw and raw.Bubble and type(raw.Bubble.Amount) == "number" and capacity and capacity > 0
+			and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
+		self.FullSince = full and (self.FullSince or now) or nil
+		if self.Activity and self.Activity.Kind == "FARM" and self.Activity.Mode == "BUBBLES" and full and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES then
 			self.Controller.Scheduler:CancelActive("Bubble reached sell threshold") self.Mechanics:StopMovement()
 		end
 		self.Controller:_requestPlan(false)
@@ -130,6 +137,12 @@ function FarmingCoordinator:_pickupRates(key, now)
 			if not evidence or now - evidence > self.Config.FARMING_SETTINGS.RATE_WINDOW_SECONDS then pickups.PerMinute[currency] = nil end
 		end
 		if next(pickups.PerMinute) == nil then pickups.Ready = false end
+	end
+	if rates.BUBBLES and not self.SaleEvidence[key] then rates.BUBBLES.Ready = false end
+	if rates.COMBINED then
+		local evidence = self.CombinedEvidence[key]
+		if not evidence or not evidence.GrowthAt or not evidence.PickupAt or not evidence.SaleAt
+			or now - math.min(evidence.GrowthAt, evidence.PickupAt, evidence.SaleAt) > self.Config.FARMING_SETTINGS.RATE_WINDOW_SECONDS then rates.COMBINED.Ready = false end
 	end
 	return rates
 end
@@ -192,6 +205,9 @@ function FarmingCoordinator:Context(plan)
 		CanBlow = canBlow, CanTravel = now - mechanics.LastTravelAt >= self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS,
 		Blocker = reason or bubbleReason or tracker.Error, Now = now, ArrivedAt = tracker.ArrivedAt,
 		WalkSpeed = humanoid and humanoid.WalkSpeed, UpgradeBackoff = {}, EffectiveUpgrades = {},
+		FullSince = self.FullSince,
+		CombinedProbePending = self.CombinedProbeStart and now - self.CombinedProbeStart < self.Config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS
+			and not (self.CombinedEvidence[currentKey] and self.CombinedEvidence[currentKey].SaleAt),
 		BubbleProbePending = self.ProbeStart and now - self.ProbeStart.At < self.Config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS
 			and not self.SaleEvidence[currentKey] and raw and raw.Bubble and raw.Bubble.Amount > self.ProbeStart.Amount,
 		PickupProbe = self.PickupProbe, IslandProbeHistory = self.IslandProbeHistory }
@@ -221,10 +237,33 @@ function FarmingCoordinator:Context(plan)
 	return context
 end
 
+function FarmingCoordinator:_logUpgrades(decision)
+	if not self.Config.DIAGNOSTIC_SETTINGS.LOG_UPGRADE_DIAGNOSTICS or not decision.UpgradeEvaluations then return end
+	local now = os.clock()
+	if now - (self.LastUpgradeLogAt or -math.huge) < math.max(10, self.Config.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then return end
+	self.LastUpgradeLogAt = now self.UpgradeLogSignatures = self.UpgradeLogSignatures or {}
+	local count = 0
+	for _, row in ipairs(decision.UpgradeEvaluations) do
+		local reasons = table.concat(row.Reasons, "; ")
+		local signature = tostring(row.Eligible) .. ":" .. tostring(row.Owned) .. ":" .. reasons
+		if self.UpgradeLogSignatures[row.Name] == signature then continue end
+		if count >= self.Config.DIAGNOSTIC_SETTINGS.MAXIMUM_LOG_ENTRIES then break end
+		count += 1 self.UpgradeLogSignatures[row.Name] = signature
+		self.Controller:Log("UPGRADE][CANDIDATE", row.Name .. " | " .. row.Kind .. " | owned=" .. tostring(row.Owned) .. " | cost=" .. tostring(row.Cost and row.Cost.Amount) .. " " .. tostring(row.Cost and row.Cost.Currency))
+		local projection = row.Projection or {}
+		self.Controller:Log("UPGRADE][EVALUATION", row.Name .. " | strategy=" .. tostring(decision.Mode) .. " | balance=" .. tostring(row.Balance) .. " budget=" .. tostring(row.Budget)
+			.. " resource reserve=" .. tostring(row.Reserve) .. " goal reserve=" .. tostring(row.GoalReserve) .. " | blows/fill=" .. tostring(row.BlowsPerFill)
+			.. " urgent capacity=" .. tostring(row.CapacityUrgent) .. " | projected capacity=" .. tostring(projection.Capacity) .. " power=" .. tostring(projection.Power)
+			.. " | measured bubble income=" .. tostring(row.BubbleIncome) .. " | estimated discounted payback=" .. tostring(row.Payback))
+		self.Controller:Log(row.Eligible and "UPGRADE][EVALUATION" or "UPGRADE][REJECTED", row.Name .. " | " .. (row.Eligible and "Eligible; Brain chooses the qualified candidate with shortest estimated payback" or reasons))
+	end
+end
+
 function FarmingCoordinator:Select(plan)
 	local context = self:Context(plan)
 	local decision = self.Controller.Brain:PlanFarming(self.Reader:GetSnapshot(), plan, context)
 	self.Decision = decision
+	self:_logUpgrades(decision)
 	local signature = decision.Kind .. ":" .. tostring(decision.Mode) .. ":" .. tostring(decision.Currency) .. ":" .. (decision.Island and decision.Island.Key or "")
 	if signature ~= self.LastDecisionSignature or os.clock() - self.LastLogAt >= math.max(5, self.Config.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then
 		self.LastDecisionSignature, self.LastLogAt = signature, os.clock()
@@ -264,6 +303,11 @@ function FarmingCoordinator:Select(plan)
 			end
 		end
 		self.Controller:Log(decision.Kind == "WAIT" and "FARM][FALLBACK" or "FARM][DECISION", decision.Kind .. "/" .. tostring(decision.Mode) .. " | " .. decision.Reason)
+		if decision.SellComparison then
+			local comparison = decision.SellComparison
+			self.Controller:Log("FARM][SELL_POLICY", "estimated selling overhead=" .. tostring(comparison.SellSeconds) .. "s | estimated lost pickups=" .. tostring(comparison.LostPickupEstimate)
+				.. " | estimated sale value=" .. tostring(comparison.SaleValueEstimate) .. " | delayed=" .. tostring(comparison.Delayed))
+		end
 		for mode, entry in pairs(context.Rates) do
 			if entry.Ready then
 				self.Controller:Log("FARM][EARNINGS", string.format("%s observed sample %.1fs | %.2f %s/min | external rewards can affect attribution",
@@ -313,22 +357,37 @@ function FarmingCoordinator:_collection(decision, token)
 	self.Controller:Log("FARM][BULK", string.format("Island=%s | total eligible=%d | cluster=%d | native radius=%.1f | method=NATIVE_RADIUS_CLUSTER_FALLBACK; no island-wide batch API",
 		cluster.AreaKey, self.Tracker.Current and self.Tracker.Current.EligibleCount or 0, beforeVisible, cluster.Radius))
 	self.Controller:Log("FARM][BULK", string.format("Sweep %d | %d/%d pending in frozen island set; new spawns enter the next sweep", cluster.SweepId, cluster.SweepRemaining, cluster.SweepTotal))
+	local saleDue = false
+	local function fullBubble()
+		local raw = self.Reader:GetLiveProfile()
+		local capacity = raw and self.Reader:_stat("GetBubbleStorage", raw, {})
+		return raw and raw.Bubble and type(raw.Bubble.Amount) == "number" and capacity and capacity > 0
+			and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
+	end
 	local function allGone()
+		if decision.Mode == "COMBINED" and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and fullBubble() then
+			self.FullSince = self.FullSince or os.clock()
+			if os.clock() - self.FullSince >= self.Config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS then saleDue = true return true end
+		end
 		for _, record in ipairs(cluster.Records) do if self.Tracker:IsActive(record) then return false end end
 		return true
 	end
-	local tick = decision.Mode == "COMBINED" and function() self.Mechanics:Blow(token) end or nil
+	local tick = decision.Mode == "COMBINED" and function()
+		if not (self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and fullBubble()) then self.Mechanics:Blow(token) end
+	end or nil
 	local permitted, reason = self.Mechanics:Walk(cluster.Position, token, os.clock() + self.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS, tick, allGone)
 	if token:CheckCancelled() then return nil end
-	if permitted then self:_settle(token, self.Config.PICKUP_SETTINGS.COLLECTION_SETTLE_SECONDS, tick) end
+	if permitted and not saleDue then self:_settle(token, self.Config.PICKUP_SETTINGS.COLLECTION_SETTLE_SECONDS, tick) end
+	if token:CheckCancelled() then return nil end
 	local disappeared = 0
 	for _, record in ipairs(cluster.Records) do if not record.Model.Parent then disappeared += 1 end end
 	if not permitted then
 		self.Tracker:BackOff(cluster.Records, reason == "Slice ended" and self.Config.PICKUP_SETTINGS.COLLECTION_RETRY_SECONDS or self.Config.PICKUP_SETTINGS.UNREACHABLE_RETRY_SECONDS, reason)
-	elseif disappeared == 0 then
+	elseif disappeared == 0 and not saleDue then
 		self.Tracker:BackOff(cluster.Records, self.Config.PICKUP_SETTINGS.COLLECTION_RETRY_SECONDS, "No disappearance observed")
 	end
 	local after = self:_awaitCredit(before, token, currencies)
+	if token:CheckCancelled() then return nil end
 	disappeared = 0
 	local disappearedCurrencies = {}
 	for _, record in ipairs(cluster.Records) do if not record.Model.Parent then disappeared += 1 disappearedCurrencies[record.Currency] = true end end
@@ -340,6 +399,15 @@ function FarmingCoordinator:_collection(decision, token)
 	local afterBubble = afterProfile and afterProfile.Bubble and afterProfile.Bubble.Amount
 	local mixedSale = self.PendingSale ~= nil or beforeSale ~= (self.SaleSequence or 0) or (type(beforeBubble) == "number" and type(afterBubble) == "number" and afterBubble < beforeBubble)
 	local verified = next(gains) ~= nil and decision.Mode == "PICKUPS" and not mixedSale
+	local combined = decision.Mode == "COMBINED" and next(gains) ~= nil
+	if combined then
+		local evidence = self.CombinedEvidence[cluster.AreaKey] or {}
+		self.CombinedEvidence[cluster.AreaKey] = evidence
+		if not mixedSale then evidence.PickupAt = os.clock() end
+		if type(beforeBubble) == "number" and type(afterBubble) == "number" and afterBubble > beforeBubble then evidence.GrowthAt = os.clock() end
+		self.Controller:Log("FARM][COMBINED", "Matching pickup disappearance and live credit observed; bubble amount " .. tostring(beforeBubble) .. " -> " .. tostring(afterBubble)
+			.. " | complete sale evidence=" .. tostring(evidence.SaleAt ~= nil) .. "; comparison also requires an adequate sample")
+	end
 	if verified then
 		self.Metrics:ConfirmCycle(before, after, "Native pickup disappearance and matching credit observed; external rewards can affect attribution")
 		for currency in pairs(gains) do self.PickupEvidence[cluster.AreaKey .. ":" .. currency] = os.clock() end
@@ -354,7 +422,10 @@ function FarmingCoordinator:_collection(decision, token)
 	if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DIAGNOSTICS then
 		self.Controller:Log("PICKUP][RESULT", string.format("%s | targets before=%d after=%d disappeared=%d | before: %s | after: %s | %s", verified and "SUCCESS: matching live balance credit" or "UNCONFIRMED", beforeVisible, math.max(0, beforeVisible - disappeared), disappeared, balancesText(before), balancesText(after), self.Metrics.LastConfirmation))
 	end
-	return { Verified = verified, Disappeared = disappeared, Gains = gains, Reason = reason }
+	if not permitted and self.Config.DIAGNOSTIC_SETTINGS.LOG_MOVEMENT_DIAGNOSTICS then
+		self.Controller:Log("MOVE][SKIP", tostring(reason) .. " | selected IDs in temporary backoff; other eligible targets remain available")
+	end
+	return { Verified = verified, CombinedCreditObserved = combined, Disappeared = disappeared, Gains = gains, Reason = saleDue and "Full bubble: bounded combined sell delay reached" or reason }
 end
 
 function FarmingCoordinator:_bubble(token)
@@ -393,6 +464,7 @@ function FarmingCoordinator:_sell(decision, token)
 	local raw = self.Reader:GetLiveProfile()
 	local beforeAmount = raw and raw.Bubble and raw.Bubble.Amount
 	local before = self.Reader:ReadBalances()
+	local started = os.clock()
 	local current = self.Tracker.Current
 	local sameArea = current and current.World == sell.World and current.Name == sell.Area
 	local permitted, reason
@@ -417,9 +489,17 @@ function FarmingCoordinator:_sell(decision, token)
 		end
 		if live and live.Bubble and type(beforeAmount) == "number" and live.Bubble.Amount < beforeAmount then
 			local after = self:_awaitCredit(before, token)
+			if token:CheckCancelled() then return nil end
 			local gains = self.Metrics:ConfirmCycle(before, after, "Native bubble sale")
 			local active = self.Metrics.Active
 			if active and next(gains) then self.SaleEvidence[active.Scope] = true end
+			if next(gains) then
+				self.Mechanics.SellTimes = self.Mechanics.SellTimes or {} self.Mechanics.SellTimes[sell.Key] = os.clock() - started
+				if active and active.Mode == "COMBINED" then
+					local evidence = self.CombinedEvidence[active.Scope] or {} self.CombinedEvidence[active.Scope] = evidence
+					evidence.SaleAt = os.clock() self.CombinedProbeStart = nil
+				end
+			end
 			self.ProbeStart = nil
 			self.Controller:Log("FARM][SELL", string.format("Actual bubble amount %.0f -> %.0f | station multiplier %.2f | %s", beforeAmount, live.Bubble.Amount, sell.Multiplier, self.Metrics.LastConfirmation))
 			self.Controller:Log("FARM][EARNINGS", "before: " .. balancesText(before) .. " | after: " .. balancesText(after))
@@ -444,6 +524,7 @@ function FarmingCoordinator:Definition(decision, generation)
 			if decision.Probe and decision.Kind ~= "TRAVEL" and not self.PickupProbe then self:_beginPickupProbe(scope, decision.Currency) end
 			if decision.Kind == "FARM" then
 				self.Metrics:SetMode(decision.Mode, scope, beforeBalances, os.clock())
+				if decision.Mode == "COMBINED" and not self.CombinedProbeStart then self.CombinedProbeStart = os.clock() end
 				if decision.Mode == "BUBBLES" and not self.ProbeStart then
 					local raw = self.Reader:GetLiveProfile()
 					self.ProbeStart = raw and raw.Bubble and { Amount = raw.Bubble.Amount, At = os.clock() } or nil
@@ -486,14 +567,14 @@ function FarmingCoordinator:Definition(decision, generation)
 				return { Verified = false, Reason = "Pickup observation: " .. tostring(self.Tracker.ClusterReason or decision.Reason) }
 			elseif decision.Kind == "SELL" then return self:_sell(decision, token)
 			elseif decision.Kind == "UPGRADE" then
-				self.Controller:Log("UPGRADE", decision.Upgrade.Name .. " | " .. decision.Reason)
-				local success, reason = self.Mechanics:Upgrade(decision.Upgrade, token)
-				self.Controller:Log("UPGRADE", decision.Upgrade.Name .. " | " .. tostring(reason) .. " | verified=" .. tostring(success))
+				local success, reason, evidence = self.Mechanics:Upgrade(decision.Upgrade, token)
+				if token:CheckCancelled() then return nil end
+				self.Controller:Log(success and "UPGRADE][VERIFIED" or "UPGRADE][REJECTED", decision.Upgrade.Name .. " | " .. tostring(reason) .. " | verified=" .. tostring(success))
 				if success then
-					self.Metrics.Samples = {} self.SaleEvidence = {} self.ProbeStart = nil
+					self.Metrics.Samples = {} self.SaleEvidence = {} self.CombinedEvidence = {} self.ProbeStart = nil self.CombinedProbeStart = nil
 					self.Controller.Brain.FarmingMemory = nil
 				end
-				return { Verified = success, Reason = reason }
+				return { Verified = success, Reason = reason, Evidence = evidence }
 			elseif decision.Mode == "BUBBLES" then return self:_bubble(token)
 			else return self:_collection(decision, token) end
 		end,
@@ -519,7 +600,7 @@ end
 function FarmingCoordinator:Halt()
 	self.Mechanics:StopMovement()
 	self.Metrics:SetMode(nil, nil, self.Reader:ReadBalances(), os.clock())
-	self.Activity = nil self.ProbeStart = nil self.PendingSale = nil self.EmptySince = {} self.PickupProbe = nil
+	self.Activity = nil self.ProbeStart = nil self.PendingSale = nil self.EmptySince = {} self.PickupProbe = nil self.FullSince = nil self.CombinedProbeStart = nil
 end
 
 function FarmingCoordinator:GetStatus()

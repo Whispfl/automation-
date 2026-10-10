@@ -1,8 +1,50 @@
 # Read-only workspace reference
 
-Phase 1 account behavior was subsequently verified and approved by the owner. Phase 2 interface observations below remain source/scene evidence; owner-run execution verification is pending.
+Current reference (October 10, 2026): the owner explicitly confirmed MCP session
+`Game` as `place 85896571713843 Bubble Gum Simulator INFINITY`. The Studio launch
+log references that `.rbxl` filename. Read-only MCP does not expose the actual
+PlaceId; **the ID was not independently verified**. The references below include
+historical inspections and must not be mistaken for current workspace identity.
 
-Inspected place: `74075244490179`, "logosism's Place: 10102026_1". These are observations of client source and scene definitions, not proof of a working server/account runtime.
+Phase 1 is owner-approved. Phase 2 bubbles, selling, island travel and pickup
+collection/respawns have owner verification, including repeated matching coin
+credit. New movement recovery, combined farming and purchases remain unverified.
+
+Historical reference: `74075244490179`, "logosism's Place: 10102026_1". This is the earlier workspace reference, not the current session's identity. These are observations of client source and scene definitions, not proof of a working server/account runtime.
+
+## Current native research for movement, combined farming and upgrades
+
+ReplicatedStorage Assets.Pickups, Client HUD/GumShop/LocalData, Remotes.Pickups and
+Shared Gum/Flavors/Currency/Events/GetPickupZones/StatsUtil were inspected read-only
+in the owner-confirmed Game session. Complementary ClientScript lines1134–1347
+confirm the same ID registry, Chunker and native radius collector. No source was
+executed or changed through Studio.
+
+- GumShop lines792–800 use `GumShopPurchase(name)`; owned items use UpdateStorage/
+  UpdateFlavor. Actual ownership comes from LocalData.Gum/Flavors membership.
+- Native Gum defines Omega Gum storage1750, Unreal Gum4500 for45,000 Coins with
+  Outer Space access; Flavors defines Chocolate65 and Contrast80 for35,000 Coins
+  with Outer Space access. Runtime reads catalogs; these values are observations.
+- StatsUtil:GetBubblePower lines114–176 adds flavor output to effective pet power
+  before buffs/perks and rounding. Contrast's base improvement therefore cannot
+  multiply all equipped pet output. GetBubbleStorage lines357–372 supplies the
+  effective storage projection. Projected benefits remain estimates.
+- HUD lines377–473 permit the guarded native BlowBubble request and contain no
+  normal-walking exclusion. This supports testing simultaneous blowing during
+  native-radius collection; it does not prove combined income or server acceptance.
+- Currency currently includes Candycorn26 and HalloweenShards. Events retains
+  both Fall and Halloween entries with Active=true; GetPickupZones retains both
+  seasonal pools, and saved Workspace retains old folders. None of these alone
+  proves event availability. The owner reports Halloween and inactive Leaves.
+  Defaults no longer select Leaves26/RebirthShards26 balances. Live received
+  balances, actual loaded models and verified credit remain required; event
+  shops/rebirth executors remain outside Phase 2.
+
+Ordinary movement uses [Roblox pathfinding](https://create.roblox.com/docs/characters/pathfinding)
+and [Humanoid MoveTo/MoveToFinished](https://create.roblox.com/docs/reference/engine/classes/Humanoid).
+Actual geometric progress and arrival are checked; an event result alone is not
+proof of arrival. Ahead-of-route blockage, failure or stall permits bounded
+recomputation. OC does not move character CFrames or modify island geometry.
 
 | Account information | Observed source/interface | Handling |
 | --- | --- | --- |

@@ -17,7 +17,7 @@ return {
 		ACCOUNT_LOAD_TIMEOUT_SECONDS = 20, --// Report missing real player data after this wait; never fabricate a profile.
 		SNAPSHOT_REFRESH_SECONDS = 5, --// Refresh slowly as a fallback to account change notifications.
 		MINIMUM_SNAPSHOT_INTERVAL_SECONDS = 0.5, --// Coalesce rapid data changes before copying the account inventory again.
-		SELECTED_CURRENCIES = { "Coins", "Gems", "Tickets", "Pearls", "Leaves26", "RebirthShards26" }, --// Read these verified top-level balances when present.
+		SELECTED_CURRENCIES = { "Coins", "Gems", "Tickets", "Pearls", "Candycorn26", "HalloweenShards" }, --// Read current native balances when present; catalog or balance presence alone never activates an event.
 		READ_PET_INVENTORY = true, --// Include pet records and resolve equipped IDs against the inventory.
 		READ_ITEM_INVENTORY = true, --// Include received powerup and potion inventories independently of pets.
 		READ_UPGRADES = true, --// Include owned gum and flavor upgrades.
@@ -72,6 +72,7 @@ return {
 		ACTIVITY_SWITCH_GAIN_RATIO = 0.2, --// Require this fractional measured-rate advantage before switching a viable mode.
 		EARNINGS_CONFIRMATION_TIMEOUT_SECONDS = 3, --// Allow delayed account credit to arrive before reporting a collection or sale as unconfirmed.
 		BUBBLE_PROBE_TIMEOUT_SECONDS = 180, --// Bound an initial unsold bubble trial; an unfinished trial is not a measured sale rate.
+		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Finish useful pickup coverage briefly when measured lost pickup income exceeds estimated sale value; then sell full bubbles.
 		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Fallback earning priorities when the recommended goal has no unmet currency cost.
 		AUTO_FARM_FALLBACK = true, --// Permit another useful eligible activity when the preferred farming method is unavailable.
 	},
@@ -112,7 +113,11 @@ return {
 		COLLECTION_SETTLE_SECONDS = 0.5, --// Wait in native range for the game collector after arriving at a cluster.
 		UNREACHABLE_RETRY_SECONDS = 30, --// Back off failed cluster identities rather than repeatedly navigating to them.
 		COLLECTION_RETRY_SECONDS = 5, --// Avoid immediately revisiting a cluster that produced no observed pickup disappearance.
-		PATH_TIMEOUT_SECONDS = 3, --// Bound path computation and individual waypoint progress waits.
+		PATH_TIMEOUT_SECONDS = 3, --// Bound path computation; waypoint stall timing separately resets on real forward progress.
+		WAYPOINT_STALL_SECONDS = 2, --// Replan when no meaningful progress toward the current waypoint is observed for this long.
+		MINIMUM_WAYPOINT_PROGRESS_STUDS = 0.5, --// Require this cumulative distance improvement to reset the stall timer.
+		MOVE_REISSUE_SECONDS = 2, --// Refresh normal MoveTo while progressing; cannot extend the foreground task deadline.
+		MAXIMUM_PATH_RECOMPUTES = 1, --// Bound recovery attempts for stalled, blocked or failed paths within the same task slice; zero disables recovery.
 		MAXIMUM_PATH_DETOUR_RATIO = 2.5, --// Reject paths whose length greatly exceeds the direct route.
 	},
 	UPGRADE_SETTINGS = {
@@ -126,6 +131,8 @@ return {
 		PURCHASE_CONFIRMATION_TIMEOUT_SECONDS = 8, --// Wait for real ownership/equipment changes after issuing one native shop command.
 		PURCHASE_RETRY_COOLDOWN_SECONDS = 30, --// Back off unconfirmed purchases or equips instead of resending every decision cycle.
 		ENABLE_GOAL_RESERVATION = true, --// Preserve the remaining selected world/Mastery goal funds before buying secondary upgrades.
+		MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION = 0.5, --// Cap long-term goal reservation to this fraction of post-resource-reserve funds; one preserves the full available goal amount.
+		ALLOWED_PURCHASE_CURRENCIES = { "Coins" }, --// Explicitly authorize currencies for gum/flavor spending; no premium or unlisted currency is ever purchased.
 	},
 	FALL_EVENT_SETTINGS = {
 		ENABLE_FALL_EVENT = false, --// Reserved; event shops, rebirths, and consumable tasks are not implemented.
@@ -165,6 +172,8 @@ return {
 		PANEL_HEIGHT_PIXELS = 420, --// Set the maximum panel height; content can scroll.
 	},
 	DIAGNOSTIC_SETTINGS = {
+		LOG_MOVEMENT_DIAGNOSTICS = true, --// Report bounded path recovery and final blockers without per-frame progress spam.
+		LOG_UPGRADE_DIAGNOSTICS = true, --// Explain each considered catalog upgrade's budgets, projected effects, payback and blocking conditions.
 		LOG_PICKUP_DIAGNOSTICS = true, --// Print rate-limited scan, classification, rejection, range and balance-result summaries.
 		LOG_PICKUP_DETAIL_PATHS = false, --// Include a bounded number of problem paths only when diagnosing rejected or missing targets.
 		LOG_ISLAND_DISCOVERY = true, --// Explain every catalog/zone island's unlocks, mapping, destination, counts and exclusion reason.
