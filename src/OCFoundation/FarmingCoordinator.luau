@@ -18,7 +18,7 @@ end
 function FarmingCoordinator.new(controller, player)
 	local self = setmetatable({ Controller = controller, Config = controller.Config, Reader = controller.Reader,
 		Activity = nil, Decision = nil, Destroyed = false, LastLogAt = -math.huge, SaleEvidence = {}, ProbeStart = nil,
-		IslandProbeHistory = {}, PickupProbe = nil, PickupEvidence = {}, LastPickupLogAt = -math.huge }, FarmingCoordinator)
+		IslandProbeHistory = {}, PickupProbe = nil, PickupEvidence = {}, LastPickupLogAt = -math.huge, CollectionVisits = 0 }, FarmingCoordinator)
 	self.Knowledge = controller.Knowledge or GameKnowledge.new(self.Reader)
 	self.Tracker = PickupTracker.new(self.Config, self.Reader, player, self.Knowledge)
 	self.Mechanics = GameMechanics.new(self.Config, self.Reader, self.Tracker, player)
@@ -145,10 +145,11 @@ function FarmingCoordinator:_logPickupScan(now)
 		table.sort(entries) return #entries > 0 and table.concat(entries, "; ") or "none"
 	end
 	if not report then self.Controller:Log("PICKUP][SCAN", "Scan unavailable: " .. tostring(tracker.Error or "collection/scanning disabled or not initialized")) return end
-	self.Controller:Log("PICKUP][SCAN", string.format("island=%s | folder=%s objects=%d Models=%d | actual range=%s | scan age=%.1fs", area and area.Key or "unknown", tostring(report.FolderPresent), report.RenderedObjects, report.Models, range and string.format("%.2f", range) or "unavailable", now - report.At))
-	self.Controller:Log("PICKUP][DETECTED", string.format("current island=%d | global currency=%d unidentified=%d | classes: %s", report.CurrentDetected, report.CurrencyCount, report.Unidentified, counts(report.Classes)))
+	self.Controller:Log("PICKUP][SCAN", string.format("island=%s | candidates=%d Models=%d | actual range=%s | scan age=%.1fs", area and area.Key or "unknown", report.RenderedObjects, report.Models, range and string.format("%.2f", range) or "unavailable", now - report.At))
+	self.Controller:Log("PICKUP][SOURCES", string.format("registry: %s entries=%d active IDs=%d | Rendered.Chunker folders=%d objects=%d | legacy Pickups folder=%s objects=%d | spawn listener=%s events=%d valid records=%d metadata IDs=%d without position/model=%d", report.RegistryStatus, report.RegistryEntries, report.RegistryActiveIds, report.ChunkerFolders, report.ChunkerObjects, tostring(report.FolderPresent), report.LegacyObjects, tostring(report.SpawnListener), report.NativeSpawnEvents, report.NativeSpawnRecords, report.MetadataIds, report.MetadataWithoutModel))
+	self.Controller:Log("PICKUP][DETECTED", string.format("ID candidates=%d positions resolved=%d | ID sources: %s | current island=%d currency=%d unidentified=%d unloaded/stale registry entries=%d", report.CandidateIds, report.PositionsResolved, counts(report.IdSources), report.CurrentDetected, report.CurrencyCount, report.Unidentified, report.UnloadedEntries))
 	self.Controller:Log("PICKUP][CLASSIFIED", string.format("current currency=%d eligible=%d | currencies: %s | identities: %s", report.CurrentCurrency, area and area.EligibleCount or 0, counts(report.Currencies), counts(report.Sources)))
-	local reason = not report.FolderPresent and "Workspace.Rendered.Pickups missing" or (report.RenderedObjects == 0 and "Workspace.Rendered.Pickups exists but has no rendered objects" or counts(report.Rejected))
+	local reason = report.RenderedObjects == 0 and ("No live candidates from checked native registry/Chunker/legacy sources; " .. report.RegistryStatus .. "; spawn metadata alone has no exact position") or counts(report.Rejected)
 	self.Controller:Log("PICKUP][REJECTED", reason .. (tracker.Error and " | " .. tracker.Error or ""))
 	if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DETAIL_PATHS then
 		for _, example in ipairs(report.Examples) do self.Controller:Log("PICKUP][REJECTED", example) end
@@ -238,17 +239,23 @@ function FarmingCoordinator:Select(plan)
 			for index, row in ipairs(decision.IslandDiagnostics or {}) do
 				if index > self.Config.DIAGNOSTIC_SETTINGS.MAXIMUM_LOG_ENTRIES then break end
 				local area, pools = row.Area, {}
+				self.DiscoveryLogSignatures = self.DiscoveryLogSignatures or {}
+				local discoverySignature = tostring(area.WorldUnlocked) .. ":" .. tostring(area.Discovered) .. ":" .. tostring(area.AtCurrentLocation) .. ":" .. tostring(area.ZoneCount) .. ":" .. row.Reason
+				if self.DiscoveryLogSignatures[area.Key] ~= discoverySignature then
+				self.DiscoveryLogSignatures[area.Key] = discoverySignature
 				self.Controller:Log("FARM][DISCOVERY", string.format("%s | worldUnlocked=%s discovered=%s current=%s | zones=%d configured=%s visible=%d eligible=%d unidentified=%d | destination=%s | %s",
 					area.Key, tostring(area.WorldUnlocked), tostring(area.Discovered), tostring(area.AtCurrentLocation), area.ZoneCount or #(area.Zones or {}),
 					area.UnknownZoneCount and "partial/unknown" or tostring(area.ConfiguredCount), area.VisibleCount or 0, area.EligibleCount or 0, area.UnknownCount or 0,
 					area.Spawn and area.Spawn:GetFullName() or (area.DestinationPath and area.DestinationPath .. " (native path; local part absent)" or "unavailable"), row.Reason))
+				end
 				local zoneSignature = tostring(area.ZoneCount) .. ":" .. tostring(area.TransitZoneCount or 0) .. ":" .. tostring(area.ConfiguredCount)
 				self.ZoneLogSignatures = self.ZoneLogSignatures or {}
-				if self.ZoneLogSignatures[area.Key] ~= zoneSignature then
+				local changedZones = self.ZoneLogSignatures[area.Key] ~= zoneSignature
+				if changedZones then
 					self.ZoneLogSignatures[area.Key] = zoneSignature
 					self.Controller:Log("FARM][ZONES", area.Key .. " | surface zones=" .. tostring(area.ZoneCount) .. " | jump-stage transit zones=" .. tostring(area.TransitZoneCount or 0) .. " (excluded from island routing/yield)")
 				end
-				if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DETAIL_PATHS and (area.MappingWarning or area.ZoneCount == 0) then
+				if changedZones and self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DETAIL_PATHS and (area.MappingWarning or area.ZoneCount == 0) then
 					for _, zone in ipairs(area.Zones or {}) do
 						if #pools >= 3 then break end table.insert(pools, zone.Root:GetFullName())
 					end
@@ -295,18 +302,19 @@ function FarmingCoordinator:_collection(decision, token)
 	local beforeSale = self.SaleSequence or 0
 	local beforeVisible = 0
 	local currencies = {}
-	for _, record in ipairs(cluster.Records) do if record.Model.Parent then beforeVisible += 1 currencies[record.Currency] = true end end
+	for _, record in ipairs(cluster.Records) do if self.Tracker:IsActive(record) then beforeVisible += 1 currencies[record.Currency] = true end end
 	if beforeVisible == 0 then return { Verified = false, Reason = "Frozen targets disappeared before collection began" } end
+	self.CollectionVisits += 1
 	if self.PickupProbe then self.PickupProbe.Attempts = (self.PickupProbe.Attempts or 0) + 1 end
 	local point = cluster.Position
 	if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DIAGNOSTICS then
-		self.Controller:Log("PICKUP][COLLECTION", string.format("island=%s position=(%.1f,%.1f,%.1f) range=%.2f | before targets=%d island=%d | balances: %s", cluster.AreaKey, point.X, point.Y, point.Z, cluster.Radius, beforeVisible, self.Tracker.Current and self.Tracker.Current.VisibleCount or 0, balancesText(before)))
+		self.Controller:Log("PICKUP][COLLECTION", string.format("visit=%d island=%s position=(%.1f,%.1f,%.1f) range=%.2f | before targets=%d island=%d | interaction=NATIVE_AUTO_RADIUS; OC remote requests=0; native outbound call count unobserved | balances: %s", self.CollectionVisits, cluster.AreaKey, point.X, point.Y, point.Z, cluster.Radius, beforeVisible, self.Tracker.Current and self.Tracker.Current.VisibleCount or 0, balancesText(before)))
 	end
 	self.Controller:Log("FARM][BULK", string.format("Island=%s | total eligible=%d | cluster=%d | native radius=%.1f | method=NATIVE_RADIUS_CLUSTER_FALLBACK; no island-wide batch API",
 		cluster.AreaKey, self.Tracker.Current and self.Tracker.Current.EligibleCount or 0, beforeVisible, cluster.Radius))
 	self.Controller:Log("FARM][BULK", string.format("Sweep %d | %d/%d pending in frozen island set; new spawns enter the next sweep", cluster.SweepId, cluster.SweepRemaining, cluster.SweepTotal))
 	local function allGone()
-		for _, record in ipairs(cluster.Records) do if record.Model.Parent then return false end end
+		for _, record in ipairs(cluster.Records) do if self.Tracker:IsActive(record) then return false end end
 		return true
 	end
 	local tick = decision.Mode == "COMBINED" and function() self.Mechanics:Blow(token) end or nil
@@ -498,7 +506,12 @@ function FarmingCoordinator:Completed(status, result, reason)
 	self.Activity = nil
 	self.Metrics:Observe(self.Reader:ReadBalances(), os.clock())
 	if status == "FAILED" then self.Controller:Log("FARM][ERROR", tostring(result))
-	elseif result and not result.Verified and result.Reason then self.Controller:Log("FARM][FALLBACK", result.Reason)
+	elseif result and not result.Verified and result.Reason then
+		local now = os.clock()
+		if self.LastFallbackReason ~= result.Reason or now - (self.LastFallbackLogAt or -math.huge) >= math.max(5, self.Config.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then
+			self.LastFallbackReason, self.LastFallbackLogAt = result.Reason, now
+			self.Controller:Log("FARM][FALLBACK", result.Reason)
+		end
 	elseif status == "CANCELLED" then self.Controller:Log("FARM][CANCELLED", tostring(reason)) end
 	self:Observe()
 end
@@ -515,7 +528,7 @@ function FarmingCoordinator:GetStatus()
 		Area = current and current.Key, VisiblePickups = current and current.VisibleCount or 0,
 		EligiblePickups = current and current.EligibleCount or 0, UnknownPickups = current and current.UnknownCount or 0,
 		Disappeared = self.Tracker.Disappeared, ObservedSpawns = self.Tracker.ObservedSpawns,
-		RespawnObservations = self.Tracker.RespawnObservations, Radius = self.Tracker.Range,
+		RespawnObservations = self.Tracker.RespawnObservations, Radius = self.Tracker.Range, CollectionVisits = self.CollectionVisits,
 		Rates = self:_pickupRates(current and current.Key or "UNKNOWN", os.clock()), Scan = self.Tracker.ScanReport, CollectionBlocker = self.Tracker.ClusterReason,
 		ConfirmedCycles = self.Metrics.ConfirmedCycles, LastConfirmation = self.Metrics.LastConfirmation,
 		Error = self.Tracker.Error, GameKnowledge = self.Knowledge:GetStatus(), CollectionMethod = "Native radius clusters; no genuine island-wide batch API found" }

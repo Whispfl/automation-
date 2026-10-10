@@ -28,6 +28,8 @@ local Config = {
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapidly switching viable islands.
 	},
 	PICKUP_SETTINGS = {
+		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Read the actual loaded pickup ID-to-Model registry.
+		ENABLE_CHUNKER_DISCOVERY = true, --// Observe native chunk parents rather than depend on the empty initial folder.
 		BULK_COLLECT_PICKUPS = true, --// Use native radius clusters; no island-wide batch API was found.
 		ENABLE_CLUSTER_ROUTING = true, --// Walk to dense reachable clusters as the supported fallback.
 		FARM_CURRENCY_TYPES = {}, --// Empty allows all detected currency types, including live island currencies.

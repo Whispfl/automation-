@@ -67,6 +67,7 @@ function PickupTracker.new(config, reader, player, knowledge)
 		Metadata = {}, Models = {}, Backoff = {}, Connections = {}, Prefabs = nil,
 		LastZoneRefresh = -math.huge, LastScan = -math.huge, ObservedSpawns = 0, Disappeared = 0,
 		LastPrefabRefresh = -math.huge, IdentityCache = {}, PrefabRevision = 0,
+		NativeSpawnEvents = 0, NativeSpawnRecords = 0,
 		RespawnObservations = 0, Destroyed = false }, PickupTracker)
 end
 
@@ -79,16 +80,18 @@ function PickupTracker:Root()
 end
 
 function PickupTracker:_hookSpawn()
-	if self.SpawnConnection or not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS then return end
+	if self.SpawnConnection or not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then return end
 	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 	local pickups = remotes and remotes:FindFirstChild("Pickups")
 	local spawn = pickups and pickups:FindFirstChild("SpawnPickups")
 	if not spawn or not spawn:IsA("RemoteEvent") then return end
 	self.SpawnConnection = spawn.OnClientEvent:Connect(function(payload)
+		self.NativeSpawnEvents += 1
 		if type(payload) ~= "table" then return end
 		for _, entry in pairs(payload) do
 			if type(entry) == "table" and (type(entry.Id) == "string" or (type(entry.Id) == "number" and entry.Id == entry.Id and math.abs(entry.Id) < math.huge)) and type(entry.Visual) == "string" then
 				self.Metadata[tostring(entry.Id)] = { Root = entry.Root, Visual = entry.Visual, At = os.clock() }
+				self.NativeSpawnRecords += 1
 			end
 		end
 	end)
@@ -272,18 +275,100 @@ function PickupTracker:_identity(model, zones, metadata)
 	return nil, nil, count > 1 and "Ambiguous mesh visuals in native pool" or "No matching live prefab or spawn metadata"
 end
 
+local function nativeId(value)
+	if type(value) == "string" and value ~= "" then return value end
+	if type(value) == "number" and value == value and math.abs(value) < math.huge then return tostring(value) end
+	return nil
+end
+
+local function guidShaped(name)
+	local a, b, c, d, e = name:match("^(%x+)%-(%x+)%-(%x+)%-(%x+)%-(%x+)$")
+	return a ~= nil and #a == 8 and #b == 4 and #c == 4 and #d == 4 and #e == 12
+end
+
+function PickupTracker:_discover(report, reject)
+	local rendered = workspace:FindFirstChild("Rendered")
+	local legacy = rendered and rendered:FindFirstChild("Pickups")
+	local legacyObjects = legacy and legacy:GetChildren() or {}
+	report.FolderPresent, report.LegacyObjects = legacy ~= nil, #legacyObjects
+	report.RegistryEntries, report.RegistryActiveIds, report.ChunkerFolders, report.ChunkerObjects = 0, 0, 0, 0
+	report.IdSources, report.CandidateIds, report.UnloadedEntries = {}, 0, 0
+	report.NativeSpawnEvents, report.NativeSpawnRecords = self.NativeSpawnEvents, self.NativeSpawnRecords
+	report.SpawnListener = self.SpawnConnection ~= nil
+	local registry, registryStatus
+	if self.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY then registry, registryStatus = self.Knowledge:ActivePickups()
+	else registryStatus = "Native registry discovery disabled" end
+	report.RegistryAvailable, report.RegistryStatus = registry ~= nil, registryStatus
+	self.ActiveRegistry = registry
+	local candidates, byModel, byId, collisions = {}, {}, {}, {}
+	local function add(model, id, source, registryKey)
+		local valid, isModel = pcall(function() return model:IsA("Model") end)
+		if not valid or not isModel then
+			if source == "LEGACY_PICKUP_MODEL" and valid then reject("Unexpected native pickup class " .. model.ClassName, model)
+			else reject("Native source entry is not a Model", nil) end
+			return
+		end
+		if not id or model.Name ~= id then reject("Native ID missing or registry key differs from Model.Name", model) return end
+		if not model.Parent or not model:IsDescendantOf(workspace) then report.UnloadedEntries += 1 return end
+		if byModel[model] then return end
+		if byId[id] and byId[id] ~= model then collisions[id] = true end
+		byId[id], byModel[model] = model, true
+		table.insert(candidates, { Model = model, Id = id, IdSource = source, RegistryKey = registryKey })
+		if source == "NATIVE_ACTIVE_REGISTRY" then report.RegistryActiveIds += 1 end
+	end
+	for id, model in pairs(registry or {}) do
+		report.RegistryEntries += 1
+		add(model, nativeId(id), "NATIVE_ACTIVE_REGISTRY", id)
+	end
+	if self.Config.PICKUP_SETTINGS.ENABLE_CHUNKER_DISCOVERY and rendered then
+		-- Chunker owns multiple identically named folders; never use FindFirstChild here.
+		for _, child in ipairs(rendered:GetChildren()) do
+			if child.Name ~= "Chunker" or not child:IsA("Folder") then continue end
+			report.ChunkerFolders += 1
+			for _, model in ipairs(child:GetChildren()) do
+				report.ChunkerObjects += 1
+				local id = nativeId(model.Name)
+				-- Chunkers also serve other game systems. A name alone never establishes currency.
+				if id and (self.Metadata[id] or guidShaped(id)) then add(model, id, "NATIVE_CHUNKER_MODEL") end
+			end
+		end
+	end
+	for _, model in ipairs(legacyObjects) do add(model, nativeId(model.Name), "LEGACY_PICKUP_MODEL") end
+	local objects = {}
+	self.ModelIds = {}
+	for _, candidate in ipairs(candidates) do
+		if collisions[candidate.Id] then reject("Conflicting live Models share the same native ID", candidate.Model) continue end
+		table.insert(objects, candidate.Model) self.ModelIds[candidate.Model] = candidate
+		report.IdSources[candidate.IdSource] = (report.IdSources[candidate.IdSource] or 0) + 1
+		report.CandidateIds += 1
+	end
+	report.RenderedObjects = #objects
+	local metadataCount, unresolved = 0, 0
+	for id in pairs(self.Metadata) do metadataCount += 1 if not byId[id] then unresolved += 1 end end
+	report.MetadataIds, report.MetadataWithoutModel = metadataCount, unresolved
+	return objects
+end
+
+function PickupTracker:IsActive(record)
+	if not record.Model.Parent then return false end
+	if record.IdSource and record.Model.Name ~= record.Id then return false end
+	if record.IdSource == "NATIVE_ACTIVE_REGISTRY" then
+		local registry = self.Knowledge:ActivePickups()
+		return registry ~= nil and registry[record.RegistryKey or record.Id] == record.Model
+	end
+	return true
+end
+
 function PickupTracker:_scan(now)
 	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then return end
 	self:_prefabs(now)
-	local rendered = workspace:FindFirstChild("Rendered")
-	local folder = rendered and rendered:FindFirstChild("Pickups")
-	local objects = folder and folder:GetChildren() or {}
-	local report = { At = now, FolderPresent = folder ~= nil, RenderedObjects = #objects, Models = 0, CurrencyCount = 0,
+	local report = { At = now, Models = 0, CurrencyCount = 0, PositionsResolved = 0,
 		Unidentified = 0, CurrentDetected = 0, CurrentCurrency = 0, Sources = {}, Rejected = {}, Examples = {}, Classes = {}, Currencies = {} }
 	local function reject(reason, model)
 		report.Rejected[reason] = (report.Rejected[reason] or 0) + 1
 		if model and #report.Examples < 3 then table.insert(report.Examples, model:GetFullName() .. " | " .. reason) end
 	end
+	local objects = self:_discover(report, reject)
 	local seen, root = {}, self:Root()
 	for _, area in pairs(self.Areas) do
 		area.Available = {} area.VisibleCount = 0 area.EligibleCount = 0 area.UnknownCount = 0 area.CurrencyCount = 0
@@ -295,6 +380,7 @@ function PickupTracker:_scan(now)
 		local pivotOK, pivot = pcall(function() return model:GetPivot() end)
 		if not pivotOK then reject("Model pivot unavailable", model) report.Unidentified += 1 continue end
 		local position = pivot.Position
+		report.PositionsResolved += 1
 		local metadata = self.Metadata[model.Name]
 		local nativeZone = metadata and self.ZoneInfo[metadata.Root]
 		local area, zones = nativeZone and self.ZoneAreas[metadata.Root] or nil, {}
@@ -328,8 +414,15 @@ function PickupTracker:_scan(now)
 				end
 			end
 		end
+		local discovery = self.ModelIds[model]
 		local old = self.Models[model]
-		local record = old or { Model = model, Id = model.Name, FirstSeenAt = now }
+		if old and old.Id ~= discovery.Id then
+			-- A changed native ID starts a new lifecycle, including a new frozen sweep.
+			old = nil
+			if self.Sweep then self.Sweep.Pending[model] = nil end
+		end
+		local record = old or { Model = model, Id = discovery.Id, FirstSeenAt = now }
+		record.IdSource, record.RegistryKey = discovery.IdSource, discovery.RegistryKey
 		record.Position, record.AreaKey, record.Visual, record.Source, record.IsTransit = position, area.Key, visual, source, transit
 		record.Currency = not conflicting and item and item.Type == "Currency" and type(item.Currency) == "string" and item.Currency or nil
 		record.Amount = record.Currency and type(item.Amount) == "number" and item.Amount or nil
@@ -402,7 +495,7 @@ function PickupTracker:Cluster(currency)
 	local eligibleModels = {}
 	for _, record in pairs(self.Models) do
 		if record.AreaKey == self.Current.Key and record.Currency and allowed(self.Config.PICKUP_SETTINGS.FARM_CURRENCY_TYPES, record.Currency)
-			and record.RouteEligible ~= false and not record.IsTransit and record.Model.Parent and not self.Backoff[record.Id]
+			and record.RouteEligible ~= false and not record.IsTransit and self:IsActive(record) and not self.Backoff[record.Id]
 			and math.abs(record.Position.Y - root.Position.Y) <= self.Config.PICKUP_SETTINGS.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then
 			table.insert(records, record) eligibleModels[record.Model] = true
 		end

@@ -17,6 +17,7 @@ for (const module of source.modules) {
 }
 const mechanics = source.modules.find(m => m.name === 'GameMechanics').source;
 assert(!/CollectPickup\s*[:.]\s*FireServer/.test(generated.output), 'OC must not duplicate native pickup collection');
+assert(!/\._activePickups\s*=/.test(generated.output), 'OC must not replace the native pickup registry');
 assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics), 'No position or speed modification');
 assert(!/GitHubToken|Authorization|\bRequest\s*=/.test(generated.output), 'No client authentication');
 for (const { name, source: text } of source.modules) {

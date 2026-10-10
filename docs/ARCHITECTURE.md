@@ -18,7 +18,7 @@ no new executors in this build.
 
 GameKnowledge introduces no second module loader, discovery loop or action loop.
 It exposes the same game dependencies already cached by the approved reader,
-ReplicatedStorage asset access, and an evidence-qualified pickup contract. The
+ReplicatedStorage asset access, read-only native active pickup registry access, and an evidence-qualified pickup contract. The
 pickup tracker now consumes that shared facade; legacy working adapters continue
 using the same underlying cache. Future features extend this facade after their
 native interfaces are inspected, rather than replacing working modules wholesale.

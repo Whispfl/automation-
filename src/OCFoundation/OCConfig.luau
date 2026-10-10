@@ -95,6 +95,8 @@ return {
 		EMPTY_ISLAND_RETRY_SECONDS = 60, --// Back off empty islands; a newly observed eligible spawn clears this backoff early.
 	},
 	PICKUP_SETTINGS = {
+		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Read the source-confirmed Client.Tutorial._activePickups ID-to-Model registry without changing it.
+		ENABLE_CHUNKER_DISCOVERY = true, --// Observe native Rendered.Chunker folders and qualify their pickup Models through IDs and native pools.
 		ENABLE_CONTINUOUS_SCANNING = true, --// Refresh all currently rendered pickups at COLLECTION_REFRESH_SECONDS, including models predating OC.
 		PREFAB_REFRESH_SECONDS = 15, --// Rebuild live prefab identity indexes to recover from delayed asset replication.
 		ZONE_MATCH_TOLERANCE_STUDS = 0.5, --// Allow this small geometric border tolerance when associating a model with native zones.

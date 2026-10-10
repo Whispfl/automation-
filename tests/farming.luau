@@ -582,4 +582,106 @@ test("GameKnowledge reuses native definitions without claiming server or action 
 	assert(knowledge:PickupContract().RenderedClass == "Model", "Status callers cannot overwrite the knowledge contract")
 end)
 
+
+
+test("Native registry discovers preexisting IDs despite an empty legacy pickup folder", function()
+	local scene = pickupScene()
+	scene.MeshModel("Gem", scene.Prefabs)
+	local chunk = scene.Node("Chunker", "Folder", scene.Folder.Parent)
+	local existing = scene.MeshModel("preexisting-native-id", chunk)
+	local registry = { [existing.Name] = existing }
+	local tutorial = { _activePickups = registry }
+	local dependency = scene.Tracker.Reader._dependency
+	scene.Tracker.Reader._dependency = function(reader, name) return name == "Tutorial" and tutorial or dependency(reader, name) end
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	local report, record = scene.Tracker.ScanReport, scene.Tracker.Models[existing]
+	assert(report.LegacyObjects == 0 and report.RegistryEntries == 1 and report.RegistryActiveIds == 1 and report.CandidateIds == 1)
+	assert(report.PositionsResolved == 1 and record.IdSource == "NATIVE_ACTIVE_REGISTRY" and record.Currency == "Gems")
+	assert(scene.Tracker:Cluster("Gems").Records[1] == record and scene.Tracker:IsActive(record))
+	assert(registry[existing.Name] == existing and existing.Parent == chunk, "Reading native state must not alter models or registry")
+	existing.Name = "changed-native-id"
+	tutorial._activePickups = { [existing.Name] = existing }
+	scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(not scene.Tracker:IsActive(record) and scene.Tracker.Models[existing].Id == existing.Name, "Changed IDs invalidate previously frozen target records")
+	local replacement = scene.MeshModel("new-native-id", chunk)
+	tutorial._activePickups = { [replacement.Name] = replacement }
+	scene.Tracker:Refresh(scene.Snapshot, 102)
+	assert(scene.Tracker.Models[existing] == nil and not scene.Tracker:IsActive(record))
+	assert(scene.Tracker.Models[replacement].Id == "new-native-id", "Replaced live registries and new IDs must be read without replaying spawn events")
+	replacement.Parent = nil tutorial._activePickups = {}
+	scene.Tracker:Refresh(scene.Snapshot, 103)
+	assert(scene.Tracker.ScanReport.RegistryActiveIds == 0 and scene.Tracker:Cluster("Gems") == nil)
+	scene.Close()
+end)
+
+test("Every same-name native Chunker folder is scanned and registry/models are deduplicated", function()
+	local scene = pickupScene()
+	scene.MeshModel("Gem", scene.Prefabs)
+	local first = scene.Node("Chunker", "Folder", scene.Folder.Parent)
+	local second = scene.Node("Chunker", "Folder", scene.Folder.Parent)
+	local a = scene.MeshModel("00000000-0000-4000-8000-000000000001", first)
+	local b = scene.MeshModel("00000000-0000-4000-8000-000000000002", second)
+	local other = scene.MeshModel("00000000-0000-4000-8000-000000000003", second, "unrelated-synthetic-mesh")
+	local tutorial = { _activePickups = { [a.Name] = a, [b.Name] = b } }
+	local dependency = scene.Tracker.Reader._dependency
+	scene.Tracker.Reader._dependency = function(reader, name) return name == "Tutorial" and tutorial or dependency(reader, name) end
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	local report = scene.Tracker.ScanReport
+	assert(report.ChunkerFolders == 2 and report.ChunkerObjects == 3 and report.RegistryActiveIds == 2)
+	assert(report.CandidateIds == 3 and report.CurrencyCount == 2 and report.Unidentified == 1)
+	assert(scene.Tracker.Models[other].Currency == nil, "A UUID-shaped name in a generic Chunker is not proof of currency")
+	scene.Tracker.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY = false
+	scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(scene.Tracker.ScanReport.RegistryActiveIds == 0 and scene.Tracker.ScanReport.CurrencyCount == 2)
+	assert(scene.Tracker.Models[b].IdSource == "NATIVE_CHUNKER_MODEL")
+	scene.Tracker.Config.PICKUP_SETTINGS.ENABLE_CHUNKER_DISCOVERY = false
+	scene.Tracker:Refresh(scene.Snapshot, 102)
+	assert(scene.Tracker.ScanReport.CandidateIds == 0 and scene.Tracker:Cluster("Gems") == nil)
+	scene.Close()
+end)
+
+test("Spawn metadata counts real observed events without synthesizing positions or IDs", function()
+	local scene = pickupScene()
+	local remotes = scene.Node("Remotes", "Folder")
+	local pickups = scene.Node("Pickups", "Folder", remotes)
+	local spawn = scene.Node("SpawnPickups", "RemoteEvent", pickups)
+	local signal = event() spawn.OnClientEvent = signal.Event
+	local lookup = services.ReplicatedStorage.FindFirstChild
+	services.ReplicatedStorage.FindFirstChild = function(storage, name) return name == "Remotes" and remotes or lookup(storage, name) end
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	assert(scene.Tracker.ScanReport.SpawnListener and scene.Tracker.ScanReport.NativeSpawnEvents == 0)
+	signal:Fire({ { Id = "event-native-id", Visual = "Gem", Root = scene.ZoneRoot }, { Id = 123, Visual = "Gem", Root = scene.ZoneRoot }, { Visual = "Gem" } })
+	scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(scene.Tracker.ScanReport.NativeSpawnEvents == 1 and scene.Tracker.ScanReport.NativeSpawnRecords == 2)
+	assert(scene.Tracker.ScanReport.MetadataWithoutModel == 2 and scene.Tracker.ScanReport.PositionsResolved == 0)
+	assert(scene.Tracker:Cluster("Gems") == nil, "Root/Visual/Id metadata has no exact randomized position; do not guess it")
+	local chunk = scene.Node("Chunker", "Folder", scene.Folder.Parent)
+	local model = scene.MeshModel("123", chunk)
+	scene.Tracker:Refresh(scene.Snapshot, 102)
+	assert(scene.Tracker.Models[model].Currency == "Gems" and scene.Tracker.Models[model].Source == "SPAWN_METADATA")
+	assert(scene.Tracker.Models[model].Id == "123" and scene.Tracker.Models[model].Position == model.Position)
+	local observed = scene.Tracker.NativeSpawnEvents scene.Tracker:Destroy()
+	signal:Fire({ { Id = "later-id", Visual = "Gem", Root = scene.ZoneRoot } })
+	assert(scene.Tracker.NativeSpawnEvents == observed, "Destroy disconnects read-only spawn observation")
+	scene.Close()
+end)
+
+test("Malformed or unloaded native registry entries stay unavailable rather than becoming targets", function()
+	local scene = pickupScene()
+	scene.MeshModel("Gem", scene.Prefabs)
+	local chunk = scene.Node("Chunker", "Folder", scene.Folder.Parent)
+	local stale = scene.MeshModel("stale-native-id", chunk) stale.Parent = nil
+	local mismatched = scene.MeshModel("different-name", chunk)
+	local tutorial = { _activePickups = { [stale.Name] = stale, ["wrong-id"] = mismatched, ["invalid"] = {} } }
+	local dependency = scene.Tracker.Reader._dependency
+	scene.Tracker.Reader._dependency = function(reader, name) return name == "Tutorial" and tutorial or dependency(reader, name) end
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	local report = scene.Tracker.ScanReport
+	assert(report.RegistryEntries == 3 and report.RegistryActiveIds == 0 and report.UnloadedEntries == 1)
+	assert(report.Rejected["Native ID missing or registry key differs from Model.Name"] == 1 and report.Rejected["Native source entry is not a Model"] == 1)
+	assert(scene.Tracker:Cluster("Gems") == nil)
+	tutorial._activePickups = false scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(not scene.Tracker.ScanReport.RegistryAvailable and scene.Tracker.ScanReport.RegistryStatus:find("absent", 1, true))
+	scene.Close()
+end)
 print("[OC TEST] " .. (tests - farmingTestsBefore) .. " Phase 2 offline tests passed; " .. tests .. " total. Phase 2 live verification awaits the owner.")

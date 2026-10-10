@@ -19,6 +19,8 @@ local Config = {
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// Bound empty or unconfirmed trials.
 	},
 	PICKUP_SETTINGS = {
+		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Read live IDs from Client.Tutorial._activePickups.
+		ENABLE_CHUNKER_DISCOVERY = true, --// Scan every native Rendered.Chunker folder as an additional source.
 		ENABLE_CONTINUOUS_SCANNING = true, --// Include existing models and new spawns.
 		BULK_COLLECT_PICKUPS = true, --// Use native radius coverage; no island-wide batch endpoint exists in inspected code.
 		ENABLE_CLUSTER_ROUTING = true, --// Walk to dense coverage positions.
@@ -47,7 +49,7 @@ local Config = {
 		ENABLE_CONSOLE_LOGGING = true, --// Print [OC] diagnostics.
 		LOG_PICKUP_DIAGNOSTICS = true, --// Print scan, identity, rejection and credit evidence.
 		LOG_PICKUP_DETAIL_PATHS = true, --// Show at most three rejected-object or problem-zone paths.
-		LOG_ISLAND_DISCOVERY = true, --// Show summarized island mappings.
+		LOG_ISLAND_DISCOVERY = false, --// Keep this test focused on native pickup diagnostics.
 		LOG_ACCOUNT_DETAILS = false, --// Keep inventory details in the status UI.
 		MINIMUM_LOG_INTERVAL_SECONDS = 5, --// Rate-limit scan summaries.
 	},

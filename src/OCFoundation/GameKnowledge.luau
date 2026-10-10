@@ -11,7 +11,14 @@ local pickupContract = table.freeze({
 	AssetSource = "ReplicatedStorage.Assets.Pickups",
 	SpawnSource = "ReplicatedStorage.Remotes.Pickups.SpawnPickups",
 	ClientEvidence = "StarterPlayer.StarterPlayerScripts.ClientScript:1134-1344",
-	RenderedPath = "Workspace.Rendered.Pickups",
+	InitialRenderPath = "Workspace.Rendered.Pickups",
+	RenderedPath = "Workspace.Rendered.Chunker (all native folders with this name)",
+	ActiveRegistry = "ReplicatedStorage.Client.Tutorial._activePickups",
+	RegistryEvidence = "ClientScript:1137-1140,1255-1279; Client.Tutorial:44,522",
+	ParentEvidence = "ReplicatedStorage.Shared.Utils.Chunker:33-55,118-167",
+	PositionSource = "Actual Model:GetPivot().Position; spawn payload contains Root/Visual/Id, not an exact position",
+	IdOrigin = "Received SpawnPickups payload Id; generation is server-side/unavailable",
+	ExistingPickupSync = "Read current native registry; past spawn events are not replayed",
 	RenderedClass = "Model",
 	RangeMethod = "StatsUtil:GetPickupRange(profile)",
 	CollectionOwner = "Native client collector; per ID within actual radius",
@@ -33,6 +40,16 @@ function GameKnowledge:Assets(name)
 end
 
 function GameKnowledge:PickupContract() return pickupContract end
+
+function GameKnowledge:ActivePickups()
+	local tutorial = self:Get("Tutorial")
+	if type(tutorial) ~= "table" then
+		local dependency = (self.Reader.Dependencies or {}).Tutorial
+		return nil, "Client.Tutorial " .. tostring(dependency and dependency.Status or "not loaded") .. (dependency and dependency.Error and ": " .. dependency.Error or "")
+	end
+	if type(tutorial._activePickups) ~= "table" then return nil, "Client.Tutorial loaded but _activePickups is absent or not a table" end
+	return tutorial._activePickups, "Client.Tutorial._activePickups available (read-only)"
+end
 
 function GameKnowledge:GetStatus()
 	local dependencies = {}
