@@ -2,8 +2,9 @@
 
 This is the owner's global architecture instruction. Phase 1 is owner-approved;
 Phase 2 bubbles, selling and island teleportation have owner-observed success.
-Pickup collection/respawns and repeated real credit are now owner-verified. Movement
-recovery, combined farming, upgrades and Phase 2 approval remain pending. Phases 3–9 remain plans and have
+Prior movement-based pickups had owner verification. The owner's latest instruction
+removes movement collection; a bounded stationary-only experiment awaits live
+credit results. Combined farming, upgrades and Phase 2 approval remain pending. Phases 3–9 remain plans and have
 no new executors in this build.
 
 ## Sources and reusable layers
@@ -14,8 +15,8 @@ no new executors in this build.
 | Native interfaces and capabilities | ReplicatedStorage.Client, Remotes and Shared.Framework; GameKnowledge contract/status and GameMechanics | Inspect client behavior, argument shape, guards, cooldowns and result channels. Pickup contract records client source evidence and unknown server validation; no batch capability is invented. Dependency READY means loaded, not an action verified. |
 | Live account | AccountStateReader using Client.Framework.Services.LocalData | Actual balances, ownership/equipment, inventory, Mastery and unlock membership. No profile replacement or fabricated progress. Phase 1's approved reader/loader remains intact. |
 | Live world | PickupTracker / existing scene adapters | Rendered objects, native zone geometry, character location, interaction positions and changing availability. Resolve scene observations against definitions instead of deriving rewards from object names. |
-| Supported actions | GameMechanics, leased by OCBrain through TaskScheduler / OCController | Only inspected supported commands and ordinary movement. Shared controls and guards apply. No independent action-choice loops. Working blow/sell/teleport adapters are preserved. |
-| Action verification | FarmingCoordinator and ResourceMetrics, received LocalData updates | Observed arrival, disappearance plus matching balance credit, bubble changes, purchase ownership **and** currency deduction, owned-equipment changes. Combined rates require growth/credit/sale evidence. Timeouts/backoff and unconfirmed outcomes. External rewards remain an attribution limitation; source inspection/offline tests do not prove execution. |
+| Supported actions | GameMechanics, leased by OCBrain through TaskScheduler / OCController | Native commands and bounded experimental stationary ID requests. Walking/pathfinding are removed. Isolation blocks non-pickup OC actions; future blow/sell/teleport tests require separate configuration. No independent action-choice loops. |
+| Action verification | FarmingCoordinator, StationaryExperiment and ResourceMetrics, received LocalData updates | Matching actual stationary currency credit and fixed observed position, bubble changes, native arrival and prior purchase/equipment verification. Invocation/disappearance never prove credit. Combined rates require growth/credit/sale/return. Native/external rewards limit attribution; server acceptance remains unknown. Offline tests do not prove gameplay execution. |
 
 GameKnowledge introduces no second module loader, discovery loop or action loop.
 It exposes the same game dependencies already cached by the approved reader,

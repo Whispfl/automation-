@@ -1,4 +1,4 @@
--- Combined farming verification. Omitted values inherit central OCConfig.
+-- Later stationary/background-blowing comparison; use StationaryOnly.luau first.
 local Config = {
 	GENERAL_SETTINGS = { AUTO_START = true }, --// Start the enabled Brain tasks.
 	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Restrict farming and exploration to this world.
@@ -12,20 +12,20 @@ local Config = {
 	},
 	ISLAND_SETTINGS = {
 		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Farm only these islands after verifying actual unlocks.
-		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Bounded allowed-island exploration without suppressing background blowing.
-		AUTO_TRAVEL_BEST_ISLAND = true, --// Permit supported unlocked island and selling travel.
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Keep this stationary comparison on the manually selected island.
+		AUTO_TRAVEL_BEST_ISLAND = false, --// Future native travel requires separate configuration.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapid island switching.
 	},
 	PICKUP_SETTINGS = {
-		BULK_COLLECT_PICKUPS = true, --// Collect native radius clusters of all live currencies.
-		FARM_CURRENCY_TYPES = {}, --// Accept every actually detected currency type.
-		WAYPOINT_STALL_SECONDS = 2, --// Recover after no forward progress.
-		MAXIMUM_PATH_RECOMPUTES = 1, --// Retry once within the same slice, then back off.
-		ROUTE_CONTINUATION_SECONDS = 24, --// Let progressing routes continue across bounded slices.
+		COLLECTION_METHOD = "STATIONARY_EXPERIMENT", --// Never walk to pickups.
+		STATIONARY_ISOLATED_TEST = false, --// Explicitly allow cooperative blowing in this later comparison.
+		BULK_COLLECT_PICKUPS = true, --// Centrally scheduled single-ID stationary attempts.
+		ENABLE_CLUSTER_ROUTING = false, --// Pickup movement has been removed.
+		FARM_CURRENCY_TYPES = { "Coins", "Gems" }, --// Only the approved experiment currencies.
 	},
 	BUBBLE_SETTINGS = {
 		AUTO_BLOW_BUBBLES = true, --// Blow in the background during pickup work when native guards allow.
-		AUTO_SELL_BUBBLES = true, --// Verify bubble decrease and real balance credit.
+		AUTO_SELL_BUBBLES = false, --// Selling/travel are separately configured future tests.
 		ENABLE_SIMULTANEOUS_BLOWING = true, --// Blow during a Brain-selected collection task.
 		AUTO_BUY_GUM = false, --// Disable purchases while measuring farming.
 		AUTO_BUY_FLAVORS = false, --// Disable purchases while measuring farming.

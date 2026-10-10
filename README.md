@@ -1,63 +1,95 @@
-# OCscript — Phase 2 test candidate
+# OCscript — Phase 2 stationary-only experiment
 
-**Phase 1: USER APPROVED PASS. Phase 2: PARTIAL OWNER VERIFICATION; overall approval pending.** The owner confirmed statistics/goals, bubble blowing/selling, island travel and now pickup collection/respawns with repeated real credit (for example Coins 413,649 → 417,929). The new movement recovery, combined farming and upgrade changes await owner testing. No Phase 3 executors are added.
+Phase 1 remains owner-approved. Phase 2 remains unapproved; Phase 3 has not started.
+The owner's latest instruction removes movement-based pickup farming and its fallback.
+Prior movement-based pickup credit is historical evidence, not stationary verification.
 
-Intelligent Island Farming, Bulk Currency Collection Fallback, Bubble Farming and Upgrades extend the existing account reader, configuration, OCBrain, foreground scheduler, controls and status panel. All source and the generated single-file entry live in this public [OCscript repository](https://github.com/ryanrooflead-source/OCscript). Development uses Roblox Studio only as a read-only reference. No Studio objects or scripts are installed or modified.
+Use [examples/StationaryOnly.luau](examples/StationaryOnly.luau) for the next test.
+[Loader.luau](examples/Loader.luau) and [PickupOnly.luau](examples/PickupOnly.luau)
+contain the same isolated configuration. Manually stand on an unlocked **The Void**
+or **Zen**, both in **The Overworld**, before loading OC. The initial test disables
+all OC travel, exploration, blowing, selling, purchases and equipment changes.
 
-## Pickup fix and global architecture
+OC sends bounded single-ID stationary requests through its existing Brain/scheduler.
+It preserves the native registry, all Chunker discovery, dynamic IDs, currency
+identification, verified LocalData reader, account intelligence and controls.
+Walking/pathfinding/repositioning and the movement collector are removed. Old
+ENABLE_CLUSTER_ROUTING=true overrides are forced false. Failed stationary requests
+never enable a movement fallback.
 
-Use [examples/CombinedFarming.luau](examples/CombinedFarming.luau) for the next test: it selects `PICKUP_FIRST`, cooperative background blowing and only The Void/Zen in The Overworld, with purchases/equips disabled. Travel rechecks actual unlocks and selling excursions return to an eligible selected island. The separate upgrade gameplay test is deferred until the owner evaluates combined farming. Central defaults retain `EFFICIENCY` for compatibility; the explicit strategy selects the new behavior.
+Read [the stationary test and evidence limits](docs/STATIONARY_TEST.md) and the
+[ReplicatedStorage-first architecture](docs/ARCHITECTURE.md). Studio stays strictly
+read-only; all source and the generated standalone bundle live in this repository.
+No scripts/objects are installed or modified in Studio and no play state is changed.
+The owner-confirmed saved workspace is Game; MCP cannot independently expose its
+actual PlaceId. Retained event catalogs do not establish live event availability.
 
-Read the [latest pickup-first behavior and owner checks](docs/PICKUP_FIRST.md). Farming restrictions now apply to current-island execution; selling saves a return intent. Full bubbles interrupt isolated probes. Progressing routes can continue across bounded slices, and complete combined measurements include selling/return overhead. These changes await owner gameplay verification.
+## Public loader
 
-Read-only research used the owner-confirmed Studio session `Game`, launched with `place 85896571713843 Bubble Gum Simulator INFINITY.rbxl`. MCP does not expose the actual PlaceId, so it was **not independently verified**. The latest native currency catalog includes Candycorn26/HalloweenShards; old Fall catalogs and event flags remain retained and cannot establish current availability. Default balance names now reflect the current catalog; missing balances stay unavailable, and Phase 2 adds no event-specific executors.
-
-The working native registry/Chunker discovery and collection remain intact. Movement now checks actual waypoint progress, refreshes normal MoveTo while progressing, recomputes at most once by default, and backs off unreachable targets. Combined income is trusted only after actual bubble growth, pickup credit and a completed sale with enough sample time. Full bubbles have a bounded collection delay, justified only by measured opportunity cost; selling otherwise keeps priority. Upgrade diagnostics expose every actual rejection, native effective-stat projections, reserves and estimated payback. New ownership **and** the expected currency deduction are required to verify a purchase; equipping owned gear requires actual equipment change.
-
-The global [ReplicatedStorage-first architecture](docs/ARCHITECTURE.md) applies to every phase. GameKnowledge reuses the approved dependency cache; LocalData supplies account facts, Workspace supplies live state, and the existing Brain/scheduler selects and verifies tasks. No Phase 3 executors are added.
-
-## Run the single entry
-
-Copy [examples/Loader.luau](examples/Loader.luau) into your already approved testing runtime, which supports `loadstring` and `game:HttpGet`. It contains one editable Config and one public download:
+The complete test file contains an editable Config and this unauthenticated entry:
 
 ```lua
-loadstring(game:HttpGet(
+local OC = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
 ))()(Config)
 ```
 
-There is no GitHub authentication in client code. Partial overrides preserve UPPER_SNAKE_CASE category/setting names; omitted keys inherit [OCConfig.luau](src/OCFoundation/OCConfig.luau). Purchases and owned-upgrade equips default to **false** in the module and standard farming examples. Only the separate controlled upgrade example explicitly enables them with caps, payback evaluation and goal reserves.
+The single dist/OC.lua returns an initializer accepting custom Config. Settings
+remain centralized in OCConfig.luau with UPPER_SNAKE_CASE names. No tokens, headers
+or authentication are required. The controller remains available through
+shared.__OC_PHASE1_INSTANCE; GetStatus().Farming.Stationary exposes experiment
+counts, limits, observed credit windows and the last Coins/Gems before/after values.
+PrintAccount(100) retains the detailed Phase 1 account report.
 
-## What this candidate implements
+## Experiment bounds and success evidence
 
-- Real Phase 1 account observations and goals, plus dynamically discovered live currency balances.
-- Goal-currency island ranking from unlocked scene zones, real pickup definitions, native stat multipliers and observed rates. Unknown availability, travel or respawn overhead is labeled **estimated**.
-- Native travel to supported unlocked island destinations and accessible selling roots, with arrival checks, dwell thresholds, cooldowns and failed/empty-destination backoff. Island travel follows WorldMap's exact destination path even if its Portal.Spawn is absent locally; that request is not proof the server accepts it.
-- Explicit discovery/exclusion logs for every defined permanent island, including missing geometry/tags and unknown yields, plus bounded isolated pickup trials before settling on measured bubbles.
-- Native active ID-to-Model registry observations, all same-name Chunker folders, spawn metadata, native-pool-qualified prefab matching for preexisting pickups (duplicate assets with the same visual are accepted), fair frozen-set sweeps, cluster coverage and normal Humanoid pathfinding.
-- Pickup, bubble and combined activity measurements; no conversion that treats a coin as equal to a gem or event token.
-- Guarded `BlowBubble`, native activation selling, currency-only gum/flavor purchase/equip commands, live affordability checks and ownership-plus-payment/equipment confirmation.
-- Farming, area, rates, island evidence, real balances and confirmed/unconfirmed outcomes in the existing UI and `[OC]` logs.
+- One genuine currently registered ID per scheduled attempt; actual unlocks and
+  allowed island/world membership are rechecked immediately before dispatch.
+- Three-second global request cooldown, fifteen-second per-ID retry backoff,
+  at most two attempts per ID, 24 attempts per controller and 120 elapsed seconds
+  from first dispatch. Pause/Stop retain the budget and deduplication history.
+- Continuous discovery includes existing and new loaded pickups; a Chunker-only
+  object without the matching native registry entry cannot dispatch a request.
+- Positive matching LocalData Coins/Gems changes are required for observed credit.
+  Invocation success, Model destruction/disappearance or registry removal are
+  never proof. OC does not destroy Models or edit the game registry.
+- Position/island change, missing balances, observed spending, sale evidence or
+  cancellation discard credit attribution. No-credit results report acceptance
+  as unknown; no walking, unlocking, forced loading or validation bypass follows.
 
-**Collection limitation:** the inspected native client exposes `CollectPickup(id)` and collects every pickup within `StatsUtil:GetPickupRange(profile)`. No genuine island-wide batch interface was found. OC does not send per-item collection remotes or disguise them as a batch. It groups live currency pickups into coverage clusters and walks to dense reachable positions; the native collector performs the actual per-ID calls. A cluster covering the whole island requires no per-item navigation. Other islands require multiple radius visits. This candidate cannot promise an unsupported instant sweep.
+Outside-native-radius requests are explicitly **experimental**. Server validation
+is unavailable, and a positive balance window may include native collection or
+external rewards. Distant collection is not declared working before owner evidence.
+Offline tests and source inspection are not live gameplay verification.
 
-Bubble **storage** is purchased through gum. No verified pet-storage purchase interface was found. Seven Seas definitions have no currency pickup pool; fishing, hatching, unlocking new islands/worlds, Mastery spending, Rifts, rebirths and event shops/consumables remain outside this build. Live event currency pickups are observable only where actual scene zones exist; unverified special-event travel is not invented.
+## Owner checks
 
-## Owner-run verification
+Observe a short stationary native baseline, then run the isolated configuration
+without moving, claiming rewards or manually blowing/selling. Send INIT,
+PICKUP/SOURCES, STATIONARY_REQUEST and STATIONARY_RESULT logs with actual Coins/Gems
+changes and distances/radius. Verify new IDs participate without a toggle, no OC
+walking/teleportation occurs, limits stop requests, and Pause/Stop cancel attempts.
+An already dispatched request may settle later; the game-owned native collector
+continues independently. Test the other accessible selected island in a separate
+manually positioned reload. Compare Coins and Gems separately.
 
-1. Check `[OC][INIT]` build ID and dependency statuses; compare all Phase 1 account statistics and goals against the game.
-2. Check `[OC][FARM][DISCOVERY]`, `[ZONES]` and `[ISLANDS]`: only The Void and Zen in The Overworld may be eligible farming destinations. Locked islands must be excluded; Floating Island, Outer Space and the main Overworld must be excluded from farming/exploration. Confirm actual loaded zone roots, target currency and unknown/estimated/observed evidence. Definition counts are not live availability.
-3. Confirm `[TRAVEL]` reports arrival at the selected island, with no rapid ping-pong travel.
-4. Check [PICKUP][SOURCES] registry/Chunker/spawn counters and [DETECTED] live IDs/resolved positions. Then check [COLLECTION] eligible/cluster counts and the declared native radius fallback. Confirm actual before/after balances increase in `[EARNINGS]`; model disappearance alone is not success.
-5. Let pickups respawn. Confirm new cycles occur without duplicate OC collection calls or repeated unreachable targets.
-6. Allow 5–10 minutes for repeated cycles. Match `[BACKGROUND]` requests and actual bubble growth with pickup disappearance/credit during the same visits. `[CYCLE] complete=true` requires an empty initial bubble, growth, pickup evidence, sale credit and completed return; insufficient sample time still prevents a published rate. `PICKUP_ACTIVITY` rates exclude sale/return overhead and are distinct from complete combined-cycle rates. Isolated probes are opt-in under pickup-first.
-7. Check `[SELL_TIMING]` dispatch age, matching station-currency credit and `[RETURN]` confirmed arrival. No deliberately routed pickups should occur on excluded Overworld; incidental native collection during selling transit can still occur. Purchases and equips must remain disabled.
-8. Pause/Stop must halt OC movement and future commands; statistics keep updating. Set feature toggles false and rerun to verify exclusions. Check that rerunning leaves one hosted panel.
+[CombinedFarming.luau](examples/CombinedFarming.luau) preserves a later cooperative
+stationary/blowing comparison with isolation explicitly disabled. It still disables
+selling and travel. Future native island/selling travel must be separately configured
+and never introduces pickup walking. The upgrade example remains deferred and is
+not part of the initial experiment. No unrelated code from the old reference is used.
 
-Send `[OC]` logs/screenshots and any mismatch. **Phase 2 remains pending until you explicitly approve it. No Phase 3 work begins before that approval.** The controller remains available at `shared.__OC_PHASE1_INSTANCE` for compatibility; `:PrintAccount(100)` prints longer account lists and `:GetStatus()` includes farming state. The initializer also returns the controller.
+## Build and publication
 
-## Source and verification
+```powershell
+node scripts/build.mjs
+node scripts/test.mjs
+node scripts/verify-public.mjs
+```
 
-`node scripts/build.mjs` builds deterministic private module factories into `dist/OC.lua`; game ModuleScript require stays native. `node scripts/test.mjs` checks configuration/bundle constraints, compiles all Luau sources and runs synthetic offline tests plus the actual bundled initializer. Tests require the official [Luau CLI](https://github.com/luau-lang/luau/releases), configured by `LUAU_BIN`/`LUAU_COMPILE_BIN` or ignored `.tools/luau/` binaries. Node uses no third-party packages.
-
-See [Phase 2 plan and each configuration setting](docs/PHASE2.md), [read-only workspace interface evidence](docs/WORKSPACE_REFERENCE.md), and [historical Phase 1 architecture](docs/PHASE1.md). Static checks and synthetic tests are not live gameplay verification. The raw public artifact is downloaded without authentication and compared byte-for-byte before handoff.
+Tests compile the modules, examples and function-returning bundle, preserve relevant
+Phase 1/Phase 2 regressions, and verify stationary scope, ID freshness, credit,
+request bounds, cancellation and absence of automatic navigation. Each fix publishes
+source and rebuilt bundle, then compares public raw main and commit bytes locally.
+Earlier implementation history remains in docs/PHASE2.md, PICKUP_FIRST.md and
+STATIONARY_PICKUP_RESEARCH.md, marked as superseded where appropriate.

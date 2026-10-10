@@ -1,5 +1,9 @@
 # Stationary pickup research — approval pending
 
+Historical report: the owner subsequently approved a controlled stationary
+experiment and removed movement fallback. See [STATIONARY_TEST.md](STATIONARY_TEST.md)
+for the current implementation and test. Distant credit remains unverified.
+
 Research date: 2026-10-10. No stationary collector has been implemented. The
 movement-based native-radius collector and the central Brain/scheduler remain
 intact. Studio was inspected in Edit mode using only read-only tools. No Luau was

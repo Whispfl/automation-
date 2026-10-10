@@ -51,10 +51,10 @@ return {
 		ENABLE_BUBBLE_RECOMMENDATIONS = true, --// Recommend selling a full bubble or improving capacity/output.
 		SELL_AT_CAPACITY_RATIO = 0.95, --// Recommend selling when this fraction of effective capacity is occupied.
 		AUTO_BLOW_BUBBLES = true, --// Permit Brain-selected blowing through the verified BlowBubble command.
-		AUTO_SELL_BUBBLES = true, --// Walk to a reachable same-island sell activation and wait for a real sale.
+		AUTO_SELL_BUBBLES = true, --// Future separately configured native travel/activation may sell; isolated stationary tests block selling.
 		AUTO_BUY_GUM = false, --// Explicitly authorize nonpremium bubble-capacity gum purchases.
 		AUTO_BUY_FLAVORS = false, --// Explicitly authorize nonpremium bubble-power flavor purchases.
-		ENABLE_SIMULTANEOUS_BLOWING = true, --// Allow the Brain to test blowing during a pickup cluster task.
+		ENABLE_SIMULTANEOUS_BLOWING = true, --// Allow cooperative blowing during stationary tasks only when isolation is explicitly disabled.
 		BLOW_COOLDOWN_SECONDS = 0.5, --// Minimum spacing between verified blow commands; UI and Bubble Lock guards still apply.
 		SELL_CONFIRMATION_TIMEOUT_SECONDS = 8, --// Stop waiting if native selling does not reduce the actual bubble amount.
 		SELL_RETRY_COOLDOWN_SECONDS = 20, --// Back off after an unavailable or unconfirmed sell attempt.
@@ -79,13 +79,13 @@ return {
 		AUTO_FARM_FALLBACK = true, --// Permit another useful eligible activity when the preferred farming method is unavailable.
 	},
 	ISLAND_SETTINGS = {
-		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Run bounded isolated pickup trials on supported unlocked islands even when bubbles currently win.
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Manual placement by default; future island exploration requires explicit configuration.
 		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Wait this long before repeating an island/currency trial, including empty or failed trials.
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End a pickup trial at this limit if no adequate actual earning sample is obtained.
 		ARRIVAL_PICKUP_GRACE_SECONDS = 3, --// Keep scanning during this bounded arrival-loading period before measuring a pickup trial.
 		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked islands using goal-currency value and observed area rates.
-		AUTO_TRAVEL_BEST_ISLAND = true, --// Use the native Teleport command only to verified unlocked island spawn paths.
-		SELECTED_ISLANDS = {}, --// Empty considers all unlocked scene-present islands; names further restrict travel candidates.
+		AUTO_TRAVEL_BEST_ISLAND = false, --// Initial stationary experiment never travels; future native travel is separately configured.
+		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Only these unlocked Overworld islands are approved farming destinations.
 		MIN_ISLAND_GAIN_ADVANTAGE_PERCENT = 25, --// Require this net earning advantage before leaving a useful current island.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Stay on a viable island for this long before another farming-island switch.
 		TRAVEL_COOLDOWN_SECONDS = 10, --// Minimum spacing between supported island or sell-station travel requests.
@@ -98,14 +98,23 @@ return {
 		EMPTY_ISLAND_RETRY_SECONDS = 60, --// Back off empty islands; a newly observed eligible spawn clears this backoff early.
 	},
 	PICKUP_SETTINGS = {
+		COLLECTION_METHOD = "STATIONARY_EXPERIMENT", --// Only approved pickup action; movement collection cannot be enabled.
+		STATIONARY_ISOLATED_TEST = true, --// Block OC blowing, selling, travel and upgrades during the initial credit experiment.
+		STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = true, --// Probe genuine loaded IDs without moving; server acceptance outside native radius is unverified.
+		STATIONARY_REQUEST_COOLDOWN_SECONDS = 3, --// Space single-ID requests globally; no batch or remote flooding.
+		STATIONARY_ID_RETRY_SECONDS = 15, --// Back off each uncredited ID before its next bounded attempt.
+		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 2, --// Stop retrying an ID after this many dispatched attempts.
+		STATIONARY_MAXIMUM_REQUESTS = 24, --// Limit all requests for this controller's experiment; Pause/Stop never refill the budget.
+		STATIONARY_TEST_DURATION_SECONDS = 120, --// Bound elapsed experiment time after first dispatch; expiry never enables movement.
+		STATIONARY_MAXIMUM_DRIFT_STUDS = 0.5, --// Invalidate the experiment when the character leaves its original observed position.
 		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Read the source-confirmed Client.Tutorial._activePickups ID-to-Model registry without changing it.
 		ENABLE_CHUNKER_DISCOVERY = true, --// Observe native Rendered.Chunker folders and qualify their pickup Models through IDs and native pools.
 		ENABLE_CONTINUOUS_SCANNING = true, --// Refresh all currently rendered pickups at COLLECTION_REFRESH_SECONDS, including models predating OC.
 		PREFAB_REFRESH_SECONDS = 15, --// Rebuild live prefab identity indexes to recover from delayed asset replication.
 		ZONE_MATCH_TOLERANCE_STUDS = 0.5, --// Allow this small geometric border tolerance when associating a model with native zones.
 		PICKUP_RANGE_MARGIN_STUDS = 0.25, --// Stay slightly inside the actual native radius; never increase the collection range.
-		BULK_COLLECT_PICKUPS = true, --// Use the supported radius-cluster fallback; this game exposes no genuine island-wide batch API.
-		ENABLE_CLUSTER_ROUTING = true, --// Walk between dense reachable clusters when the game has no island-wide batch API.
+		BULK_COLLECT_PICKUPS = true, --// Permit centrally scheduled stationary single-ID attempts from live discovery.
+		ENABLE_CLUSTER_ROUTING = false, --// Deprecated compatibility setting; always forced false and never enables pickup movement.
 		FARM_CURRENCY_TYPES = {}, --// Empty includes every live currency pickup; names restrict OC route scoring and tracking.
 		COLLECTION_REFRESH_SECONDS = 1, --// Minimum spacing between scene scans and subsequent collection cycles.
 		ZONE_REFRESH_SECONDS = 10, --// Refresh live tagged zone definitions, including zones added or removed at runtime.

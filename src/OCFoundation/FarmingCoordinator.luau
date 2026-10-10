@@ -5,6 +5,7 @@ local GameMechanics = require(script.Parent.GameMechanics)
 local ResourceMetrics = require(script.Parent.ResourceMetrics)
 local FarmingPolicy = require(script.Parent.FarmingPolicy)
 local GameKnowledge = require(script.Parent.GameKnowledge)
+local StationaryExperiment = require(script.Parent.StationaryExperiment)
 local FarmingCoordinator = {}
 FarmingCoordinator.__index = FarmingCoordinator
 
@@ -23,6 +24,7 @@ function FarmingCoordinator.new(controller, player)
 	self.Tracker = PickupTracker.new(self.Config, self.Reader, player, self.Knowledge)
 	self.Mechanics = GameMechanics.new(self.Config, self.Reader, self.Tracker, player, function(tag, message) controller:Log(tag, message) end)
 	self.Metrics = ResourceMetrics.new(self.Config.FARMING_SETTINGS)
+	self.Stationary = StationaryExperiment.new(self)
 	return self
 end
 
@@ -57,6 +59,7 @@ function FarmingCoordinator:_finishCombined()
 end
 
 function FarmingCoordinator:_background(token)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false end
 	if token:CheckCancelled() or not self.Config.BUBBLE_SETTINGS.ENABLE_SIMULTANEOUS_BLOWING then return end
 	local raw = self.Reader:GetLiveProfile()
 	local capacity = raw and self.Reader:_stat("GetBubbleStorage", raw, {})
@@ -86,11 +89,11 @@ function FarmingCoordinator:Observe()
 	if self.Controller.State == "RUNNING" and self.Metrics.Active and type(amount) == "number" and type(self.LastBubbleAmount) == "number"
 		and amount < self.LastBubbleAmount then
 		self.SaleSequence = (self.SaleSequence or 0) + 1
-		if self.Metrics.Active.Mode == "PICKUPS" then
+		if self.Metrics.Active.Mode == "PICKUPS" or self.Metrics.Active.Mode == "STATIONARY" then
 			local scope = self.Metrics.Active.Scope
 			for index = #self.Metrics.Samples, 1, -1 do
 				local sample = self.Metrics.Samples[index]
-				if sample.Scope == scope and sample.Mode == "PICKUPS" then table.remove(self.Metrics.Samples, index) end
+				if sample.Scope == scope and (sample.Mode == "PICKUPS" or sample.Mode == "STATIONARY") then table.remove(self.Metrics.Samples, index) end
 			end
 			for key in pairs(self.PickupEvidence) do if key:sub(1, #scope + 1) == scope .. ":" then self.PickupEvidence[key] = nil end end
 			if self.PickupProbe then self.PickupProbe.Confirmed = false end
@@ -99,11 +102,11 @@ function FarmingCoordinator:Observe()
 		self.PendingSale = { Scope = self.Metrics.Active.Scope, Mode = self.Metrics.Active.Mode, ExpiresAt = now + self.Config.FARMING_SETTINGS.EARNINGS_CONFIRMATION_TIMEOUT_SECONDS }
 	end
 	if self.PendingSale and next(gains) and now <= self.PendingSale.ExpiresAt then
-		if self.Metrics.Active and self.Metrics.Active.Mode == "PICKUPS" then
+		if self.Metrics.Active and (self.Metrics.Active.Mode == "PICKUPS" or self.Metrics.Active.Mode == "STATIONARY") then
 			local scope = self.Metrics.Active.Scope
 			for index = #self.Metrics.Samples, 1, -1 do
 				local sample = self.Metrics.Samples[index]
-				if sample.Scope == scope and sample.Mode == "PICKUPS" then table.remove(self.Metrics.Samples, index) end
+				if sample.Scope == scope and (sample.Mode == "PICKUPS" or sample.Mode == "STATIONARY") then table.remove(self.Metrics.Samples, index) end
 			end
 			if self.PickupProbe then self.PickupProbe.Confirmed = false end
 		end
@@ -135,7 +138,7 @@ function FarmingCoordinator:Observe()
 	local current = self.Tracker.Current
 	if self.PickupProbe then
 		local probe = self.PickupProbe
-		local sample = self.Metrics:Rates(probe.Key, now).PICKUPS
+		local sample = self.Metrics:Rates(probe.Key, now).STATIONARY
 		local confirmed = probe.Confirmed and (probe.Attempts or 0) > 0 and sample and sample.Ready
 		local finished = (now >= (probe.ReadyAt or probe.StartedAt) and (not current or current.Key ~= probe.Key))
 			or probe.Currency ~= (self.Decision and self.Decision.Currency)
@@ -171,7 +174,7 @@ function FarmingCoordinator:Observe()
 			and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
 		if full and not self.FullSince then self.Controller:Log("FARM][SELL_TIMING", "Threshold observed; stable discretionary-delay clock started") end
 		self.FullSince = full and (self.FullSince or now) or nil
-		if self.Activity and self.Activity.Kind ~= "SELL" and full and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES
+		if self.Activity and self.Activity.Kind ~= "SELL" and full and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST
 			and (self.Activity.Kind == "TRAVEL" or self.Activity.Probe or self.Activity.Mode == "BUBBLES"
 				or now - self.FullSince >= self.Config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS) then
 			self.Controller.Scheduler:CancelActive("Bubble reached sell threshold") self.Mechanics:StopMovement()
@@ -196,6 +199,7 @@ end
 
 function FarmingCoordinator:_pickupRates(key, now)
 	local rates = self.Metrics:Rates(key, now)
+	rates.PICKUPS = rates.STATIONARY -- Compatibility policy view; these are actual stationary observation windows.
 	local pickups = rates.PICKUPS
 	if pickups then
 		for currency in pairs(pickups.PerMinute) do
@@ -261,17 +265,17 @@ function FarmingCoordinator:Context(plan)
 	local allowed, reason = mechanics:Guard()
 	local canBlow, bubbleReason = mechanics:CanBlow()
 	canBlow = canBlow and mechanics:Available("BLOW")
-	local _, humanoid = tracker:Root()
 	local raw = self.Reader:GetLiveProfile()
 	local currentKey = tracker.Current and tracker.Current.Key or "UNKNOWN"
 	local snapshot = self.Reader:GetSnapshot()
 	local context = { Current = tracker.Current, Islands = islands, AreaRates = areaRates,
 		SceneReady = tracker.LastZoneRefresh > -math.huge and tracker.Error == nil,
 		Rates = self:_pickupRates(currentKey, now), Sells = mechanics:SellStations(), CanInteract = allowed,
-		CanBlow = canBlow, CanTravel = now - mechanics.LastTravelAt >= self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS,
+		CanBlow = canBlow, CanTravel = not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND
+			and now - mechanics.LastTravelAt >= self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS,
 		Blocker = reason or tracker.Error, BlowBlocker = bubbleReason, Now = now, ArrivedAt = tracker.ArrivedAt,
 		ReturnKey = self.ReturnKey,
-		WalkSpeed = humanoid and humanoid.WalkSpeed, UpgradeBackoff = {}, EffectiveUpgrades = {},
+		UpgradeBackoff = {}, EffectiveUpgrades = {},
 		FullSince = self.FullSince,
 		CombinedProbePending = self.CombinedProbeStart and now - self.CombinedProbeStart < self.Config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS
 			and not (self.CombinedEvidence[currentKey] and self.CombinedEvidence[currentKey].SaleAt),
@@ -295,16 +299,14 @@ function FarmingCoordinator:Context(plan)
 			end
 		end
 	end
-	local currency = FarmingPolicy.Target(self.Config, snapshot, plan, context)
+	local currency = self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and "Coins" or FarmingPolicy.Target(self.Config, snapshot, plan, context)
 	context.Cluster = currency and tracker:Cluster(currency) or nil
-	if self.RouteContinuation then
-		local route = self.RouteContinuation
-		local valid = tracker.Current and tracker.Current.Key == route.Cluster.AreaKey and now < route.Until
-		for _, record in ipairs(route.Cluster.Records) do if not tracker:IsActive(record) then valid = false break end end
-		if valid then context.Cluster = route.Cluster else self.RouteContinuation = nil end
+	if context.Cluster then
+		local candidate, stationaryReason = self.Stationary:Candidate(context.Cluster)
+		if not candidate then context.Cluster = nil tracker.ClusterReason = stationaryReason end
 	end
 	context.PickupUnavailableReason = tracker.Error or tracker.ClusterReason
-	context.ActiveSweepPending = tracker.Sweep and tracker.Sweep.Started and next(tracker.Sweep.Pending) ~= nil
+	context.ActiveSweepPending = false
 	-- A zero-yield completed trial must not be advertised as proven bubble income merely because time elapsed.
 	if not self.SaleEvidence[currentKey] and context.Rates.BUBBLES then context.Rates.BUBBLES.Ready = false end
 	return context
@@ -382,6 +384,7 @@ function FarmingCoordinator:Select(plan)
 				.. " | estimated sale value=" .. tostring(comparison.SaleValueEstimate) .. " | delayed=" .. tostring(comparison.Delayed))
 		end
 		for mode, entry in pairs(context.Rates) do
+			if mode == "PICKUPS" and context.Rates.STATIONARY then continue end
 			if entry.Ready then
 				self.Controller:Log("FARM][EARNINGS", string.format("%s observed sample %.1fs | %.2f %s/min | external rewards can affect attribution",
 					mode, entry.Seconds, entry.PerMinute[decision.Currency] or 0, tostring(decision.Currency)))
@@ -413,137 +416,17 @@ function FarmingCoordinator:_awaitCredit(before, token, currencies, tick, stopAt
 end
 
 function FarmingCoordinator:_collection(decision, token)
+	if token:CheckCancelled() then return nil end
 	local cluster = decision.Cluster
-	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not cluster then return { Verified = false, Reason = "Collection disabled or cluster unavailable" } end
-	if not FarmingPolicy.IsFarmingArea(self.Config, self.Tracker.Current) or self.Tracker.Current.Key ~= cluster.AreaKey then
-		return { Verified = false, Reason = "Pickup execution rejected: excluded or stale island" }
+	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not cluster then return { Verified = false, Reason = "Stationary collection disabled or IDs unavailable" } end
+	if not FarmingPolicy.IsStationaryArea(self.Config, self.Tracker.Current) or self.Tracker.Current.Key ~= cluster.AreaKey then
+		return { Verified = false, Reason = "Stationary execution rejected: excluded or stale island" }
 	end
-	local started = os.clock()
-	if self.Tracker.Sweep and self.Tracker.Sweep.Id == cluster.SweepId then self.Tracker.Sweep.Started = true end
-	local before = self.Reader:ReadBalances()
-	local beforeProfile = self.Reader:GetLiveProfile()
-	local beforeBubble = beforeProfile and beforeProfile.Bubble and beforeProfile.Bubble.Amount
-	local beforeSale = self.SaleSequence or 0
-	local beforeVisible = 0
-	local currencies = {}
-	for _, record in ipairs(cluster.Records) do if self.Tracker:IsActive(record) then beforeVisible += 1 currencies[record.Currency] = true end end
-	if beforeVisible == 0 then return { Verified = false, Reason = "Frozen targets disappeared before collection began" } end
-	self.CollectionVisits += 1
-	if self.PickupProbe then self.PickupProbe.Attempts = (self.PickupProbe.Attempts or 0) + 1 end
-	local point = cluster.Position
-	if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DIAGNOSTICS then
-		self.Controller:Log("PICKUP][COLLECTION", string.format("visit=%d island=%s position=(%.1f,%.1f,%.1f) range=%.2f | before targets=%d island=%d | interaction=NATIVE_AUTO_RADIUS; OC remote requests=0; native outbound call count unobserved | balances: %s", self.CollectionVisits, cluster.AreaKey, point.X, point.Y, point.Z, cluster.Radius, beforeVisible, self.Tracker.Current and self.Tracker.Current.VisibleCount or 0, balancesText(before)))
-		local ids = {}
-		for index, record in ipairs(cluster.Records) do if index > 12 then break end table.insert(ids, tostring(record.Id)) end
-		self.Controller:Log("PICKUP][TARGETS", "visit=" .. self.CollectionVisits .. " cycle=" .. tostring(self.Cycle and self.Cycle.Id) .. " IDs=" .. table.concat(ids, ",") .. (#cluster.Records > 12 and ",..." or ""))
-	end
-	self.Controller:Log("FARM][BULK", string.format("Island=%s | total eligible=%d | cluster=%d | native radius=%.1f | method=NATIVE_RADIUS_CLUSTER_FALLBACK; no island-wide batch API",
-		cluster.AreaKey, self.Tracker.Current and self.Tracker.Current.EligibleCount or 0, beforeVisible, cluster.Radius))
-	self.Controller:Log("FARM][BULK", string.format("Sweep %d | %d/%d pending in frozen island set; new spawns enter the next sweep", cluster.SweepId, cluster.SweepRemaining, cluster.SweepTotal))
-	local saleDue, inRadius, requests, areaChanged = false, false, 0, false
-	local function fullBubble()
-		local raw = self.Reader:GetLiveProfile()
-		local capacity = raw and self.Reader:_stat("GetBubbleStorage", raw, {})
-		return raw and raw.Bubble and type(raw.Bubble.Amount) == "number" and capacity and capacity > 0
-			and raw.Bubble.Amount / capacity >= self.Config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
-	end
-	local function allGone()
-		if not self.Tracker.Current or self.Tracker.Current.Key ~= cluster.AreaKey then areaChanged = true return true end
-		if self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and fullBubble() then
-			self.FullSince = self.FullSince or os.clock()
-			if decision.Probe or os.clock() - self.FullSince >= self.Config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS then saleDue = true return true end
-		end
-		for _, record in ipairs(cluster.Records) do if self.Tracker:IsActive(record) then return false end end
-		return true
-	end
-	local function reachedOrDue()
-		if allGone() then return true end
-		local root = self.Tracker:Root()
-		if not root then return false end
-		for _, record in ipairs(cluster.Records) do
-			if self.Tracker:IsActive(record) and (record.Position - root.Position).Magnitude > math.max(0, cluster.Radius - self.Config.PICKUP_SETTINGS.PICKUP_RANGE_MARGIN_STUDS) then return false end
-		end
-		inRadius = true return true
-	end
-	local tick = decision.Mode == "COMBINED" and function()
-		if not (self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and fullBubble()) then
-			if self:_background(token) then requests += 1 end
-		end
-	end or nil
-	local permitted, reason = self.Mechanics:Walk(cluster.Position, token, os.clock() + self.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS, tick, reachedOrDue)
-	if inRadius then reason = "Native radius reached" end
-	if token:CheckCancelled() then return nil end
-	if permitted and not saleDue then self:_settle(token, self.Config.PICKUP_SETTINGS.COLLECTION_SETTLE_SECONDS, tick, allGone) end
-	if token:CheckCancelled() then return nil end
-	local disappeared = 0
-	for _, record in ipairs(cluster.Records) do if not record.Model.Parent then disappeared += 1 end end
-	local continuing = not permitted and reason == "Slice ended" and self.Mechanics.LastRoute and self.Mechanics.LastRoute.Progressed
-	local untilAt = self.RouteContinuation and self.RouteContinuation.Until or started + self.Config.PICKUP_SETTINGS.ROUTE_CONTINUATION_SECONDS
-	continuing = continuing and os.clock() < untilAt and not saleDue
-	if continuing then
-		self.RouteContinuation = { Cluster = cluster, Until = untilAt }
-		self.Controller:Log("MOVE][CONTINUE", "Progressing route yielded to scheduler; next slice replans from actual position within total route budget")
-	else self.RouteContinuation = nil end
-	if not permitted and not continuing and not saleDue then
-		self.Tracker:BackOff(cluster.Records, reason == "Slice ended" and self.Config.PICKUP_SETTINGS.COLLECTION_RETRY_SECONDS or self.Config.PICKUP_SETTINGS.UNREACHABLE_RETRY_SECONDS, reason)
-	elseif permitted and disappeared == 0 and not saleDue then
-		self.Tracker:BackOff(cluster.Records, self.Config.PICKUP_SETTINGS.COLLECTION_RETRY_SECONDS, "No disappearance observed")
-	end
-	local stopAt = self.FullSince and self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and self.FullSince + self.Config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS or nil
-	local after = self:_awaitCredit(before, token, currencies, tick, stopAt)
-	if token:CheckCancelled() then return nil end
-	if areaChanged or not self.Tracker.Current or self.Tracker.Current.Key ~= cluster.AreaKey then
-		self.RouteContinuation = nil return { Verified = false, Reason = "Island changed during collection; attribution discarded" }
-	end
-	disappeared = 0
-	local disappearedCurrencies = {}
-	for _, record in ipairs(cluster.Records) do if not record.Model.Parent then disappeared += 1 disappearedCurrencies[record.Currency] = true end end
-	local gains = {}
-	for currency in pairs(disappearedCurrencies) do
-		if type(before[currency]) == "number" and type(after[currency]) == "number" and after[currency] > before[currency] then gains[currency] = after[currency] - before[currency] end
-	end
-	local afterProfile = self.Reader:GetLiveProfile()
-	local afterBubble = afterProfile and afterProfile.Bubble and afterProfile.Bubble.Amount
-	local mixedSale = self.PendingSale ~= nil or beforeSale ~= (self.SaleSequence or 0) or (type(beforeBubble) == "number" and type(afterBubble) == "number" and afterBubble < beforeBubble)
-	local verified = next(gains) ~= nil and decision.Mode == "PICKUPS" and not mixedSale
-	local combined = decision.Mode == "COMBINED" and next(gains) ~= nil and not mixedSale
-	if decision.Mode == "COMBINED" then
-		self.Controller:Log("FARM][BACKGROUND", "visit=" .. self.CollectionVisits .. " cycle=" .. tostring(self.Cycle and self.Cycle.Id) .. " requests=" .. requests .. " actual bubbles=" .. tostring(beforeBubble) .. " -> " .. tostring(afterBubble) .. " | " .. tostring(self.Mechanics.LastBlocker or "native guards applied"))
-	end
-	self.Metrics:AddSample("PICKUP_ACTIVITY", cluster.AreaKey, not mixedSale and gains or {}, os.clock() - started, os.clock())
-	if combined then
-		local evidence = self.CombinedEvidence[cluster.AreaKey] or {}
-		self.CombinedEvidence[cluster.AreaKey] = evidence
-		if not mixedSale then evidence.PickupAt = os.clock() if self.Cycle then self.Cycle.PickupAt = os.clock() end end
-		if type(beforeBubble) == "number" and type(afterBubble) == "number" and afterBubble > beforeBubble then
-			evidence.GrowthAt = os.clock() if self.Cycle then self.Cycle.GrowthAt = os.clock() end
-		end
-		self.Controller:Log("FARM][COMBINED", "Matching pickup disappearance and live credit observed; bubble amount " .. tostring(beforeBubble) .. " -> " .. tostring(afterBubble)
-			.. " | requests=" .. requests .. " cycle=" .. tostring(self.Cycle and self.Cycle.Id) .. "; combined rate requires complete fill/sale/return")
-	end
-	if verified then
-		self.Metrics:ConfirmCycle(before, after, "Native pickup disappearance and matching credit observed; external rewards can affect attribution")
-		for currency in pairs(gains) do self.PickupEvidence[cluster.AreaKey .. ":" .. currency] = os.clock() end
-		if self.PickupProbe and gains[self.PickupProbe.Currency] then self.PickupProbe.Confirmed = true end
-	elseif combined then
-		self.Metrics.LastConfirmation = "Combined pickup credit observed; full combined cycle and rate await sale/return; external rewards may contribute"
-	else
-		self.Metrics.UnconfirmedCycles += 1
-		self.Metrics.LastConfirmation = mixedSale and "Bubble sale may have contributed; isolated pickup credit unconfirmed" or (decision.Mode == "COMBINED" and "Combined balance gain; isolated pickup credit unconfirmed" or "Pickup credit unconfirmed: disappearance and matching currency increase are both required")
-	end
-	self.Controller:Log("FARM][BULK", string.format("%d/%d models disappeared (not proof of credit) | %s", disappeared, beforeVisible, reason or "observed"))
-	self.Controller:Log("FARM][EARNINGS", "before: " .. balancesText(before) .. " | after: " .. balancesText(after) .. " | " .. self.Metrics.LastConfirmation)
-	self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
-	if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DIAGNOSTICS then
-		self.Controller:Log("PICKUP][RESULT", string.format("%s | targets before=%d after=%d disappeared=%d | before: %s | after: %s | %s", verified and "SUCCESS: matching live balance credit" or combined and "CREDIT OBSERVED (COMBINED)" or "UNCONFIRMED", beforeVisible, math.max(0, beforeVisible - disappeared), disappeared, balancesText(before), balancesText(after), self.Metrics.LastConfirmation))
-	end
-	if not permitted and not continuing and not saleDue and self.Config.DIAGNOSTIC_SETTINGS.LOG_MOVEMENT_DIAGNOSTICS then
-		self.Controller:Log("MOVE][SKIP", tostring(reason) .. " | selected IDs in temporary backoff; other eligible targets remain available")
-	end
-	return { Verified = verified, CombinedCreditObserved = combined, Disappeared = disappeared, Gains = gains, Reason = saleDue and "Full bubble: bounded combined sell delay reached" or reason }
+	return self.Stationary:Collect(decision, token)
 end
 
 function FarmingCoordinator:_bubble(token)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return { Verified = false, Reason = "Isolated stationary test blocks blowing" } end
 	if not self.Config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES then return { Verified = false, Reason = "Blowing disabled" } end
 	local raw = self.Reader:GetLiveProfile()
 	local before = raw and raw.Bubble and raw.Bubble.Amount
@@ -574,6 +457,7 @@ function FarmingCoordinator:_bubble(token)
 end
 
 function FarmingCoordinator:_sell(decision, token)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return { Verified = false, Reason = "Isolated stationary test blocks selling and travel" } end
 	local sell = decision.Sell
 	if not self.Config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES or not sell then return { Verified = false, Reason = "Selling disabled" } end
 	local raw = self.Reader:GetLiveProfile()
@@ -588,8 +472,10 @@ function FarmingCoordinator:_sell(decision, token)
 	end
 	self.Controller:Log("FARM][SELL_TIMING", "dispatch | threshold age=" .. tostring(self.FullSince and os.clock() - self.FullSince or "unknown") .. "s | travel/activation/credit bounded separately")
 	local permitted, reason
-	if sameArea and sell.Distance <= self.Config.PICKUP_SETTINGS.MAXIMUM_ROUTE_DISTANCE_STUDS then
-		permitted, reason = self.Mechanics:Walk(sell.Root.Position, token, os.clock() + self.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS)
+	local root = self.Tracker:Root()
+	if sameArea and root and ((root.Position - sell.Root.Position) * Vector3.new(1, 0, 1)).Magnitude <= sell.Root.Size.Y / 2
+		and math.abs(root.Position.Y - sell.Root.Position.Y) <= 10 then
+		permitted = true -- Native activation already in range; no OC movement.
 	else
 		self.Controller:Log("FARM][TRAVEL", "Native selling-station travel to " .. sell.Key .. " | currency=" .. sell.Currency .. " | multiplier=" .. sell.Multiplier)
 		permitted, reason = self.Mechanics:Travel(sell.Root, sell.World, sell.Area, token)
@@ -648,6 +534,8 @@ function FarmingCoordinator:Definition(decision, generation)
 		CanRun = function() return not self.Destroyed and self.Controller.State == "RUNNING" and generation == self.Controller.Generation end,
 		Execute = function(token)
 			if token:CheckCancelled() or generation ~= self.Controller.Generation then return nil end
+			if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and decision.Kind ~= "INSPECT"
+				and (decision.Kind ~= "FARM" or decision.Mode ~= "PICKUPS") then return { Verified = false, Reason = "Isolated stationary experiment blocks other OC actions" } end
 			if decision.Kind == "TRAVEL" and not FarmingPolicy.IsFarmingArea(self.Config, decision.Island) then return { Verified = false, Reason = "Travel destination excluded or stale" } end
 			if decision.Kind == "FARM" and decision.Mode ~= "BUBBLES" and
 				(not FarmingPolicy.IsFarmingArea(self.Config, self.Tracker.Current) or not decision.Cluster or decision.Cluster.AreaKey ~= self.Tracker.Current.Key) then
@@ -659,7 +547,7 @@ function FarmingCoordinator:Definition(decision, generation)
 			if decision.Probe and decision.Kind ~= "TRAVEL" and not self.PickupProbe then self:_beginPickupProbe(scope, decision.Currency) end
 			if decision.Kind == "FARM" then
 				if decision.Mode == "COMBINED" then self:_beginCombined(scope) end
-				self.Metrics:SetMode(decision.Mode, scope, beforeBalances, os.clock())
+				self.Metrics:SetMode(decision.Mode == "PICKUPS" and "STATIONARY" or decision.Mode, scope, beforeBalances, os.clock())
 				if decision.Mode == "COMBINED" and not self.CombinedProbeStart then self.CombinedProbeStart = os.clock() end
 				if decision.Mode == "BUBBLES" and not self.ProbeStart then
 					local raw = self.Reader:GetLiveProfile()
@@ -667,8 +555,8 @@ function FarmingCoordinator:Definition(decision, generation)
 				end
 			elseif decision.Kind == "INSPECT" then
 				local ready = self.PickupProbe and os.clock() >= self.PickupProbe.ReadyAt
-				self.Metrics:SetMode(ready and "PICKUPS" or nil, scope, beforeBalances, os.clock())
-			elseif decision.Kind ~= "SELL" or (self.Metrics.Active and self.Metrics.Active.Mode == "PICKUPS") then
+				self.Metrics:SetMode(nil, scope, beforeBalances, os.clock())
+			elseif decision.Kind ~= "SELL" or (self.Metrics.Active and (self.Metrics.Active.Mode == "PICKUPS" or self.Metrics.Active.Mode == "STATIONARY")) then
 				-- A standalone bubble sale cannot count as isolated pickup income.
 				self.Metrics:SetMode(nil, scope, beforeBalances, os.clock())
 				if decision.Kind == "SELL" and self.PickupProbe then
@@ -702,7 +590,7 @@ function FarmingCoordinator:Definition(decision, generation)
 				return { Verified = success, Reason = reason }
 			elseif decision.Kind == "INSPECT" then
 				local duration = math.min(2, self.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS)
-				local background = decision.Background or (self.Config.FARMING_SETTINGS.FARMING_STRATEGY == "PICKUP_FIRST" and not decision.Probe)
+				local background = not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and (decision.Background or (self.Config.FARMING_SETTINGS.FARMING_STRATEGY == "PICKUP_FIRST" and not decision.Probe))
 				self:_settle(token, duration, background and function() self:_background(token) end or nil)
 				if token:CheckCancelled() then return nil end
 				self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
@@ -758,7 +646,8 @@ function FarmingCoordinator:GetStatus()
 		RespawnObservations = self.Tracker.RespawnObservations, Radius = self.Tracker.Range, CollectionVisits = self.CollectionVisits,
 		Rates = self:_pickupRates(current and current.Key or "UNKNOWN", os.clock()), Scan = self.Tracker.ScanReport, CollectionBlocker = self.Tracker.ClusterReason,
 		ConfirmedCycles = self.Metrics.ConfirmedCycles, LastConfirmation = self.Metrics.LastConfirmation,
-		Error = self.Tracker.Error, GameKnowledge = self.Knowledge:GetStatus(), CollectionMethod = "Native radius clusters; no genuine island-wide batch API found" }
+		Error = self.Tracker.Error, GameKnowledge = self.Knowledge:GetStatus(), Stationary = self.Stationary:GetStatus(),
+		CollectionMethod = "Experimental stationary single-ID requests; actual credit unverified until owner testing; no movement fallback" }
 end
 
 function FarmingCoordinator:Destroy()

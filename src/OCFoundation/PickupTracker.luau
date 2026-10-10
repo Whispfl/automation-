@@ -487,70 +487,22 @@ function PickupTracker:Cluster(currency)
 	self.ClusterReason = nil
 	local function unavailable(reason) self.ClusterReason = reason return nil end
 	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then return unavailable("Collection/scanning disabled") end
-	local root, humanoid = self:Root()
-	if not root or not self.Current then return unavailable("Character or current island geometry unavailable") end
+	if not self:Root() or not self.Current then return unavailable("Character or current island geometry unavailable") end
 	local range = self:ReadRange()
 	if not range then return unavailable(self.RangeReason) end
 	local records = {}
-	local eligibleModels = {}
 	for _, record in pairs(self.Models) do
-		if record.AreaKey == self.Current.Key and record.Currency and allowed(self.Config.PICKUP_SETTINGS.FARM_CURRENCY_TYPES, record.Currency)
-			and record.RouteEligible ~= false and not record.IsTransit and self:IsActive(record) and not self.Backoff[record.Id]
-			and math.abs(record.Position.Y - root.Position.Y) <= self.Config.PICKUP_SETTINGS.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then
-			table.insert(records, record) eligibleModels[record.Model] = true
-		end
+		if record.AreaKey == self.Current.Key and (record.Currency == "Coins" or record.Currency == "Gems")
+			and allowed(self.Config.PICKUP_SETTINGS.FARM_CURRENCY_TYPES, record.Currency) and record.RouteEligible ~= false
+			and not record.IsTransit and self:IsActive(record) and not self.Backoff[record.Id] then table.insert(records, record) end
 	end
-	if self.Sweep then for model in pairs(self.Sweep.Pending) do if not eligibleModels[model] then self.Sweep.Pending[model] = nil end end end
-	table.sort(records, function(a, b) return a.Id < b.Id end)
-	-- Freeze the currently eligible island set for a sweep. New spawns enter the next sweep,
-	-- so repeated new coin spawns cannot indefinitely starve remaining gems/event currencies.
-	if not self.Sweep or self.Sweep.AreaKey ~= self.Current.Key or next(self.Sweep.Pending) == nil then
-		self.SweepSequence = (self.SweepSequence or 0) + 1
-		self.Sweep = { Id = self.SweepSequence, AreaKey = self.Current.Key, Pending = {}, Total = #records }
-		for _, record in ipairs(records) do self.Sweep.Pending[record.Model] = true end
-	end
-	local pendingRecords = {}
-	for _, record in ipairs(records) do if self.Sweep.Pending[record.Model] then table.insert(pendingRecords, record) end end
-	records = pendingRecords
-	if #records == 0 then return unavailable("No classified eligible current-island models outside retry backoff") end
-	local points = { root.Position }
-	if self.Config.PICKUP_SETTINGS.ENABLE_CLUSTER_ROUTING then
-		local stride = math.max(1, math.ceil(#records / self.Config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES))
-		for index = 1, #records, stride do
-			local position = records[index].Position
-			table.insert(points, Vector3.new(position.X, root.Position.Y, position.Z))
-		end
-		-- Bounded pair midpoints can cover two clusters without visiting each model.
-		local anchors = #points
-		for first = 2, anchors do
-			for second = first + 1, anchors do
-				local a, b = points[first], points[second]
-				if (a - b).Magnitude <= range * 2 then table.insert(points, Vector3.new((a.X + b.X) / 2, root.Position.Y, (a.Z + b.Z) / 2)) end
-			end
-		end
-	end
-	local best
-	for _, point in ipairs(points) do
-		local distance = (point - root.Position).Magnitude
-		if distance > self.Config.PICKUP_SETTINGS.MAXIMUM_ROUTE_DISTANCE_STUDS then continue end
-		local covered, useful, value = {}, 0, 0
-		for _, record in ipairs(records) do
-			if (record.Position - point).Magnitude <= math.max(0, range - self.Config.PICKUP_SETTINGS.PICKUP_RANGE_MARGIN_STUDS) then
-				table.insert(covered, record)
-				if record.Currency == currency then useful += 1 value += record.Amount or 0 end
-			end
-		end
-		-- Maximize coverage per movement time; goal-currency reward breaks ties without converting currencies.
-		local travel = 1 + distance / math.max(1, humanoid.WalkSpeed)
-		local score, coverageScore = value / travel, #covered / travel
-		if #covered > 0 and (not best or coverageScore > best.CoverageScore or (coverageScore == best.CoverageScore and score > best.Score)) then
-			best = { Position = point, Records = covered, Score = score, Radius = range, Distance = distance,
-				AreaKey = self.Current.Key, RelevantCount = useful, Currency = currency, CoverageScore = coverageScore,
-				SweepId = self.Sweep.Id, SweepTotal = self.Sweep.Total, SweepRemaining = #records }
-		end
-	end
-	if not best then self.ClusterReason = "No native-radius coverage within route distance/height limits" end
-	return best
+	table.sort(records, function(a, b)
+		if a.FirstSeenAt ~= b.FirstSeenAt then return (a.FirstSeenAt or 0) < (b.FirstSeenAt or 0) end
+		return a.Id < b.Id
+	end)
+	if #records == 0 then return unavailable("No classified live current-island Coins/Gems IDs; stationary requests never approach pickups") end
+	-- The compatibility name denotes a candidate set, never a navigation destination.
+	return { Records = records, AreaKey = self.Current.Key, Currency = currency, Radius = range, ExperimentalStationary = true }
 end
 
 function PickupTracker:Destroy()

@@ -1,4 +1,8 @@
-# Phase 2 pickup-first test candidate
+# Phase 2 pickup-first test candidate — historical
+
+The owner's critical stationary-only instruction supersedes the movement collector
+and fallback described here. See [STATIONARY_TEST.md](STATIONARY_TEST.md) for current
+behavior and the isolated test. Prior evidence/history is retained below.
 
 Phase 1 remains approved. Native pickup collection/respawns, blowing, selling and
 island travel have owner evidence. The latest changes, reliable recovery, combined

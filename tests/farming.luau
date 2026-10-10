@@ -186,30 +186,6 @@ test("Stopping an idle or disabled system never moves the player", function()
 	assert(invoked == 0)
 end)
 
-test("Frozen island sweep includes all currencies before newly spawned coins", function()
-	local Tracker = requireOC("PickupTracker")
-	local root, humanoid = { Position = Vector3.new(0, 0, 0) }, { WalkSpeed = 16, Health = 100 }
-	local player = { Character = { FindFirstChild = function() return root end, FindFirstChildOfClass = function() return humanoid end } }
-	local reader = { GetLiveProfile = function() return {} end, _dependency = function() return { GetPickupRange = function() return 10 end } end }
-	local tracker = Tracker.new(config(), reader, player)
-	tracker.Current = { Key = "Synthetic/A" }
-	local coinModel, gemModel = { Parent = true }, { Parent = true }
-	local coin = { Model = coinModel, Id = "coin", Position = Vector3.new(1, 0, 0), Currency = "Coins", Amount = 10, AreaKey = "Synthetic/A" }
-	local gem = { Model = gemModel, Id = "gem", Position = Vector3.new(30, 0, 0), Currency = "Gems", Amount = 5, AreaKey = "Synthetic/A" }
-	tracker.Models[coinModel], tracker.Models[gemModel] = coin, gem
-	local first = tracker:Cluster("Coins")
-	assert(first.SweepTotal == 2 and first.Records[1] == coin)
-	tracker.Models[coinModel] = nil tracker.Sweep.Pending[coinModel] = nil coinModel.Parent = nil
-	local respawn = { Model = { Parent = true }, Id = "newcoin", Position = Vector3.new(1, 0, 0), Currency = "Coins", Amount = 1000, AreaKey = "Synthetic/A" }
-	tracker.Models[respawn.Model] = respawn
-	local second = tracker:Cluster("Coins")
-	assert(second.SweepId == first.SweepId and second.Records[1] == gem, "New coins cannot starve pending gems")
-	tracker:BackOff(second.Records, 30, "Synthetic blocked path")
-	assert(tracker.Backoff.gem and tracker.Sweep.Pending[gemModel] == nil)
-	local third = tracker:Cluster("Coins")
-	assert(third.SweepId ~= first.SweepId and third.Records[1] == respawn)
-	tracker:Destroy()
-end)
 
 test("Unknown yields stay visible and missing local spawns do not suppress supported native destinations", function()
 	local data, context, plan, memory = policyFixture()
@@ -356,7 +332,7 @@ test("Pickup trial ends on an actual sample or timeout and bubble sales cannot b
 	local now = os.clock()
 	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = now }
 	coordinator.Decision = { Currency = "Coins" }
-	coordinator.Metrics.Samples = { { At = now, Seconds = 15, Mode = "PICKUPS", Scope = context.Current.Key, Gains = { Coins = 10 } } }
+	coordinator.Metrics.Samples = { { At = now, Seconds = 15, Mode = "STATIONARY", Scope = context.Current.Key, Gains = { Coins = 10 } } }
 	coordinator:Observe()
 	assert(coordinator.PickupProbe ~= nil, "An elapsed sample alone is not pickup collection proof")
 	coordinator.PickupProbe.Attempts = 1 coordinator.PickupProbe.Confirmed = true
@@ -367,7 +343,7 @@ test("Pickup trial ends on an actual sample or timeout and bubble sales cannot b
 	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = os.clock() - 46 }
 	coordinator:Observe()
 	assert(coordinator.PickupProbe == nil and messages[#messages]:find("remains unverified", 1, true))
-	coordinator.Metrics:SetMode("PICKUPS", context.Current.Key, { Coins = 100 }, os.clock())
+	coordinator.Metrics:SetMode("STATIONARY", context.Current.Key, { Coins = 100 }, os.clock())
 	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = os.clock() }
 	coordinator._sell = function() assert(coordinator.Metrics.Active == nil and coordinator.PickupProbe == nil) return { Verified = true } end
 	local decision = { Kind = "SELL", Sell = {}, Currency = "Coins" }
@@ -503,16 +479,6 @@ test("Different-area overlap requires metadata and unexpected native classes are
 	scene.Close()
 end)
 
-test("Radius routing uses a midpoint to cover two pickups with one movement", function()
-	local scene = pickupScene()
-	scene.MeshModel("Gem", scene.Prefabs)
-	local first, second = scene.MeshModel("first", scene.Folder), scene.MeshModel("second", scene.Folder)
-	first.Position, second.Position = Vector3.new(20, 103.5, -6), Vector3.new(20, 103.5, 6)
-	scene.Tracker:Refresh(scene.Snapshot, 100)
-	local cluster = scene.Tracker:Cluster("Gems")
-	assert(#cluster.Records == 2 and cluster.Position.X == 20 and cluster.Position.Z == 0 and cluster.Radius == 7.5)
-	scene.Close()
-end)
 
 test("Full bubbles preempt both loading grace and an active isolated pickup trial", function()
 	local data, context, plan, memory = policyFixture()
@@ -526,47 +492,7 @@ test("Full bubbles preempt both loading grace and an active isolated pickup tria
 	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "SELL", "Presell already-full bubbles before a new trial")
 end)
 
-test("Collection needs disappearance and matching balance credit; combined gains stay unattributed", function()
-	local Coordinator = requireOC("FarmingCoordinator")
-	local coins, disappear, credit = 100, false, false
-	local controller = { Config = config(), Reader = { ReadBalances = function() return { Coins = coins } end, GetSnapshot = function() return {} end, GetLiveProfile = function() return {} end }, Log = function() end }
-	local coordinator = Coordinator.new(controller, {})
-	local model = { Parent = true }
-	coordinator.Tracker.Current = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, VisibleCount = 1, EligibleCount = 1 }
-	coordinator.Tracker.Refresh = function() end coordinator.Tracker.BackOff = function() end
-	coordinator.Mechanics.Walk = function() if disappear then model.Parent = nil end if credit then coins += 10 end return true end
-	coordinator._settle = function() end coordinator._awaitCredit = function() return { Coins = coins } end
-	local decision = { Mode = "PICKUPS", Cluster = { Records = { { Model = model, Currency = "Coins" } }, AreaKey = "Synthetic/A", Position = Vector3.new(0, 0, 0), Radius = 7.5, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }
-	local token = { CheckCancelled = function() return false end }
-	disappear = true assert(not coordinator:_collection(decision, token).Verified)
-	model.Parent = true disappear = false credit = true assert(not coordinator:_collection(decision, token).Verified)
-	model.Parent = true disappear = true credit = true assert(coordinator:_collection(decision, token).Verified)
-	assert(coordinator.PickupEvidence["Synthetic/A:Coins"] and coordinator.Metrics.ConfirmedCycles == 1)
-	model.Parent = true decision.Mode = "COMBINED" assert(not coordinator:_collection(decision, token).Verified)
-	model.Parent = true decision.Mode = "PICKUPS"
-	controller.Reader.GetLiveProfile = function() return { Bubble = { Amount = model.Parent and 100 or 0 } } end
-	assert(not coordinator:_collection(decision, token).Verified, "Observed bubble selling cannot verify pickup credit")
-	model.Parent = true decision.Mode = "COMBINED"
-	assert(not coordinator:_collection(decision, token).CombinedCreditObserved, "Mixed sale credit cannot demonstrate combined pickup contribution")
-	coordinator:Destroy()
-end)
 
-test("Pathfinding floor waypoints allow the normal HumanoidRootPart height offset", function()
-	local root = { Position = Vector3.new(0, 3.5, 0), Parent = true }
-	local humanoid = { MoveTo = function(_, point) root.Position = Vector3.new(point.X, 3.5, point.Z) end, Move = function() end }
-	local mechanics = Mechanics.new(config(), {}, { Root = function() return root, humanoid end }, {})
-	mechanics.Guard = function() return true, nil, root, humanoid end
-	local destroyed = false
-	local path = { Status = Enum.PathStatus.Success, Blocked = event().Event, ComputeAsync = function() end,
-		GetWaypoints = function() return { { Position = Vector3.new(0, 0, 0) }, { Position = Vector3.new(10, 0, 0) } } end,
-		Destroy = function() destroyed = true end }
-	services.PathfindingService = { CreatePath = function() return path end }
-	local oldSpawn = task.spawn
-	task.spawn = function(callback) local thread = coroutine.create(callback) assert(coroutine.resume(thread)) return thread end
-	local success, reason = mechanics:Walk(Vector3.new(10, 0, 0), { CheckCancelled = function() return false end }, os.clock() + 6)
-	task.spawn = oldSpawn services.PathfindingService = nil
-	assert(success and destroyed and reason == "Cluster reached")
-end)
 
 test("GameKnowledge reuses native definitions without claiming server or action verification", function()
 	local Knowledge = requireOC("GameKnowledge")

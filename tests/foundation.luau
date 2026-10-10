@@ -68,7 +68,17 @@ local Resolver = requireOC("ConfigResolver")
 local Brain = requireOC("OCBrain")
 local Reader = requireOC("AccountStateReader")
 local Scheduler = requireOC("TaskScheduler")
-local function config(overrides) return Resolver.Resolve(Defaults, overrides) end
+local function config(overrides)
+	-- Broad synthetic fixtures exercise separately configured future policies. Production
+	-- defaults/isolated behavior are tested explicitly without these fixture overrides.
+	local values = { PICKUP_SETTINGS = { STATIONARY_ISOLATED_TEST = false },
+		ISLAND_SETTINGS = { SELECTED_ISLANDS = {}, AUTO_TRAVEL_BEST_ISLAND = true, AUTO_EXPLORE_UNLOCKED_ISLANDS = true } }
+	for category, settings in pairs(overrides or {}) do
+		values[category] = values[category] or {}
+		for key, value in pairs(settings) do values[category][key] = value end
+	end
+	return Resolver.Resolve(Defaults, values)
+end
 
 test("Partial overrides and arrays replace without mutating defaults", function()
 	local changed = config({ ACCOUNT_SETTINGS = { SELECTED_CURRENCIES = { "Gems" } }, GENERAL_SETTINGS = { AUTO_START = false } })

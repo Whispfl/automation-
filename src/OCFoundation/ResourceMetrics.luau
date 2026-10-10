@@ -25,7 +25,7 @@ function ResourceMetrics:Observe(balances, now)
 	if spending then return {} end
 	if dt > 0 then
 		-- Combined income is recorded once, after a complete fill/sale/return cycle.
-		if self.Active.Mode ~= "COMBINED" then
+		if self.Active.Mode ~= "COMBINED" and self.Active.Mode ~= "STATIONARY" then
 			table.insert(self.Samples, { At = now, Seconds = dt, Mode = self.Active.Mode,
 				Scope = self.Active.Scope, Gains = gains })
 		end

@@ -1,78 +1,62 @@
--- Phase 2 test configuration. Omitted settings inherit the central OCConfig defaults.
+-- Initial isolated experiment. Manually stand on unlocked The Void or Zen first.
+-- No OC walking, repositioning, teleportation, blowing, selling, or purchases.
+-- Omitted values inherit central OCConfig; live distant credit remains unverified.
 local Config = {
-	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Restrict the next farming test to this world.
-	GENERAL_SETTINGS = {
-		OC_ENABLED = true, --// Permit initialization and controls.
-		AUTO_START = true, --// Start account analysis and enabled farming tasks.
-	},
-	ACCOUNT_SETTINGS = {
-		ENABLE_ACCOUNT_READER = true, --// Read the game's real LocalData profile.
-		READ_UPGRADES = true, --// Read actual owned gum and flavors.
-		READ_MASTERY = true, --// Preserve Mastery statistics and recommendations.
-		READ_UNLOCKS = true, --// Require actual world and island unlocks for travel.
-	},
+	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true }, --// Start the central Brain and scheduler.
+	ACCOUNT_SETTINGS = { ENABLE_ACCOUNT_READER = true, READ_UNLOCKS = true }, --// Require real LocalData balances/access.
+	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Only this world is approved for farming.
 	FARMING_SETTINGS = {
-		AUTO_RESOURCE_FARM = true, --// Enable Brain-coordinated resource farming.
-		ENABLE_EFFICIENCY_COMPARISON = true, --// Measure and compare target-currency earnings.
-		ENABLE_ACTIVITY_SWITCHING = true, --// Adapt when yields or availability change.
-		AUTO_FARM_FALLBACK = true, --// Use another useful supported activity when needed.
-		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Fallback priorities; an unmet goal's currency takes precedence.
+		FARMING_STRATEGY = "PICKUP_FIRST", --// Select pickup work through the existing Brain.
+		AUTO_RESOURCE_FARM = true, --// Enable bounded stationary experiment tasks.
+		ENABLE_EFFICIENCY_COMPARISON = false, --// Measure this isolated island before strategy comparison.
+		ENABLE_ACTIVITY_SWITCHING = false, --// Keep the isolated activity fixed.
+		AUTO_FARM_FALLBACK = false, --// Fail honestly without another farming action.
+		CURRENCY_PRIORITIES = { "Coins", "Gems" }, --// Test these actual LocalData currencies separately.
 	},
 	ISLAND_SETTINGS = {
-		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Try supported unlocked pickup islands before settling on bubble farming.
-		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Bound retries of empty, failed or previously sampled islands.
-		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End an isolated pickup trial if an adequate sample is not obtained.
-		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked, scene-present candidates.
-		AUTO_TRAVEL_BEST_ISLAND = true, --// Use verified native island/sell teleport destinations.
-		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Only these actually unlocked islands are farming destinations.
-		MIN_ISLAND_GAIN_ADVANTAGE_PERCENT = 25, --// Require a meaningful improvement to switch.
-		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapidly switching viable islands.
+		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Actual unlock membership is rechecked before every request.
+		AUTO_SELECT_BEST_ISLAND = false, --// Manual placement for this experiment.
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Never explore automatically during isolation.
+		AUTO_TRAVEL_BEST_ISLAND = false, --// Never teleport during isolation.
 	},
 	PICKUP_SETTINGS = {
-		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Read the actual loaded pickup ID-to-Model registry.
-		ENABLE_CHUNKER_DISCOVERY = true, --// Observe native chunk parents rather than depend on the empty initial folder.
-		BULK_COLLECT_PICKUPS = true, --// Use native radius clusters; no island-wide batch API was found.
-		ENABLE_CLUSTER_ROUTING = true, --// Walk to dense reachable clusters as the supported fallback.
-		FARM_CURRENCY_TYPES = {}, --// Empty allows all detected currency types, including live island currencies.
-		COLLECTION_REFRESH_SECONDS = 1, --// Bound scans and subsequent collection cycles.
+		COLLECTION_METHOD = "STATIONARY_EXPERIMENT", --// Only supported OC pickup strategy.
+		STATIONARY_ISOLATED_TEST = true, --// Executor also blocks stale non-pickup action tasks.
+		STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = true, --// Probe genuine loaded IDs; server acceptance remains unknown.
+		STATIONARY_REQUEST_COOLDOWN_SECONDS = 3, --// At most one single-ID attempt per cooldown.
+		STATIONARY_ID_RETRY_SECONDS = 15, --// Back off each uncredited ID.
+		STATIONARY_MAXIMUM_ATTEMPTS_PER_ID = 2, --// Never retry an ID indefinitely.
+		STATIONARY_MAXIMUM_REQUESTS = 24, --// Finite controller-session budget, retained across Pause/Stop.
+		STATIONARY_TEST_DURATION_SECONDS = 120, --// Stop requests after two minutes from first dispatch.
+		STATIONARY_MAXIMUM_DRIFT_STUDS = 0.5, --// Discard credit and end requests after position drift.
+		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, --// Require fresh genuine native registry IDs.
+		ENABLE_CHUNKER_DISCOVERY = true, --// Preserve all native Chunker observations.
+		ENABLE_CONTINUOUS_SCANNING = true, --// Reconcile existing and newly spawned pickups.
+		BULK_COLLECT_PICKUPS = true, --// Allow stationary tasks; each sends just one ID.
+		ENABLE_CLUSTER_ROUTING = false, --// Legacy true overrides are forced false too.
+		FARM_CURRENCY_TYPES = { "Coins", "Gems" }, --// Exclude unrelated reward types from the experiment.
 	},
 	BUBBLE_SETTINGS = {
-		AUTO_BLOW_BUBBLES = true, --// Allow bubble farming when the Brain selects it.
-		AUTO_SELL_BUBBLES = true, --// Use accessible native selling activations.
-		ENABLE_SIMULTANEOUS_BLOWING = true, --// Test blowing during collection when game guards permit it.
-		SELL_AT_CAPACITY_RATIO = 0.95, --// Sell at this fraction of actual capacity.
-		AUTO_BUY_GUM = false, --// Keep spending disabled during combined farming verification.
-		AUTO_BUY_FLAVORS = false, --// Keep spending disabled during combined farming verification.
+		AUTO_BLOW_BUBBLES = false, --// Isolate stationary currency observations.
+		AUTO_SELL_BUBBLES = false, --// No OC selling or selling excursions.
+		ENABLE_SIMULTANEOUS_BLOWING = false, --// Cooperative blowing is a later separately configured test.
+		AUTO_BUY_GUM = false, --// No purchases.
+		AUTO_BUY_FLAVORS = false, --// No purchases.
 	},
 	UPGRADE_SETTINGS = {
-		ENABLE_SMART_UPGRADES = false, --// Keep upgrade execution disabled during farming verification.
-		ENABLE_CAPACITY_UPGRADES = false, --// Keep gum purchases disabled during this test.
-		ENABLE_FLAVOR_UPGRADES = false, --// Keep flavor purchases disabled during this test.
-		AUTO_EQUIP_OWNED_UPGRADES = false, --// Preserve current equipment during farming comparisons.
-		ENABLE_GOAL_RESERVATION = true, --// Protect important world/Mastery goal funds.
-		MAXIMUM_PURCHASE_COST = 1000000, --// Per-purchase currency cap.
-		MAXIMUM_PAYBACK_SECONDS = 300, --// Maximum conservative estimated payback.
-	},
-	RESOURCE_SETTINGS = {
-		COIN_RESERVE = 0, --// Additional coins to preserve.
-		GEM_RESERVE = 0, --// Additional gems to preserve.
-		TICKET_RESERVE = 0, --// Additional tickets to preserve.
-		PEARL_RESERVE = 0, --// Additional pearls to preserve.
-		MAXIMUM_UPGRADE_BALANCE_FRACTION = 0.25, --// Spend at most this fraction after reserves.
-	},
-	STATUS_UI_SETTINGS = {
-		ENABLE_STATUS_UI = true, --// Retain all Phase 1 statistics and controls.
-		SHOW_FARMING = true, --// Show the selected activity, area and collection outcome.
-		SHOW_FARMING_RATES = true, --// Show observed per-currency earnings and sample duration.
-		SHOW_ISLAND_CANDIDATES = true, --// Identify measured and estimated candidate yields.
+		ENABLE_SMART_UPGRADES = false, --// Block upgrade tasks.
+		ENABLE_CAPACITY_UPGRADES = false, --// No capacity purchases.
+		ENABLE_FLAVOR_UPGRADES = false, --// No flavor purchases.
+		AUTO_EQUIP_OWNED_UPGRADES = false, --// Preserve the current equipment.
 	},
 	DIAGNOSTIC_SETTINGS = {
-		LOG_ISLAND_DISCOVERY = true, --// Explain island unlocks, zone mapping and exclusion reasons.
-		ENABLE_CONSOLE_LOGGING = true, --// Print useful [OC] test diagnostics.
-		LOG_ACCOUNT_DETAILS = false, --// Keep farming logs compact; account details remain in the UI.
+		ENABLE_CONSOLE_LOGGING = true, --// Print request distances and actual before/after Coins/Gems.
+		LOG_PICKUP_DIAGNOSTICS = true, --// Explain registry discovery, credit and blockers.
+		LOG_PICKUP_DETAIL_PATHS = false, --// Keep routine output compact.
+		LOG_ACCOUNT_DETAILS = false, --// Keep full account facts in the status panel.
 	},
 }
 
-loadstring(game:HttpGet(
+local OC = loadstring(game:HttpGet(
 	"https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
 ))()(Config)

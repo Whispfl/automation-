@@ -20,6 +20,10 @@ function FarmingPolicy.IsFarmingArea(config, area)
 		and allowed(config.BRAIN_SETTINGS.SELECTED_WORLDS, area.World)
 end
 
+function FarmingPolicy.IsStationaryArea(config, area)
+	return FarmingPolicy.IsFarmingArea(config, area) and area.World == "The Overworld" and (area.Name == "The Void" or area.Name == "Zen")
+end
+
 function FarmingPolicy.Target(config, snapshot, plan, context)
 	local candidates = {}
 	if plan.Objective then table.insert(candidates, plan.Objective) end
@@ -49,6 +53,21 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		decision.Reason = "Farming disabled or real account/planner not ready" return decision
 	end
 	if context.SceneReady == false then decision.Reason = context.Blocker or "Waiting for actual zone inspection before selecting a farming activity" return decision end
+	if config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then
+		decision.Goal = "Isolated stationary Coins/Gems credit experiment"
+		if not FarmingPolicy.IsStationaryArea(config, context.Current) then
+			decision.Reason = "Manually position on an unlocked selected island; isolated test never travels"
+		elseif not context.CanInteract then decision.Reason = context.Blocker or "Native interaction guard"
+		elseif context.Cluster then
+			decision.Kind, decision.Mode, decision.Cluster = "FARM", "PICKUPS", context.Cluster
+			decision.Currency = context.Cluster.Currency or "Coins"
+			decision.Reason = "Bounded stationary ID experiment; verify LocalData credit, no movement or other OC earning actions"
+		else
+			decision.Kind = "INSPECT"
+			decision.Reason = context.PickupUnavailableReason or "Waiting for live stationary pickup IDs; no movement fallback"
+		end
+		return decision
+	end
 	local currency, goal, deficit = FarmingPolicy.Target(config, snapshot, plan, context)
 	decision.Currency, decision.Goal, decision.Deficit = currency, goal and goal.Title, deficit
 	if not currency then decision.Reason = "No allowed goal currency with an accessible earning source" return decision end
@@ -60,7 +79,7 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	local bestSell, bestSellScore
 	for _, sell in ipairs(context.Sells or {}) do
 		if sell.Currency ~= currency then continue end
-		local walking = current and sell.World == current.World and sell.Area == current.Name and sell.Distance <= config.PICKUP_SETTINGS.MAXIMUM_ROUTE_DISTANCE_STUDS
+		local walking = false -- OC walking was removed. Future selling uses separately configured native travel.
 		local canTravel = config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and context.CanTravel
 		if not walking and not canTravel then continue end
 		local travel = walking and sell.Distance / math.max(1, context.WalkSpeed or 16)
@@ -79,7 +98,7 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		local sell = bestSell
 		if not sell then
 			for _, candidate in ipairs(context.Sells or {}) do
-				local sameArea = current and candidate.World == current.World and candidate.Area == current.Name and candidate.Distance <= config.PICKUP_SETTINGS.MAXIMUM_ROUTE_DISTANCE_STUDS
+				local sameArea = false
 				if sameArea or (config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and context.CanTravel) then
 					if not sell or candidate.Distance < sell.Distance then sell = candidate end
 				end

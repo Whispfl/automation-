@@ -16,7 +16,10 @@ for (const module of source.modules) {
   if (module.name !== 'GameMechanics') assert(!/\b(?:FireServer|InvokeServer)\b/.test(module.source), 'Only the verified native mechanics adapter may invoke gameplay commands');
 }
 const mechanics = source.modules.find(m => m.name === 'GameMechanics').source;
-assert(!/CollectPickup\s*[:.]\s*FireServer/.test(generated.output), 'OC must not duplicate native pickup collection');
+assert(!/PathfindingService|\bMoveTo\s*\(|\bMoveToFinished\b|\bPivotTo\s*\(/.test(generated.output), 'OC automatic navigation/repositioning must be absent');
+const coordinatorSource = source.modules.find(m => m.name === 'FarmingCoordinator').source;
+assert(!/\.Mechanics:Walk\s*\(/.test(coordinatorSource), 'No active farming or selling walking route');
+assert(!/Model:Destroy|model:Destroy|registry\[[^\]]+\]\s*=/.test(mechanics), 'Pickup adapter must not destroy models or mutate the native registry');
 assert(!/\._activePickups\s*=/.test(generated.output), 'OC must not replace the native pickup registry');
 assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics), 'No position or speed modification');
 assert(!/GitHubToken|Authorization|\bRequest\s*=/.test(generated.output), 'No client authentication');
@@ -29,7 +32,7 @@ console.log('[OC] Static bundle and configuration checks passed');
 
 const executable = process.env.LUAU_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau.exe' : 'luau');
 const compiler = process.env.LUAU_COMPILE_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau-compile.exe' : 'luau-compile');
-const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau'), path.join(root, 'examples/PickupOnly.luau'), path.join(root, 'examples/CombinedFarming.luau'), path.join(root, 'examples/UpgradeTest.luau')], { encoding: 'utf8' });
+const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau'), path.join(root, 'examples/PickupOnly.luau'), path.join(root, 'examples/StationaryOnly.luau'), path.join(root, 'examples/CombinedFarming.luau'), path.join(root, 'examples/UpgradeTest.luau')], { encoding: 'utf8' });
 if (compile.error) throw new Error('Official Luau CLI is required. Set LUAU_BIN and LUAU_COMPILE_BIN. ' + compile.error.message);
 process.stdout.write(compile.stdout);
 process.stderr.write(compile.stderr);
@@ -43,8 +46,14 @@ const testPath = path.join(root, '.test-output/foundation.luau');
 const farmingAssertions = await readFile(path.join(root, 'tests/farming.luau'), 'utf8');
 const fixesAssertions = await readFile(path.join(root, 'tests/phase2-fixes.luau'), 'utf8');
 const pickupFirstAssertions = await readFile(path.join(root, 'tests/pickup-first.luau'), 'utf8');
+const stationaryAssertions = await readFile(path.join(root, 'tests/stationary.luau'), 'utf8');
+function configPrefix(contents) {
+  const call = contents.indexOf('loadstring(game:HttpGet(');
+  assert(call >= 0, 'Example must use the public loader');
+  return contents.slice(0, contents.lastIndexOf('\n', call) + 1);
+}
 const example = await readFile(path.join(root, 'examples/Loader.luau'), 'utf8');
-const exampleConfig = example.slice(0, example.indexOf('loadstring(game:HttpGet('));
+const exampleConfig = configPrefix(example);
 assert(exampleConfig.includes('local Config = {'), 'Copy-ready example is missing Config');
 function assertFarmingSelection(contents) {
   assert(contents.includes('SELECTED_ISLANDS = { "The Void", "Zen" }'));
@@ -54,20 +63,27 @@ function assertFarmingSelection(contents) {
 assertFarmingSelection(exampleConfig);
 const exampleCheck = `\nlocal exampleOverrides = (function()\n${exampleConfig}\nreturn Config\nend)()\nexampleOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal exampleController = requireOC("OCController").new(config(exampleOverrides))\nassert(exampleController.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == false)\nexampleController:Destroy()\nprint("[OC TEST] Published example Config validation passed")\n`;
 const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau'), 'utf8');
-const pickupConfig = pickupExample.slice(0, pickupExample.indexOf('loadstring(game:HttpGet('));
+const pickupConfig = configPrefix(pickupExample);
 assertFarmingSelection(pickupConfig);
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + exampleCheck + pickupCheck);
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
 assert.equal(run.status, 0, 'Foundation behavior tests failed');
 
-for (const [filename, enabled] of [['CombinedFarming.luau', false], ['UpgradeTest.luau', true]]) {
+for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
-  const configText = contents.slice(0, contents.indexOf('loadstring(game:HttpGet('));
+  const configText = configPrefix(contents);
   if (filename === 'CombinedFarming.luau') {
     assertFarmingSelection(configText);
+  }
+  if (filename === 'StationaryOnly.luau') {
+    assertFarmingSelection(configText);
+    assert(configText.includes('STATIONARY_ISOLATED_TEST = true'));
+    for (const key of ['AUTO_TRAVEL_BEST_ISLAND', 'AUTO_EXPLORE_UNLOCKED_ISLANDS', 'AUTO_SELL_BUBBLES', 'AUTO_BLOW_BUBBLES', 'ENABLE_SMART_UPGRADES']) {
+      assert(configText.includes(key + ' = false'), 'Initial stationary test must disable ' + key);
+    }
   }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;
   await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);

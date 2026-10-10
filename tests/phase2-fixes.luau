@@ -11,82 +11,6 @@ local function simulated(callback)
 	assert(ok, reason)
 end
 
-local function walkingFixture(settings)
-	local root = { Position = Vector3.new(0, 3.5, 0), Parent = true }
-	local moved = event()
-	local humanoid = { MoveToFinished = moved.Event, Target = root.Position, Moves = 0, Stops = 0 }
-	function humanoid:MoveTo(point) self.Target = point self.Moves += 1 end
-	function humanoid:Move() self.Stops += 1 end
-	local mechanics = Mechanics.new(config(settings), {}, { Root = function() return root, humanoid end }, {})
-	mechanics.Guard = function() return true, nil, root, humanoid end
-	local state = { Paths = 0, Destroyed = 0, Root = root, Humanoid = humanoid, Mechanics = mechanics, Moved = moved, Blocks = {} }
-	services.PathfindingService = { CreatePath = function()
-		state.Paths += 1 local blocked = event() table.insert(state.Blocks, blocked)
-		return { Status = Enum.PathStatus.Success, Blocked = blocked.Event, ComputeAsync = function() end,
-			GetWaypoints = function() return { { Position = root.Position }, { Position = Vector3.new(20, 0, 0) } } end,
-			Destroy = function() state.Destroyed += 1 end }
-	end }
-	return state
-end
-
-test("Forward progress permits a waypoint taking longer than the old fixed timeout", function()
-	simulated(function(clock)
-		local scene = walkingFixture()
-		clock.Tick = function(dt) scene.Root.Position = Vector3.new(math.min(20, scene.Root.Position.X + dt * 3), 3.5, 0) end
-		local success = scene.Mechanics:Walk(Vector3.new(20, 0, 0), { CheckCancelled = function() return false end }, 10)
-		assert(success and clock.Time > 3 and scene.Paths == 1 and scene.Humanoid.Moves >= 3)
-		assert(scene.Destroyed == 1 and scene.Mechanics.MovementLease == nil)
-	end)
-end)
-
-test("Stalled movement recomputes once and recovers using actual position", function()
-	simulated(function(clock)
-		local scene = walkingFixture()
-		clock.Tick = function(dt) if scene.Paths == 2 then scene.Root.Position = Vector3.new(math.min(20, scene.Root.Position.X + dt * 16), 3.5, 0) end end
-		assert(scene.Mechanics:Walk(Vector3.new(20, 0, 0), { CheckCancelled = function() return false end }, 6))
-		assert(scene.Paths == 2 and scene.Destroyed == 2 and scene.Mechanics.LastRoute.Replans == 1)
-	end)
-end)
-
-test("Unreachable routes exhaust a bounded recovery rather than looping", function()
-	simulated(function()
-		local scene = walkingFixture()
-		local success, reason = scene.Mechanics:Walk(Vector3.new(20, 0, 0), { CheckCancelled = function() return false end }, 10)
-		assert(not success and reason:find("without forward progress", 1, true))
-		assert(scene.Paths == 2 and scene.Destroyed == 2 and scene.Humanoid.Stops == 2)
-	end)
-end)
-
-test("MoveToFinished cannot invent arrival and obsolete blocked events are disconnected", function()
-	simulated(function(clock)
-		local scene = walkingFixture({ PICKUP_SETTINGS = { MAXIMUM_PATH_RECOMPUTES = 0 } })
-		clock.Tick = function() scene.Moved:Fire(true) scene.Blocks[1]:Fire(1) end -- Behind current waypoint index 2.
-		local success, reason = scene.Mechanics:Walk(Vector3.new(20, 0, 0), { CheckCancelled = function() return false end }, 5)
-		assert(not success and reason:find("stalled", 1, true) and scene.Paths == 1)
-		scene.Blocks[1]:Fire(2) scene.Moved:Fire(false)
-		assert(scene.Mechanics.MovementLease == nil and scene.Destroyed == 1)
-	end)
-end)
-
-test("Pause and Stop cancel an active route with no later destination movement", function()
-	for _, control in ipairs({ "Pause", "Stop" }) do
-		simulated(function(clock)
-			local scene = walkingFixture()
-			local scheduler = Scheduler.new(config().TASK_SETTINGS) scheduler:Resume()
-			local afterCancel, destinationCalls = false, 0
-			local move = scene.Humanoid.MoveTo
-			scene.Humanoid.MoveTo = function(self, point)
-				if afterCancel and point.X ~= scene.Root.Position.X then destinationCalls += 1 end move(self, point)
-			end
-			clock.Tick = function() scheduler[control](scheduler) scene.Mechanics:StopMovement() afterCancel = true end
-			scheduler:Submit({ Id = "route", Priority = 10, Execute = function(token) return scene.Mechanics:Walk(Vector3.new(20, 0, 0), token, 10) end })
-			flush()
-			assert(destinationCalls == 0 and scene.Paths == 1 and scene.Destroyed == 1 and scheduler.Active == nil)
-			scheduler:Destroy()
-		end)
-	end
-end)
-
 local function purchaseFixture(effect)
 	local profile = { Coins = 100, Gum = {}, AreasUnlocked = { A = true }, Bubble = { Gum = "Old" } }
 	local calls = 0
@@ -227,19 +151,6 @@ test("Pause and Stop during native travel retain one request and cannot verify c
 	end) end
 end)
 
-test("Cancellation during collection settling prevents verification and further credit waits", function()
-	local cancelled, waited = false, false
-	local controller = { Config = config(), Reader = { ReadBalances = function() return { Coins = 100 } end, GetSnapshot = function() return {} end, GetLiveProfile = function() return {} end }, Log = function() end }
-	local coordinator = requireOC("FarmingCoordinator").new(controller, {})
-	local model = { Parent = true }
-	coordinator.Tracker.Current = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, EligibleCount = 1 }
-	coordinator.Mechanics.Walk = function() return true end
-	coordinator._settle = function() cancelled = true model.Parent = nil end
-	coordinator._awaitCredit = function() waited = true return { Coins = 110 } end
-	local result = coordinator:_collection({ Mode = "PICKUPS", Cluster = { AreaKey = "Synthetic/A", Position = Vector3.new(0,0,0), Radius = 7.5,
-		Records = { { Model = model, Currency = "Coins" } }, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }, { CheckCancelled = function() return cancelled end })
-	assert(result == nil and not waited and next(coordinator.PickupEvidence) == nil and coordinator.Metrics.ConfirmedCycles == 0)
-end)
 
 test("Preserved Brain upgrade filters constrain new policy purchases", function()
 	local data, context, plan = policyFixture()
@@ -254,23 +165,5 @@ test("Unavailable combined pickup targets cannot suppress a useful island switch
 	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "TRAVEL")
 end)
 
-test("Full-bubble collection ends at the delay bound without blowing or misclassifying targets", function()
-	simulated(function(clock)
-		local model, blows, backoffs = { Parent = true }, 0, 0
-		local controller = { Config = config(), Reader = { GetSnapshot = function() return {} end, ReadBalances = function() return { Coins = 100 } end,
-			GetLiveProfile = function() return { Bubble = { Amount = 100 } } end, _stat = function() return 100 end }, Log = function() end }
-		local coordinator = requireOC("FarmingCoordinator").new(controller, {})
-		coordinator.Tracker.Current = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, EligibleCount = 1 }
-		coordinator.Tracker.BackOff = function() backoffs += 1 end coordinator.Tracker.Refresh = function() end
-		coordinator.Mechanics.Blow = function() blows += 1 end
-		coordinator.Mechanics.Walk = function(_, _, _, deadline, tick, finished)
-			while not finished() and clock.Time < deadline do tick() task.wait(0.1) end return true
-		end
-		coordinator._awaitCredit = function() return { Coins = 100 } end
-		local result = coordinator:_collection({ Mode = "COMBINED", Cluster = { AreaKey = "Synthetic/A", Position = Vector3.new(0,0,0), Radius = 7.5,
-			Records = { { Model = model, Currency = "Coins" } }, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }, { CheckCancelled = function() return false end })
-		assert(blows == 0 and backoffs == 0 and not result.Verified and clock.Time < 6.2)
-	end)
-end)
 
 print(string.format("[OC TEST] %d additional Phase 2 regression tests passed; %d total. Live owner verification remains pending.", tests - fixesBefore, tests))

@@ -107,35 +107,7 @@ test("Stale generation and excluded pickup tasks never reach the executor", func
 	assert(not result.Verified and invoked == 0)
 end)
 
-test("Actual background growth and pickup credit share one scheduled collection", function()
-	simulated(function(clock)
-		local coordinator, profile, area, root, logs = coordinatorFixture()
-		local model = { Parent = true }
-		local record = { Id = "one", Model = model, Currency = "Coins", Position = Vector3.new(20, 3.5, 0) }
-		coordinator:_beginCombined(area.Key)
-		coordinator.Mechanics.Blow = function() profile.Bubble.Amount += 10 return true end
-		coordinator.Mechanics.Walk = function(_, _, _, _, tick)
-			tick() task.wait(1) root.Position = record.Position model.Parent = nil profile.Coins += 10 return true
-		end
-		local result = coordinator:_collection({ Mode = "COMBINED", Cluster = { AreaKey = area.Key, Position = record.Position,
-			Records = { record }, Radius = 7.5, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }, { CheckCancelled = function() return false end })
-		assert(result.CombinedCreditObserved and coordinator.Cycle.Requests > 0 and coordinator.Cycle.GrowthAt and coordinator.Cycle.PickupAt)
-		assert(table.concat(logs, "\n"):find("CREDIT OBSERVED (COMBINED)", 1, true))
-		assert(coordinator:_pickupRates(area.Key, clock.Time).COMBINED == nil, "Unsold cycle cannot publish income")
-	end)
-end)
 
-test("Native-radius arrival settles without demanding an exact pickup pivot", function()
-	simulated(function()
-		local coordinator, profile, area, root = coordinatorFixture()
-		local model = { Parent = true }
-		local record = { Model = model, Currency = "Coins", Position = root.Position + Vector3.new(6, 0, 0) }
-		coordinator.Mechanics.Walk = function(_, _, _, _, _, finished) assert(finished()) return true end
-		coordinator._settle = function() model.Parent = nil profile.Coins += 10 end
-		assert(coordinator:_collection({ Mode = "PICKUPS", Cluster = { AreaKey = area.Key, Position = record.Position,
-			Records = { record }, Radius = 7.5, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }, { CheckCancelled = function() return false end }).Verified)
-	end)
-end)
 
 test("Sell saves origin and confirmed return closes exactly one end-to-end cycle", function()
 	simulated(function(clock)
@@ -190,34 +162,7 @@ test("Pause retains return intent but discards incomplete measurement and route 
 	assert(coordinator.ReturnKey == nil)
 end)
 
-test("Progressing slice expiry retains bounded route intent without unreachable backoff", function()
-	simulated(function(clock)
-		local coordinator, _, area = coordinatorFixture()
-		local backoffs = 0 coordinator.Tracker.BackOff = function() backoffs += 1 end
-		coordinator.Mechanics.LastRoute = { Progressed = true }
-		coordinator.Mechanics.Walk = function() clock.Time += 6 return false, "Slice ended" end
-		coordinator._awaitCredit = function() return { Coins = 100 } end
-		local decision = { Mode = "PICKUPS", Cluster = { AreaKey = area.Key, Position = Vector3.new(30, 3.5, 0),
-			Records = { { Model = { Parent = true }, Currency = "Coins" } }, Radius = 7.5, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }
-		local token = { CheckCancelled = function() return false end }
-		coordinator:_collection(decision, token)
-		assert(coordinator.RouteContinuation and backoffs == 0)
-		clock.Time = 25 coordinator:_collection(decision, token)
-		assert(coordinator.RouteContinuation == nil and backoffs == 1)
-	end)
-end)
 
-test("Late failed MoveTo events do not reject a progressing newer waypoint", function()
-	simulated(function(clock)
-		local scene = walkingFixture()
-		clock.Tick = function(dt)
-			scene.Moved:Fire(false)
-			scene.Root.Position = Vector3.new(math.min(20, scene.Root.Position.X + dt * 16), 3.5, 0)
-		end
-		assert(scene.Mechanics:Walk(Vector3.new(20, 0, 0), { CheckCancelled = function() return false end }, 6))
-		assert(scene.Paths == 1 and scene.Destroyed == 1)
-	end)
-end)
 
 test("Unrelated currency credit cannot verify a sale and saved return survives failure", function()
 	simulated(function()

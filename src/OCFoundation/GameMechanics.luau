@@ -1,8 +1,9 @@
 --!nonstrict
--- Only native commands inspected in HUD, WorldMap and GumShop. No pickup remote calls.
+-- Native command adapter. Stationary pickup requests are experimental; server credit is never inferred from invocation.
 local GameMechanics = {}
 GameMechanics.__index = GameMechanics
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 function GameMechanics.new(config, reader, tracker, player, log)
 	return setmetatable({ Config = config, Reader = reader, Tracker = tracker, Player = player,
@@ -35,6 +36,7 @@ function GameMechanics:Guard()
 end
 
 function GameMechanics:CanBlow()
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks blowing" end
 	if not self.Config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES then return false, "Bubble blowing is disabled" end
 	local allowed, reason = self:Guard()
 	if not allowed then return false, reason end
@@ -82,6 +84,46 @@ function GameMechanics:Unlocked(world, area)
 		and (world == area or (type(raw.AreasUnlocked) == "table" and raw.AreasUnlocked[area] ~= nil)) or false
 end
 
+function GameMechanics:CollectStationary(record, token)
+	local settings = self.Config.PICKUP_SETTINGS
+	if token:CheckCancelled() then return false, "Cancelled" end
+	if settings.COLLECTION_METHOD ~= "STATIONARY_EXPERIMENT" or not settings.BULK_COLLECT_PICKUPS or not settings.ENABLE_CONTINUOUS_SCANNING then return false, "Stationary collection disabled" end
+	if os.clock() - (self.LastPickupRequestAt or -math.huge) < settings.STATIONARY_REQUEST_COOLDOWN_SECONDS then return false, "Stationary request cooldown" end
+	local permitted, reason, root = self:Guard()
+	if not permitted then return false, reason end
+	local area = self.Tracker.Current
+	if not area or area.World ~= "The Overworld" or (area.Name ~= "The Void" and area.Name ~= "Zen")
+		or record.AreaKey ~= area.Key or not self:Unlocked(area.World, area.Name) then return false, "Stationary island excluded, stale or locked" end
+	local selected = self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS
+	local worlds = self.Config.BRAIN_SETTINGS.SELECTED_WORLDS
+	if (#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key))
+		or (#worlds > 0 and not table.find(worlds, area.World)) then return false, "Stationary island excluded by Config" end
+	local registry = self.Tracker.Knowledge:ActivePickups()
+	local key = record.RegistryKey or record.Id
+	local model = record.Model
+	if type(key) ~= "string" and type(key) ~= "number" then return false, "Genuine registry ID unavailable" end
+	if (type(key) == "number" and (key ~= key or math.abs(key) == math.huge)) or key == "" then return false, "Invalid native registry ID" end
+	if not registry or registry[key] ~= model or not model or not model.Parent or not model:IsA("Model")
+		or not model:IsDescendantOf(workspace) or tostring(key) ~= model.Name then return false, "Live native registry entry unavailable or changed" end
+	if record.Currency ~= "Coins" and record.Currency ~= "Gems" then return false, "Stationary experiment accepts only Coins/Gems" end
+	local range = self.Tracker:ReadRange()
+	if not range then return false, "Actual native pickup radius unavailable" end
+	local distance = (model:GetPivot().Position - root.Position).Magnitude
+	if distance > range and not settings.STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE then return false, "Outside native radius; experimental distant requests disabled" end
+	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+	local pickups = remotes and remotes:FindFirstChild("Pickups")
+	local remote = pickups and pickups:FindFirstChild("CollectPickup")
+	if not remote or not remote:IsA("RemoteEvent") then return false, "Native CollectPickup RemoteEvent unavailable" end
+	local freshRegistry = self.Tracker.Knowledge:ActivePickups()
+	if not self.Tracker.Current or self.Tracker.Current.Key ~= area.Key or not self:Unlocked(area.World, area.Name)
+		or not freshRegistry or freshRegistry[key] ~= model or not model.Parent or tostring(key) ~= model.Name then return false, "Registry/island changed before dispatch" end
+	if token:CheckCancelled() then return false, "Cancelled" end
+	self.LastPickupRequestAt = os.clock()
+	local ok, errorText = pcall(function() remote:FireServer(key) end)
+	return true, ok and "Request invoked; credit awaits LocalData" or "Invocation error; credit unknown: " .. tostring(errorText),
+		{ Id = tostring(key), Distance = distance, Radius = range, OutsideNativeRange = distance > range, InvocationSucceeded = ok }
+end
+
 function GameMechanics:SellStations()
 	local result, root = {}, self.Tracker:Root()
 	if not root then return result end
@@ -116,6 +158,7 @@ function GameMechanics:SellStations()
 end
 
 function GameMechanics:Travel(destination, world, area, token)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks travel" end
 	local permitted, reason = self:Guard()
 	if not permitted then return false, reason end
 	if token:CheckCancelled() then return false, "Cancelled" end
@@ -149,6 +192,7 @@ function GameMechanics:Travel(destination, world, area, token)
 end
 
 function GameMechanics:TravelIsland(area, token)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks travel" end
 	if area.Spawn then return self:Travel(area.Spawn, area.World, area.Name, token) end
 	local permitted, reason = self:Guard()
 	if not permitted then return false, reason end
@@ -193,120 +237,15 @@ function GameMechanics:TravelIsland(area, token)
 end
 
 function GameMechanics:StopMovement()
-	if self.PathThread then pcall(task.cancel, self.PathThread) self.PathThread = nil end
-	local lease = self.MovementLease
-	self.MovementLease = nil
-	if lease and lease.Root.Parent then
-		pcall(function() lease.Humanoid:MoveTo(lease.Root.Position) lease.Humanoid:Move(Vector3.zero) end)
-	end
+	-- Compatibility hook: this build never owns character movement or pathfinding.
 end
 
-function GameMechanics:Walk(point, token, deadline, tick, finished)
-	if token:CheckCancelled() then return false, "Cancelled" end
-	local permitted, reason, root, humanoid = self:Guard()
-	if not permitted then return false, reason end
-	local settings = self.Config.PICKUP_SETTINGS
-	local start = root.Position
-	local function reached(position, waypoint)
-		-- Pathfinding waypoints lie on the floor; HumanoidRootPart is above it.
-		local dx, dz = position.X - waypoint.X, position.Z - waypoint.Z
-		return dx * dx + dz * dz <= 9 and math.abs(position.Y - waypoint.Y) <= math.min(8, settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS)
-	end
-	if finished and finished() then return true, "Targets no longer active" end
-	if (point - start).Magnitude <= 2 then return true, "Already in range" end
-	if math.abs(point.Y - start.Y) > settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then return false, "Destination is outside current island height" end
-	local diagnostics = { Attempts = 0, Replans = 0 }
-	self.LastRoute = diagnostics
-	local function attempt()
-		local liveRoot = self.Tracker:Root()
-		if token:CheckCancelled() then return false, "Cancelled" end
-		if liveRoot ~= root then return false, "Character changed" end
-		local path = game:GetService("PathfindingService"):CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
-		local blockedConnection, moveConnection
-		local ok, success, message = xpcall(function()
-			local computed, computeError
-			self.PathThread = task.spawn(function()
-				computed, computeError = pcall(function() path:ComputeAsync(root.Position, point) end)
-			end)
-			local computeDeadline = math.min(deadline, os.clock() + settings.PATH_TIMEOUT_SECONDS)
-			while computed == nil and not token:CheckCancelled() and os.clock() < computeDeadline do
-				if finished and finished() then break end
-				if tick then tick() end
-				task.wait(0.1)
-			end
-			if self.PathThread then pcall(task.cancel, self.PathThread) self.PathThread = nil end
-			if token:CheckCancelled() then return false, "Cancelled" end
-			if os.clock() >= deadline then return false, "Slice ended" end
-			if finished and finished() then return true, "Targets no longer active" end
-			if computed ~= true or path.Status ~= Enum.PathStatus.Success then return false, "No supported path: " .. tostring(computeError) end
-			local waypoints, length, previous = path:GetWaypoints(), 0, root.Position
-			for _, waypoint in ipairs(waypoints) do
-				length += (waypoint.Position - previous).Magnitude previous = waypoint.Position
-				if math.abs(waypoint.Position.Y - start.Y) > settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then return false, "Path leaves current island height" end
-			end
-			if length > settings.MAXIMUM_ROUTE_DISTANCE_STUDS or length > math.max(8, (point - root.Position).Magnitude * settings.MAXIMUM_PATH_DETOUR_RATIO) then return false, "Path requires excessive travel" end
-			local blocked, moveResult
-			blockedConnection = path.Blocked:Connect(function(index) blocked = index end)
-			if humanoid.MoveToFinished then moveConnection = humanoid.MoveToFinished:Connect(function(result) moveResult = result end) end
-			for index, waypoint in ipairs(waypoints) do
-				if token:CheckCancelled() then return false, "Cancelled" end
-				if finished and finished() then return true, "Targets no longer active" end
-				if reached(root.Position, waypoint.Position) then continue end
-				if os.clock() >= deadline then return false, "Slice ended" end
-				if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
-				self.MovementLease = { Root = root, Humanoid = humanoid }
-				moveResult = nil humanoid:MoveTo(waypoint.Position)
-				local progressAt, issuedAt, bestDistance = os.clock(), os.clock(), (root.Position - waypoint.Position).Magnitude
-				while true do
-					if token:CheckCancelled() then return false, "Cancelled" end
-					local actualRoot, actualHumanoid = self.Tracker:Root()
-					local active, blockReason = self:Guard()
-					if actualRoot ~= root or (actualHumanoid and actualHumanoid ~= humanoid) then return false, "Character changed" end
-					if not active then return false, blockReason or "Character unavailable" end
-					if finished and finished() then return true, "Targets no longer active" end
-					if reached(root.Position, waypoint.Position) then break end
-					local now, distance = os.clock(), (root.Position - waypoint.Position).Magnitude
-					diagnostics.Waypoint, diagnostics.Distance = index, distance
-					if bestDistance - distance >= settings.MINIMUM_WAYPOINT_PROGRESS_STUDS then
-						bestDistance, progressAt = distance, now diagnostics.Progressed = true
-					end
-					if now >= deadline then return false, "Slice ended" end
-					if blocked and blocked >= index then return false, "Path was blocked" end
-					-- MoveToFinished has no request identity; late failure events cannot reject a newer waypoint.
-					if now - progressAt >= settings.WAYPOINT_STALL_SECONDS then return false, "Waypoint stalled without forward progress" end
-					if now - issuedAt >= settings.MOVE_REISSUE_SECONDS then
-						if token:CheckCancelled() then return false, "Cancelled" end
-						moveResult = nil humanoid:MoveTo(waypoint.Position) issuedAt = now
-					end
-					if tick then tick() end
-					task.wait(0.1)
-				end
-			end
-			if not reached(root.Position, point) then return false, "Path ended outside destination tolerance" end
-			return true, "Cluster reached"
-		end, debug.traceback)
-		if blockedConnection then blockedConnection:Disconnect() end
-		if moveConnection then moveConnection:Disconnect() end
-		self:StopMovement() path:Destroy()
-		return ok and success or false, ok and message or "Path error: " .. tostring(success)
-	end
-	local success, message
-	for number = 0, settings.MAXIMUM_PATH_RECOMPUTES do
-		if token:CheckCancelled() then return false, "Cancelled" end
-		if os.clock() >= deadline then return false, "Slice ended" end
-		diagnostics.Attempts += 1
-		success, message = attempt()
-		local recoverable = message == "Path was blocked" or message == "MoveTo failed before arrival"
-			or message == "Waypoint stalled without forward progress" or message:sub(1, 17) == "No supported path"
-		if success or not recoverable or number == settings.MAXIMUM_PATH_RECOMPUTES or token:CheckCancelled() or os.clock() >= deadline then break end
-		diagnostics.Replans += 1
-		if self.Log and self.Config.DIAGNOSTIC_SETTINGS.LOG_MOVEMENT_DIAGNOSTICS then self.Log("MOVE][RECOVERY", message .. " | recompute=" .. diagnostics.Replans .. " | remaining=" .. string.format("%.1fs", deadline - os.clock())) end
-	end
-	diagnostics.Reason = message
-	return success, message
+function GameMechanics:Walk()
+	return false, "OC automatic walking has been removed; no pickup movement fallback"
 end
 
 function GameMechanics:Upgrade(upgrade, token)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks upgrades" end
 	if token:CheckCancelled() then return false, "Cancelled" end
 	local permitted, reason = self:Guard()
 	if not permitted then return false, reason end
