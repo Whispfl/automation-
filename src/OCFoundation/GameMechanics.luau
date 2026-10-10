@@ -110,7 +110,7 @@ function GameMechanics:CollectStationary(record, token)
 	local distance = (model:GetPivot().Position - root.Position).Magnitude
 	local outsideNative = nil
 	if range then outsideNative = distance > range end
-	if not settings.STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE and (not range or distance > range) then return false, "Native radius unavailable or target outside configured native-only range" end
+	-- Distance/radius are observations only. Genuine loaded IDs are subject to the server's validation.
 	local remotes = ReplicatedStorage:FindFirstChild("Remotes")
 	local pickups = remotes and remotes:FindFirstChild("Pickups")
 	local remote = pickups and pickups:FindFirstChild("CollectPickup")

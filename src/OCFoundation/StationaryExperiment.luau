@@ -15,6 +15,7 @@ end
 
 function StationaryExperiment:_eligible(record)
 	local state = self.PerId[record.Id]
+	if state and state.Model ~= record.Model then state = nil end -- A genuine replacement Model starts a new lifecycle.
 	return record.Id ~= nil and (record.Currency == "Coins" or record.Currency == "Gems")
 		and (not state or (not state.Dispatched and state.Attempts < self.Owner.Config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_ATTEMPTS_PER_ID and os.clock() >= state.Until))
 end
@@ -23,7 +24,8 @@ function StationaryExperiment:Candidate(cluster)
 	local registry, now = self.Owner.Knowledge:ActivePickups(), os.clock()
 	-- Preserve deduplication through short Chunker unloads, reclaim retired IDs.
 	for id, state in pairs(self.PerId) do
-		if registry and registry[state.Key] then state.LastSeen = now
+		if registry and registry[state.Key] and registry[state.Key] ~= state.Model then self.PerId[id] = nil
+		elseif registry and registry[state.Key] then state.LastSeen = now
 		elseif registry and now - state.LastSeen > 60 then self.PerId[id] = nil end
 	end
 	local reason = self:LimitReason()
@@ -77,7 +79,8 @@ function StationaryExperiment:Collect(decision, token)
 		if not requested then reason = invocation continue end
 		self.StartedAt = self.StartedAt or started
 		self.Requests += 1
-		local state = self.PerId[record.Id] or { Attempts = 0, Key = record.RegistryKey or record.Id }
+		local state = self.PerId[record.Id]
+		if not state or state.Model ~= record.Model then state = { Attempts = 0, Key = record.RegistryKey or record.Id, Model = record.Model } end
 		self.PerId[record.Id] = state
 		state.Attempts += 1 state.Until = os.clock() + settings.STATIONARY_ID_RETRY_SECONDS state.LastSeen = os.clock()
 		state.Dispatched = evidence.InvocationSucceeded -- Invocation deduplication, never credit evidence.
@@ -90,6 +93,7 @@ function StationaryExperiment:Collect(decision, token)
 		if decision.Mode == "COMBINED" and not settings.STATIONARY_ISOLATED_TEST then owner:_background(token) end
 	end
 	if #ids == 0 then return { Verified = false, Reason = reason or "No eligible live registry IDs dispatched" } end
+	local processingSeconds = os.clock() - started
 	self.NextBatchAt = os.clock() + settings.STATIONARY_BATCH_COOLDOWN_SECONDS
 	owner.CollectionVisits += 1
 	deadline = math.min(deadline, os.clock() + owner.Config.FARMING_SETTINGS.EARNINGS_CONFIRMATION_TIMEOUT_SECONDS)
@@ -99,20 +103,23 @@ function StationaryExperiment:Collect(decision, token)
 		if decision.Mode == "COMBINED" and not settings.STATIONARY_ISOLATED_TEST then owner:_background(token) end
 		task.wait(math.min(0.1, deadline - os.clock()))
 	end
-	if token:CheckCancelled() then
-		self.NextBatchAt = os.clock() + settings.STATIONARY_BATCH_COOLDOWN_SECONDS
-		self.LastResult = { Cancelled = true, Ids = ids, Reason = "Cancelled; dispatched IDs retained and credit window discarded" }
-		return nil
+	local cancelled = token:CheckCancelled()
+	observe() -- Include the final available LocalData values even for a cancelled/inconclusive batch.
+	local deltas = {}
+	for _, currency in ipairs({ "Coins", "Gems" }) do
+		if type(after[currency]) == "number" then deltas[currency] = after[currency] - before[currency] end
 	end
 	local gains, creditedAfter = {}, {}
-	if not contaminated and not missing and not areaChanged then
+	if not cancelled and not contaminated and not missing and not areaChanged then
 		for currency in pairs(currencies) do
 			local gain = after[currency] - before[currency]
 			if gain > 0 then gains[currency] = gain creditedAfter[currency] = after[currency] end
 		end
 	end
 	local credit = next(gains) ~= nil
-	if credit then
+	if cancelled then
+		reason = "Cancelled; dispatched IDs retained and credit window discarded"
+	elseif credit then
 		self.CreditWindows += 1
 		owner.Metrics:ConfirmCycle(before, creditedAfter, "Stationary batch LocalData credit observed; request/native/external attribution unproven")
 		for currency, gain in pairs(gains) do
@@ -126,14 +133,22 @@ function StationaryExperiment:Collect(decision, token)
 			or contaminated and "Stationary window contaminated by sale/spending; credit unconfirmed"
 			or missing and "LocalData unavailable; stationary credit unconfirmed" or "No matching LocalData credit; server acceptance unknown; no movement fallback"
 	end
-	owner.Metrics:AddSample("STATIONARY", areaKey, gains, os.clock() - (self.LastSampleAt or started), os.clock())
-	self.LastSampleAt = os.clock()
+	if not cancelled then
+		local sampleStart = self.LastSampleArea == areaKey and self.LastSampleAt or started
+		owner.Metrics:AddSample("STATIONARY", areaKey, gains, os.clock() - sampleStart, os.clock())
+		self.LastSampleAt, self.LastSampleArea = os.clock(), areaKey
+	end
 	self.NextBatchAt = os.clock() + settings.STATIONARY_BATCH_COOLDOWN_SECONDS
+	local outcome = cancelled and "CANCELLED_INCONCLUSIVE" or credit and "MATCHING_BALANCE_INCREASE"
+		or (contaminated or missing or areaChanged) and "INCONCLUSIVE_WINDOW" or "INCONCLUSIVE_NO_MATCHING_CREDIT"
 	self.LastResult = { Ids = ids, BatchSize = #ids, CreditObserved = credit, Gains = gains, Before = before, After = after,
+		ObservedDeltas = deltas, ProcessingSeconds = processingSeconds, WindowSeconds = os.clock() - started, Outcome = outcome, Cancelled = cancelled,
 		OutsideNativeRange = outside > 0, OutsideNativeCount = outside, Contaminated = contaminated or missing or areaChanged,
-		InvocationSucceeded = invocationSucceeded, Attribution = "UNPROVEN: native collection/external rewards can contribute" }
-	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("batch=%d creditObserved=%s outsideNative=%d | Coins %s -> %s | Gems %s -> %s | %s",
-		#ids, tostring(credit), outside, tostring(before.Coins), tostring(after.Coins), tostring(before.Gems), tostring(after.Gems), owner.Metrics.LastConfirmation))
+		InvocationSucceeded = invocationSucceeded, Reason = cancelled and reason or owner.Metrics.LastConfirmation, Attribution = "UNPROVEN: native collection/external rewards can contribute" }
+	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("batch=%d processing=%.3fs window=%.3fs outcome=%s creditObserved=%s outsideNative=%d | Coins gained=%s (%s -> %s) | Gems gained=%s (%s -> %s) | %s",
+		#ids, processingSeconds, os.clock() - started, outcome, tostring(credit), outside, tostring(deltas.Coins or "UNKNOWN"), tostring(before.Coins), tostring(after.Coins),
+		tostring(deltas.Gems or "UNKNOWN"), tostring(before.Gems), tostring(after.Gems), self.LastResult.Reason))
+	if cancelled then return nil end
 	return { Verified = credit, CreditObserved = credit, CombinedCreditObserved = credit and decision.Mode == "COMBINED", Gains = gains, Reason = owner.Metrics.LastConfirmation }
 end
 

@@ -632,6 +632,7 @@ function FarmingCoordinator:Halt(preserveReturn)
 	self.Metrics:SetMode(nil, nil, self.Reader:ReadBalances(), os.clock())
 	self.Activity = nil self.ProbeStart = nil self.PendingSale = nil self.EmptySince = {} self.PickupProbe = nil self.FullSince = nil self.CombinedProbeStart = nil
 	self.RouteContinuation = nil self.Cycle = nil
+	self.Stationary.LastSampleAt, self.Stationary.LastSampleArea = nil, nil -- Resumed sessions exclude paused time without resetting ID deduplication.
 	if not preserveReturn then self.ReturnKey = nil end
 end
 
@@ -647,7 +648,7 @@ function FarmingCoordinator:GetStatus()
 		Rates = self:_pickupRates(current and current.Key or "UNKNOWN", os.clock()), Scan = self.Tracker.ScanReport, CollectionBlocker = self.Tracker.ClusterReason,
 		ConfirmedCycles = self.Metrics.ConfirmedCycles, LastConfirmation = self.Metrics.LastConfirmation,
 		Error = self.Tracker.Error, GameKnowledge = self.Knowledge:GetStatus(), Stationary = self.Stationary:GetStatus(),
-		CollectionMethod = "Continuous stationary ID batches; actual credit unverified until owner testing; no movement fallback" }
+		CollectionMethod = "Continuous stationary ID batches; batch credit checked against LocalData; no movement fallback" }
 end
 
 function FarmingCoordinator:Destroy()

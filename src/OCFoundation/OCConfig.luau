@@ -100,7 +100,7 @@ return {
 	PICKUP_SETTINGS = {
 		COLLECTION_METHOD = "STATIONARY", --// Only approved pickup action; movement collection cannot be enabled.
 		STATIONARY_ISOLATED_TEST = false, --// Optional pickup-only balance test; blocks OC blowing, selling, travel and upgrades when true.
-		STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = true, --// Probe genuine loaded IDs without moving; server acceptance outside native radius is unverified.
+		STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = true, --// Deprecated compatibility key; loaded eligible registry IDs are processed regardless of distance.
 		STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, --// Pace individual real-ID requests inside each scheduled batch.
 		STATIONARY_MAXIMUM_BATCH_SIZE = 32, --// Process at most this many IDs per task; remaining and newly spawned IDs follow in later batches.
 		STATIONARY_BATCH_COOLDOWN_SECONDS = 1, --// Minimum idle time between completed batches; no session expiry or quota.

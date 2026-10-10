@@ -181,13 +181,13 @@ test("Zen is an eligible stationary island only after real unlock confirmation",
 	end)
 end)
 
-test("Outside-range probing is separately disabled without repositioning", function()
+test("Distance is diagnostic only even with legacy native-only overrides", function()
 	simulated(function()
-		local scene = stationaryFixture({ PICKUP_SETTINGS = { STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = false } }) scene:Add("far", "Coins", 50)
-		assert(not scene:Collect().Verified and #scene.Calls == 0)
+		local scene = stationaryFixture({ PICKUP_SETTINGS = { STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = false, MAXIMUM_ROUTE_DISTANCE_STUDS = 1 } }) scene:Add("far", "Coins", 10000)
 		scene:Add("near", "Gems", 5) -- Move neither the player nor any existing Model.
-		scene.Coordinator.Tracker.Models[scene.Registry.far] = nil
-		scene:Collect() assert(#scene.Calls == 1 and scene.Calls[1].Id == "near") scene:Close()
+		local initial = scene.Root.Position scene:Collect()
+		assert(#scene.Calls == 2 and scene.Calls[1].Id == "far" and scene.Calls[2].Id == "near" and scene.Root.Position == initial)
+		assert(scene.Coordinator.Stationary.LastResult.OutsideNativeCount == 1) scene:Close()
 	end)
 end)
 
@@ -237,7 +237,10 @@ test("Pause and Stop cancel scheduled stationary windows and retain deduplicatio
 			clock.Tick = function() scheduler[control](scheduler) scene.Controller.State = "PAUSED" scene.Coordinator:Halt(true) end
 			scheduler:Submit(scene.Coordinator:Definition(scene:Decision(), 1)) flush()
 			assert(#scene.Calls == 1 and scheduler.Active == nil and scene.Coordinator.Stationary.Requests == 1)
-			assert(scene.Coordinator.Stationary.LastResult.Cancelled and scene.Coordinator.Metrics.ConfirmedCycles == 0)
+			local result = scene.Coordinator.Stationary.LastResult
+			assert(result.Cancelled and scene.Coordinator.Metrics.ConfirmedCycles == 0)
+			assert(result.BatchSize == 1 and result.Before.Coins == 100 and result.After.Gems == 50 and result.Outcome == "CANCELLED_INCONCLUSIVE")
+			assert(result.ProcessingSeconds >= 0 and result.WindowSeconds >= result.ProcessingSeconds)
 			clock.Tick = nil clock.Time = 5 scene.Controller.State = "RUNNING" scene:Add("new")
 			scheduler:Submit(scene.Coordinator:Definition(scene:Decision(), 1)) flush() assert(#scene.Calls == 1)
 			scheduler:Resume() scheduler:Submit(scene.Coordinator:Definition(scene:Decision(), 1)) flush()
@@ -321,6 +324,9 @@ test("Rapid bounded batches process all real Coins and Gems IDs across successiv
 		end
 		local first = scene:Collect()
 		assert(#scene.Calls == 32 and first.Gains.Coins == 160 and first.Gains.Gems == 160)
+		local stats = scene.Coordinator.Stationary.LastResult
+		assert(stats.ObservedDeltas.Coins == 160 and stats.ObservedDeltas.Gems == 160)
+		assert(stats.ProcessingSeconds < 2 and stats.WindowSeconds >= stats.ProcessingSeconds and stats.Outcome == "MATCHING_BALANCE_INCREASE")
 		assert(scene.Calls[32].At - scene.Calls[1].At < 2, "Batch must not settle after each ID")
 		assert(not scene:Collect().Verified and #scene.Calls == 32, "Completed batches observe their cooldown")
 		clock.Time += 1 scene:Collect() assert(#scene.Calls == 64)
@@ -378,4 +384,69 @@ test("Deduplication survives Chunker unload reload and prunes only retired OC st
 	end)
 end)
 
-print(string.format("[OC TEST] %d stationary-only regressions passed; %d total. Actual server credit awaits owner testing.", tests - stationaryBefore, tests))
+test("Replacement Models with the same genuine ID start a fresh lifecycle without duplicate old requests", function()
+	simulated(function(clock)
+		local scene = stationaryFixture() local old = scene:Add("replaced-id") scene:Collect()
+		clock.Time += 1 local stale = scene:Decision() local replacement = scene:Add("replaced-id", "Gems")
+		assert(not scene.Coordinator:_collection(stale, { CheckCancelled = function() return false end }).Verified and #scene.Calls == 1)
+		scene:Collect() assert(#scene.Calls == 2 and scene.Calls[2].Id == "replaced-id")
+		clock.Time += 1 scene:Collect() assert(#scene.Calls == 2)
+		local state = scene.Coordinator.Stationary.PerId["replaced-id"]
+		assert(state.Model == replacement.Model and state.Attempts == 1 and old.Model.Parent and scene.Registry["replaced-id"] == replacement.Model)
+		scene:Close()
+	end)
+end)
+
+test("A respawn with a new genuine ID on an existing Model is collected without editing the registry", function()
+	simulated(function(clock)
+		local scene = stationaryFixture() local record = scene:Add("original-id") scene:Collect()
+		clock.Time += 1 scene.Registry[record.Id] = nil -- Simulated native lifecycle change.
+		record.Id, record.RegistryKey, record.Model.Name = "respawn-id", "respawn-id", "respawn-id"
+		scene.Registry[record.Id] = record.Model scene:Collect()
+		assert(#scene.Calls == 2 and scene.Calls[2].Id == "respawn-id" and scene.Registry[record.Id] == record.Model)
+		scene:Close()
+	end)
+end)
+
+test("Actual numeric native registry keys are preserved in collection requests", function()
+	simulated(function()
+		local scene = stationaryFixture() local record = scene:Add("123")
+		scene.Registry["123"] = nil scene.Registry[123] = record.Model record.RegistryKey = 123
+		scene:Collect() assert(#scene.Calls == 1 and scene.Calls[1].Id == 123 and scene.Registry[123] == record.Model)
+		scene:Close()
+	end)
+end)
+
+test("Inconclusive no-credit batches log actual zero gains and timing without inventing success", function()
+	simulated(function()
+		local scene = stationaryFixture() scene:Add("inconclusive") scene:Collect()
+		local result = scene.Coordinator.Stationary.LastResult
+		assert(result.Outcome == "INCONCLUSIVE_NO_MATCHING_CREDIT" and not result.CreditObserved)
+		assert(result.ObservedDeltas.Coins == 0 and result.ObservedDeltas.Gems == 0 and result.BatchSize == 1)
+		local found = false
+		for _, log in ipairs(scene.Logs) do
+			if log:find("STATIONARY_RESULT", 1, true) then
+				assert(log:find("Coins gained=0", 1, true) and log:find("Gems gained=0", 1, true) and log:find("processing=", 1, true) and log:find(result.Outcome, 1, true)) found = true
+			end
+		end
+		assert(found) scene:Close()
+	end)
+end)
+
+test("Manual island changes and Pause start fresh rate windows while preserving ID lifecycle state", function()
+	simulated(function(clock)
+		local scene = stationaryFixture() scene:Add("void-sample") scene:Collect()
+		clock.Time = 600 scene.Area.Name, scene.Area.Key = "Zen", "The Overworld/Zen" scene:Add("zen-sample", "Gems")
+		scene.OnDispatch = function() scene.Profile.Gems += 10 end scene:Collect()
+		local sample = scene.Coordinator.Metrics.Samples[#scene.Coordinator.Metrics.Samples]
+		assert(sample.Seconds <= scene.Controller.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS and sample.Gains.Gems == 10)
+		scene.Coordinator:Halt(true)
+		assert(not scene.Coordinator.Stationary.LastSampleAt and scene.Coordinator.Stationary.PerId["zen-sample"].Dispatched)
+		clock.Time = 1200 scene:Add("resumed-sample", "Gems") scene:Collect()
+		sample = scene.Coordinator.Metrics.Samples[#scene.Coordinator.Metrics.Samples]
+		assert(sample.Seconds <= scene.Controller.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS and #scene.Calls == 3)
+		scene:Close()
+	end)
+end)
+
+print(string.format("[OC TEST] %d stationary-only regressions passed; %d total. Offline fixtures are not live server verification.", tests - stationaryBefore, tests))

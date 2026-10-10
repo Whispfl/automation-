@@ -23,7 +23,10 @@ invented: a batch consists of individual native CollectPickup requests.
 Normally invoked IDs are deduplicated even if their Models persist and no currency
 arrives. Invocation success is not collection success. Only transport errors may
 retry, after 15 seconds and at most two attempts per ID; delivery is uncertain.
-Deduplication survives Pause/Stop and short Chunker unload/reload cycles. OC prunes
+Deduplication follows ID and Model identity: a genuine replacement Model starts a
+fresh lifecycle, while the same Model unloading/reloading stays deduplicated. New
+native IDs are eligible after normal pacing. Deduplication survives Pause/Stop and
+short Chunker unload/reload cycles. OC prunes
 its own retired-ID history after 60 seconds absent from the native registry. It
 never changes the game's registry, Models, character position or native range.
 
@@ -43,16 +46,22 @@ recalled, and the game's own native collector runs independently.
 ## Balance evidence
 
 STATIONARY_REQUEST logs genuine IDs, currency, distance and native radius when
-available. Radius is diagnostic when outside-range requests are enabled; it does
-not prevent real-ID requests. STATIONARY_RESULT logs batch size, actual LocalData
-Coins/Gems before and after, and whether matching balances increased.
+available. Distance/radius are always diagnostic and never prevent real-ID requests.
+The old STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE setting is a deprecated no-op; even
+false does not add an OC distance limit. Server validation remains in force.
+STATIONARY_RESULT logs batch size, dispatch processing seconds, full balance window
+seconds, actual Coins/Gems before/after and signed gains, plus an explicit matching-
+credit or inconclusive outcome. Cancelled batches also log final available balances
+and timing, but do not establish credit or add an earnings sample.
 
 Invocation success, Model disappearance and registry removal never establish
 credit. Missing balances, observed spending, bubble sale evidence, island/root
 change or cancellation discard the window's attribution. Actual positive matching
 balances are recorded without attributing credit to individual batch IDs. Native
-collection, manual movement and external rewards can contribute. Server acceptance
-and distant collection remain unverified until owner results establish them.
+collection, manual movement and external rewards can contribute. The owner reports
+actual Zen currency increases during some outside-native-radius requests. This is
+live balance evidence, not proof that every distant request succeeds or that all
+server distance rules are known. Each batch still checks actual LocalData changes.
 Repeated no-credit windows are reported honestly; no movement fallback or server
 validation bypass exists.
 

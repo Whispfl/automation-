@@ -1,6 +1,6 @@
 -- Continuous stationary farming with isolated balance logging. Manually stand on unlocked The Void or Zen first.
 -- No OC walking, repositioning, teleportation, blowing, selling, or purchases.
--- Omitted values inherit central OCConfig; live distant credit remains unverified.
+-- Omitted values inherit central OCConfig; each batch checks real balances without assuming every ID succeeded.
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true }, --// Start the central Brain and scheduler.
 	ACCOUNT_SETTINGS = { ENABLE_ACCOUNT_READER = true, READ_UNLOCKS = true }, --// Require real LocalData balances/access.
@@ -22,7 +22,6 @@ local Config = {
 	PICKUP_SETTINGS = {
 		COLLECTION_METHOD = "STATIONARY", --// Only supported OC pickup strategy.
 		STATIONARY_ISOLATED_TEST = true, --// Executor also blocks stale non-pickup action tasks.
-		STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = true, --// Probe genuine loaded IDs; server acceptance remains unknown.
 		STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, --// Pace requests at least 50 ms apart.
 		STATIONARY_MAXIMUM_BATCH_SIZE = 32, --// Process remaining IDs in subsequent scheduler batches.
 		STATIONARY_BATCH_COOLDOWN_SECONDS = 1, --// Idle at least one second between completed batches.
@@ -49,7 +48,7 @@ local Config = {
 		AUTO_EQUIP_OWNED_UPGRADES = false, --// Preserve the current equipment.
 	},
 	DIAGNOSTIC_SETTINGS = {
-		ENABLE_CONSOLE_LOGGING = true, --// Print genuine IDs, request distances and actual before/after Coins/Gems.
+		ENABLE_CONSOLE_LOGGING = true, --// Print distances, actual Coins/Gems gains, batch size, processing time and inconclusive outcomes.
 		LOG_PICKUP_DIAGNOSTICS = true, --// Explain registry discovery, credit and blockers.
 		LOG_PICKUP_DETAIL_PATHS = false, --// Keep routine output compact.
 		LOG_ACCOUNT_DETAILS = false, --// Keep full account facts in the status panel.

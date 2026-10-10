@@ -34,16 +34,22 @@ retains the Phase 1 account report.
   are checked before each request. Chunker-only objects cannot fabricate IDs.
 - Normally invoked IDs remain deduplicated while active. Only transport errors
   retry after backoff, at most twice per ID. Pause/Stop cancel the remaining batch.
+  A genuine replacement Model or new native ID starts a fresh lifecycle.
+- Distance and radius are logged, with no OC pickup distance limit. The native
+  registry covers loaded pickups; OC does not force unloaded IDs into existence.
 - No lifetime quota, expiry or permanent position invalidation. Old quota/time/
   drift settings are deprecated no-ops. Manual position changes permit continued
   farming once new eligible IDs are available.
 - OC never destroys pickup Models, edits the game registry, walks, pathfinds,
   repositions the character or enables a movement fallback.
 
-STATIONARY_RESULT prints actual LocalData Coins/Gems before/after. Matching balance
+STATIONARY_RESULT prints actual Coins/Gems gains, before/after balances, batch size,
+processing/window times and matching-credit or inconclusive outcomes. Matching balance
 increases are required for observed credit; invocation and disappearance never
 establish collection success. Native collection and other rewards can contribute.
-**Distant collection remains unverified pending owner gameplay results.**
+The owner reports actual Zen currency increases during some outside-native-radius
+requests. Each batch still verifies balances; individual server acceptance remains
+unknown and the implementation does not assume all requests succeed.
 
 See [test instructions and evidence limits](docs/STATIONARY_TEST.md).
 [CombinedFarming.luau](examples/CombinedFarming.luau) preserves cooperative background

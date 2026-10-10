@@ -12,7 +12,11 @@ earning/travel actions disabled for balance isolation. Flame's genuine-ID reques
 approach is used without Model/registry mutation or unrelated automation. Paced
 batches continuously process existing and new IDs, with deduplication and controls.
 Session quotas, expiry and permanent position invalidation have been removed.
-Distant credit remains unverified.
+The owner reports actual Zen currency increases during some outside-native-radius
+requests. Requests have no OC distance filter; server validation remains in force.
+Replacement Models/new native IDs start fresh lifecycles. Batch logs include actual
+Coins/Gems gains, size, dispatch time, balance-window time and inconclusive outcomes.
+Individual request acceptance remains unknown; Phase 2 approval remains pending.
 
 ## Earlier follow-up: pickup-first farming
 
