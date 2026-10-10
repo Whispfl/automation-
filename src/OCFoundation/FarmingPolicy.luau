@@ -14,6 +14,12 @@ local function rate(context, mode, currency)
 	return entry and entry.Ready and entry.PerMinute[currency] or nil
 end
 
+function FarmingPolicy.IsFarmingArea(config, area)
+	return area ~= nil and area.Unlocked == true
+		and (allowed(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Name) or table.find(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Key) ~= nil)
+		and allowed(config.BRAIN_SETTINGS.SELECTED_WORLDS, area.World)
+end
+
 function FarmingPolicy.Target(config, snapshot, plan, context)
 	local candidates = {}
 	if plan.Objective then table.insert(candidates, plan.Objective) end
@@ -47,6 +53,8 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	decision.Currency, decision.Goal, decision.Deficit = currency, goal and goal.Title, deficit
 	if not currency then decision.Reason = "No allowed goal currency with an accessible earning source" return decision end
 	local current = context.Current
+	local currentAllowed = FarmingPolicy.IsFarmingArea(config, current)
+	local pickupFirst = config.FARMING_SETTINGS.FARMING_STRATEGY == "PICKUP_FIRST"
 	local activeProbe = context.PickupProbe
 	local isolated = activeProbe and current and activeProbe.Key == current.Key and activeProbe.Currency == currency
 	local bestSell, bestSellScore
@@ -66,7 +74,8 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	local bubble = snapshot.Bubble or {}
 	local full = bubble.Amount and bubble.Capacity and bubble.Capacity > 0 and bubble.Amount / bubble.Capacity >= config.BUBBLE_SETTINGS.SELL_AT_CAPACITY_RATIO
 	-- Sell an existing full bubble even when its station pays a different resource; do not value that payout as target currency.
-	if full and not isolated and config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and context.CanInteract then
+	if full and config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES then
+		if not context.CanInteract then decision.Reason = "Sale pending: " .. tostring(context.Blocker or "native interaction guard") return decision end
 		local sell = bestSell
 		if not sell then
 			for _, candidate in ipairs(context.Sells or {}) do
@@ -82,7 +91,7 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 			local fillSeconds = bubble.Capacity and bubble.PowerPerBlow and bubble.PowerPerBlow > 0 and bubble.Capacity / bubble.PowerPerBlow * config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS
 			local lostPickups = pickupRate and pickupRate * sellSeconds / 60
 			local saleEstimate = bubbleRate and fillSeconds and bubbleRate * (fillSeconds + sellSeconds) / 60
-			local delay = memory.Mode == "COMBINED" and config.BUBBLE_SETTINGS.ENABLE_SIMULTANEOUS_BLOWING and context.Cluster
+			local delay = not isolated and currentAllowed and (pickupFirst or memory.Mode == "COMBINED") and config.BUBBLE_SETTINGS.ENABLE_SIMULTANEOUS_BLOWING and context.Cluster
 				and config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES and config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
 				and context.CanInteract and context.FullSince and context.Now - context.FullSince < config.FARMING_SETTINGS.MAXIMUM_COMBINED_SELL_DELAY_SECONDS
 				and lostPickups and saleEstimate and lostPickups > saleEstimate
@@ -93,13 +102,15 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 			else decision.Kind, decision.Sell, decision.Reason = "SELL", sell, "Bubble reached sell threshold; verify native sale before producing more" end
 			return decision
 		end
+		decision.Reason = "Sale pending: no accessible station or native travel cooldown/backoff"
+		return decision
 	end
 	local bestIsland, currentScore = nil, nil
 	if config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then
 		for _, area in ipairs(context.Islands or {}) do
 			local exclusion
 			if not area.Unlocked then exclusion = "World locked/unknown or island not discovered"
-			elseif not allowed(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Name) then exclusion = "Excluded by SELECTED_ISLANDS"
+			elseif not (allowed(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Name) or table.find(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Key) ~= nil) then exclusion = "Excluded by SELECTED_ISLANDS"
 			elseif not allowed(config.BRAIN_SETTINGS.SELECTED_WORLDS, area.World) then exclusion = "Excluded by SELECTED_WORLDS"
 			elseif area.ZoneCount == 0 then exclusion = "No live tagged PickupZone; availability unknown"
 			elseif area.MappingWarning then exclusion = area.MappingWarning
@@ -110,9 +121,9 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 			table.insert(decision.IslandDiagnostics, { Area = area, Reason = exclusion or "Eligible; off-island pickup availability remains unknown" })
 			if exclusion then continue end
 			local rates = context.AreaRates[area.Key] or {}
-			local observed = rates.PICKUPS
+			local observed = rates.PICKUPS and rates.PICKUPS.Ready and rates.PICKUPS or rates.PICKUP_ACTIVITY
 			local measured = observed and observed.Ready and observed.PerMinute[currency] or nil
-			local cycle = area.RespawnSeconds or config.ISLAND_SETTINGS.UNMEASURED_COLLECTION_CYCLE_SECONDS
+			local cycle = config.ISLAND_SETTINGS.UNMEASURED_COLLECTION_CYCLE_SECONDS
 			local overhead = area == current and 0 or area.TravelSeconds or config.ISLAND_SETTINGS.UNMEASURED_TRAVEL_OVERHEAD_SECONDS
 			local estimate = area.Expected[currency] and area.Expected[currency] * 60 / math.max(1, cycle) or nil
 			local value = measured ~= nil and measured or estimate
@@ -120,8 +131,8 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 			local emptyCurrent = area == current and (area.Available[currency] or 0) == 0
 			if measured == nil and emptyCurrent then net = nil end
 			local entry = { Key = area.Key, Name = area.Name, Currency = currency, PerMinute = net,
-				Evidence = measured ~= nil and "OBSERVED" or (net and "ESTIMATE: definitions, actual stat multiplier, unknown availability/respawn" or (emptyCurrent and "UNKNOWN: no eligible current-island models; requires bounded scan/collection trial" or "UNKNOWN: zone count/stat multiplier unavailable; requires actual trial")), Area = area,
-				TravelSeconds = overhead, RespawnSeconds = area.RespawnSeconds }
+				Evidence = measured ~= nil and (observed == rates.PICKUPS and "OBSERVED" or "OBSERVED_PICKUP_ACTIVITY: excludes sale/return; external rewards may contribute") or (net and "ESTIMATE: definitions, actual stat multiplier, unknown availability/respawn" or (emptyCurrent and "UNKNOWN: no eligible current-island models; requires bounded scan/collection trial" or "UNKNOWN: zone count/stat multiplier unavailable; requires actual trial")), Area = area,
+				TravelSeconds = overhead, RespawnSeconds = area.RespawnSeconds, RespawnEvidence = "depletion-to-next-observed-model latency; streaming may contribute" }
 			table.insert(decision.IslandCandidates, entry)
 			if area == current then currentScore = net end
 			if net and (not bestIsland or net > bestIsland.PerMinute or (net == bestIsland.PerMinute and area.Key < bestIsland.Key)) then bestIsland = entry end
@@ -131,15 +142,32 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		if a.PerMinute == b.PerMinute then return a.Key < b.Key end
 		return (a.PerMinute or -1) > (b.PerMinute or -1)
 	end)
-	if bestIsland and current and bestIsland.Area ~= current and current.Currencies[currency] and not current.InBackoff then
+	-- Mandatory return/enforcement precedes dwell, active sweeps and income comparisons.
+	local destination
+	if context.ReturnKey then
+		for _, entry in ipairs(decision.IslandCandidates) do if entry.Key == context.ReturnKey then destination = entry.Area break end end
+	end
+	if not currentAllowed or (context.ReturnKey and context.ReturnKey ~= (current and current.Key)) then
+		destination = destination or (bestIsland and bestIsland.Area) or (decision.IslandCandidates[1] and decision.IslandCandidates[1].Area)
+		if destination and destination ~= current and context.CanTravel and context.CanInteract then
+			decision.Kind, decision.Island, decision.Returning = "TRAVEL", destination, context.ReturnKey ~= nil
+			decision.Reason = context.ReturnKey and "Return after selling to an eligible farming island" or "Current island excluded; travel to an eligible farming island"
+		else
+			decision.Kind, decision.Background = "INSPECT", pickupFirst
+			decision.Reason = "Farming island return/enforcement pending: " .. tostring(context.Blocker or "travel cooldown, destination backoff or no eligible island")
+		end
+		return decision
+	end
+	if bestIsland and currentAllowed and bestIsland.Area ~= current and current.Currencies[currency] and not current.InBackoff then
 		if context.Now - (context.ArrivedAt or 0) < config.ISLAND_SETTINGS.MIN_ISLAND_DWELL_SECONDS
 			or ((currentScore or 0) > 0 and bestIsland.PerMinute <= currentScore * (1 + config.ISLAND_SETTINGS.MIN_ISLAND_GAIN_ADVANTAGE_PERCENT / 100)) then
 			for _, entry in ipairs(decision.IslandCandidates) do if entry.Area == current then bestIsland = entry break end end
 		end
 	end
 	local cluster = context.Cluster
-	local pickupReady = config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING and cluster ~= nil and context.CanInteract
+	local pickupReady = currentAllowed and not current.InBackoff and config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING and cluster ~= nil and context.CanInteract
 	local bubbleReady = config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES and config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES and bestSell ~= nil and context.CanBlow and not full
+	local backgroundReady = config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES and config.BUBBLE_SETTINGS.ENABLE_SIMULTANEOUS_BLOWING and context.CanBlow and not full
 	-- Execute exploration through the same foreground task. Never manufacture income for an untested island.
 	local explore = config.ISLAND_SETTINGS.AUTO_EXPLORE_UNLOCKED_ISLANDS and config.FARMING_SETTINGS.ENABLE_EFFICIENCY_COMPARISON
 		and config.FARMING_SETTINGS.ENABLE_ACTIVITY_SWITCHING and config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
@@ -158,19 +186,21 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		local trial, oldest = nil, math.huge
 		for _, entry in ipairs(decision.IslandCandidates) do
 			local area = entry.Area
+			if pickupFirst and not config.FARMING_SETTINGS.ISOLATED_PICKUP_PROBES and area == current then continue end
 			local stamp = (context.IslandProbeHistory or {})[area.Key .. ":" .. currency]
 			-- A measured trial need not be repeated while its observed sample is still current.
-			if entry.Evidence == "OBSERVED" then continue end
+			if entry.Evidence:sub(1, 8) == "OBSERVED" then continue end
 			local last = stamp or -math.huge
 			if context.Now - last < config.ISLAND_SETTINGS.ISLAND_EXPLORATION_RETRY_SECONDS then continue end
 			if area ~= current and not context.CanTravel then continue end
 			if not trial or last < oldest or (last == oldest and (area == current or (trial.Area ~= current and area.Key < trial.Key))) then trial, oldest = entry, last end
 		end
 		if trial then
-			decision.Probe = true
+			decision.Probe = not pickupFirst or config.FARMING_SETTINGS.ISOLATED_PICKUP_PROBES
+			decision.Exploration = true
 			if trial.Area ~= current then
 				decision.Kind, decision.Island = "TRAVEL", trial.Area
-				decision.Reason = "Bounded exploration of " .. trial.Key .. "; pickup earnings unverified, measured bubbles do not exclude this trial"
+				decision.Reason = "Bounded exploration of " .. trial.Key .. "; pickup earnings unverified; background blowing follows configured strategy"
 				return decision
 			else
 				decision.Kind = "INSPECT"
@@ -214,19 +244,28 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		if (memory.Mode == "BUBBLES" and context.BubbleProbePending or memory.Mode == "COMBINED" and context.CombinedProbePending)
 			and age < config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS then mode = memory.Mode end
 	end
+	if pickupFirst then
+		mode = pickupReady and (backgroundReady and "COMBINED" or "PICKUPS") or (config.FARMING_SETTINGS.AUTO_FARM_FALLBACK and bubbleReady and "BUBBLES" or nil)
+	end
+	modeScore = mode and rate(context, mode, currency) or nil
 	if bestIsland and bestIsland.Area ~= current and bestIsland.PerMinute > 0 and context.CanTravel and context.CanInteract
 		and not (context.ActiveSweepPending and pickupReady) then
 		local currentIncome = 0
-		for _, viable in ipairs(choices) do currentIncome = math.max(currentIncome, rate(context, viable, currency) or 0) end
+		if pickupFirst then currentIncome = pickupReady and (rate(context, "PICKUPS", currency) or currentScore or 0) or 0
+		else for _, viable in ipairs(choices) do currentIncome = math.max(currentIncome, rate(context, viable, currency) or 0) end end
 		if currentIncome == 0 or bestIsland.PerMinute > currentIncome * (1 + config.FARMING_SETTINGS.ACTIVITY_SWITCH_GAIN_RATIO) then
 			decision.Kind = "TRAVEL" decision.Island = bestIsland.Area
 			decision.Reason = string.format("Best eligible %s island: %s; %.2f/min %s after %.1fs travel overhead", currency, bestIsland.Name, bestIsland.PerMinute, bestIsland.Evidence, bestIsland.TravelSeconds)
 			return decision
 		end
 	end
-	if not mode then decision.Reason = context.Blocker or "No reachable relevant pickups or useful bubble selling route" return decision end
+	if not mode then
+		if pickupFirst then decision.Kind, decision.Background = "INSPECT", true end
+		decision.Reason = context.Blocker or "No reachable relevant pickups or useful bubble selling route" return decision
+	end
 	decision.Kind, decision.Mode, decision.Cluster, decision.Sell = "FARM", mode, cluster, bestSell
-	decision.Reason = modeScore and string.format("Observed %.2f %s/min supports the current goal", modeScore, currency)
+	decision.Reason = pickupFirst and (pickupReady and (backgroundReady and "Pickup-first farming with guarded background blowing" or "Pickup-first farming; background blow blocked: " .. tostring(context.BlowBlocker or "full/disabled/native guard")) or "Pickup-first fallback: no actionable pickup cluster")
+		or modeScore and string.format("Observed %.2f %s/min supports the current goal", modeScore, currency)
 		or "Bounded " .. mode .. " trial; observed balances will establish earning efficiency"
 	local upgrade, evaluations = UpgradePolicy.Evaluate(config, snapshot, plan, context, currency, mode, bestSell, goal)
 	decision.UpgradeEvaluations = evaluations

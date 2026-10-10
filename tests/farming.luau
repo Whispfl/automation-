@@ -514,14 +514,14 @@ test("Radius routing uses a midpoint to cover two pickups with one movement", fu
 	scene.Close()
 end)
 
-test("Arrival grace keeps a full bubble from interrupting an active isolated pickup trial", function()
+test("Full bubbles preempt both loading grace and an active isolated pickup trial", function()
 	local data, context, plan, memory = policyFixture()
 	data.Bubble.Amount = data.Bubble.Capacity
 	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = 103, ReadyAt = 103 }
 	local result = Policy.Decide(config(), data, plan, context, memory)
-	assert(result.Kind == "INSPECT", "Wait through loading grace without a bubble sale")
+	assert(result.Kind == "SELL", "Full bubbles cannot be held for isolated loading grace")
 	context.Now = 104 result = Policy.Decide(config(), data, plan, context, memory)
-	assert(result.Kind == "FARM" and result.Mode == "PICKUPS")
+	assert(result.Kind == "SELL")
 	context.PickupProbe = nil
 	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "SELL", "Presell already-full bubbles before a new trial")
 end)
@@ -532,7 +532,7 @@ test("Collection needs disappearance and matching balance credit; combined gains
 	local controller = { Config = config(), Reader = { ReadBalances = function() return { Coins = coins } end, GetSnapshot = function() return {} end, GetLiveProfile = function() return {} end }, Log = function() end }
 	local coordinator = Coordinator.new(controller, {})
 	local model = { Parent = true }
-	coordinator.Tracker.Current = { Key = "Synthetic/A", VisibleCount = 1, EligibleCount = 1 }
+	coordinator.Tracker.Current = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, VisibleCount = 1, EligibleCount = 1 }
 	coordinator.Tracker.Refresh = function() end coordinator.Tracker.BackOff = function() end
 	coordinator.Mechanics.Walk = function() if disappear then model.Parent = nil end if credit then coins += 10 end return true end
 	coordinator._settle = function() end coordinator._awaitCredit = function() return { Coins = coins } end

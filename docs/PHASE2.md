@@ -2,7 +2,15 @@
 
 Phase 1 is owner-tested and approved. Phase 2 is an implementation candidate, **not an owner-approved gameplay pass**. The definitive input is the user's final pasted specification and [updated Notion revision](https://app.notion.com/p/3f53d7e9278d8145a85aff38d5497e12). Older requests to install/test code through Studio are superseded: all code is maintained in this repository, Studio tools are read-only, and the owner executes the published bundle.
 
-## Latest follow-up: movement, combined farming and controlled upgrades
+## Latest follow-up: pickup-first farming
+
+See [PICKUP_FIRST.md](PICKUP_FIRST.md) for the current strategy, selected-island
+execution, sell-return behavior, measurement rules and owner test. The following
+sections retain earlier implementation history; full bubbles now interrupt active
+isolated trials, and complete combined rates require return as well as sale evidence.
+The separate upgrade gameplay test remains deferred. Phase 2 approval remains pending.
+
+## Earlier follow-up: movement, combined farming and controlled upgrades
 
 The owner now confirms pickup-only collection, respawns, repeated matching credit
 (Coins413,649 →417,929) and Outer Space selection using actual observed income.

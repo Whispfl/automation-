@@ -266,7 +266,7 @@ function OCController:Pause()
 	self.State = "PAUSED"
 	self:_cancelReplan()
 	self.Scheduler:Pause()
-	self.Farming:Halt()
+	self.Farming:Halt(true)
 	self:_notify()
 	self:Log("CONTROL", "PAUSE | recommendations paused; read-only account updates remain visible")
 	return true

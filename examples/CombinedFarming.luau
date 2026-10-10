@@ -2,6 +2,8 @@
 local Config = {
 	GENERAL_SETTINGS = { AUTO_START = true }, --// Start the enabled Brain tasks.
 	FARMING_SETTINGS = {
+		FARMING_STRATEGY = "PICKUP_FIRST", --// Pickups are primary; blowing is cooperative background work.
+		ISOLATED_PICKUP_PROBES = false, --// Measure real combined operation during this test.
 		AUTO_RESOURCE_FARM = true, --// Use the existing foreground scheduler.
 		ENABLE_EFFICIENCY_COMPARISON = true, --// Compare measured goal-currency earnings.
 		ENABLE_ACTIVITY_SWITCHING = true, --// Allow bounded trials and useful strategy changes.
@@ -9,7 +11,7 @@ local Config = {
 	},
 	ISLAND_SETTINGS = {
 		SELECTED_ISLANDS = { "Floating Island", "Outer Space" }, --// Test these already discovered farming islands.
-		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Obtain isolated pickup measurements first.
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Bounded allowed-island exploration without suppressing background blowing.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Permit supported unlocked island and selling travel.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapid island switching.
 	},
@@ -18,9 +20,10 @@ local Config = {
 		FARM_CURRENCY_TYPES = {}, --// Accept every actually detected currency type.
 		WAYPOINT_STALL_SECONDS = 2, --// Recover after no forward progress.
 		MAXIMUM_PATH_RECOMPUTES = 1, --// Retry once within the same slice, then back off.
+		ROUTE_CONTINUATION_SECONDS = 24, --// Let progressing routes continue across bounded slices.
 	},
 	BUBBLE_SETTINGS = {
-		AUTO_BLOW_BUBBLES = true, --// Test bubble-only and combined modes when native guards allow.
+		AUTO_BLOW_BUBBLES = true, --// Blow in the background during pickup work when native guards allow.
 		AUTO_SELL_BUBBLES = true, --// Verify bubble decrease and real balance credit.
 		ENABLE_SIMULTANEOUS_BLOWING = true, --// Blow during a Brain-selected collection task.
 		AUTO_BUY_GUM = false, --// Disable purchases while measuring farming.
@@ -28,6 +31,8 @@ local Config = {
 	},
 	UPGRADE_SETTINGS = {
 		ENABLE_SMART_UPGRADES = false, --// Prevent all upgrade tasks during this test.
+		ENABLE_CAPACITY_UPGRADES = false, --// Keep capacity purchases disabled.
+		ENABLE_FLAVOR_UPGRADES = false, --// Keep flavor purchases disabled.
 		AUTO_EQUIP_OWNED_UPGRADES = false, --// Keep equipment unchanged for comparisons.
 	},
 	DIAGNOSTIC_SETTINGS = {

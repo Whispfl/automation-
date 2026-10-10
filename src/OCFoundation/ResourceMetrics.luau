@@ -24,18 +24,28 @@ function ResourceMetrics:Observe(balances, now)
 	-- A purchase or externally observed spend makes this interval unsuitable for rate attribution.
 	if spending then return {} end
 	if dt > 0 then
-		table.insert(self.Samples, { At = now, Seconds = dt, Mode = self.Active.Mode,
-			Scope = self.Active.Scope, Gains = gains })
+		-- Combined income is recorded once, after a complete fill/sale/return cycle.
+		if self.Active.Mode ~= "COMBINED" then
+			table.insert(self.Samples, { At = now, Seconds = dt, Mode = self.Active.Mode,
+				Scope = self.Active.Scope, Gains = gains })
+		end
 		for currency, value in pairs(gains) do self.Totals[currency] = (self.Totals[currency] or 0) + value end
 	end
 	self:Prune(now)
 	return gains
 end
 
+function ResourceMetrics:AddSample(mode, scope, gains, seconds, now)
+	if seconds <= 0 then return end
+	table.insert(self.Samples, { At = now, Seconds = seconds, Mode = mode, Scope = scope, Gains = table.clone(gains) })
+	self:Prune(now)
+end
+
 function ResourceMetrics:Prune(now)
-	while self.Samples[1] and now - self.Samples[1].At > self.Settings.RATE_WINDOW_SECONDS do
-		table.remove(self.Samples, 1)
+	for index = #self.Samples, 1, -1 do
+		if now - self.Samples[index].At > self.Settings.RATE_WINDOW_SECONDS then table.remove(self.Samples, index) end
 	end
+	while #self.Samples > 1024 do table.remove(self.Samples, 1) end
 end
 
 function ResourceMetrics:SetMode(mode, scope, balances, now)

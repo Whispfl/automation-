@@ -42,6 +42,7 @@ assert(assertions, 'Missing harness insertion point');
 const testPath = path.join(root, '.test-output/foundation.luau');
 const farmingAssertions = await readFile(path.join(root, 'tests/farming.luau'), 'utf8');
 const fixesAssertions = await readFile(path.join(root, 'tests/phase2-fixes.luau'), 'utf8');
+const pickupFirstAssertions = await readFile(path.join(root, 'tests/pickup-first.luau'), 'utf8');
 const example = await readFile(path.join(root, 'examples/Loader.luau'), 'utf8');
 const exampleConfig = example.slice(0, example.indexOf('loadstring(game:HttpGet('));
 assert(exampleConfig.includes('local Config = {'), 'Copy-ready example is missing Config');
@@ -49,7 +50,7 @@ const exampleCheck = `\nlocal exampleOverrides = (function()\n${exampleConfig}\n
 const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau'), 'utf8');
 const pickupConfig = pickupExample.slice(0, pickupExample.indexOf('loadstring(game:HttpGet('));
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + exampleCheck + pickupCheck);
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');

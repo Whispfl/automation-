@@ -229,7 +229,11 @@ function GameMechanics:Walk(point, token, deadline, tick, finished)
 				computed, computeError = pcall(function() path:ComputeAsync(root.Position, point) end)
 			end)
 			local computeDeadline = math.min(deadline, os.clock() + settings.PATH_TIMEOUT_SECONDS)
-			while computed == nil and not token:CheckCancelled() and os.clock() < computeDeadline do task.wait(0.1) end
+			while computed == nil and not token:CheckCancelled() and os.clock() < computeDeadline do
+				if finished and finished() then break end
+				if tick then tick() end
+				task.wait(0.1)
+			end
 			if self.PathThread then pcall(task.cancel, self.PathThread) self.PathThread = nil end
 			if token:CheckCancelled() then return false, "Cancelled" end
 			if os.clock() >= deadline then return false, "Slice ended" end
@@ -263,10 +267,12 @@ function GameMechanics:Walk(point, token, deadline, tick, finished)
 					if reached(root.Position, waypoint.Position) then break end
 					local now, distance = os.clock(), (root.Position - waypoint.Position).Magnitude
 					diagnostics.Waypoint, diagnostics.Distance = index, distance
-					if bestDistance - distance >= settings.MINIMUM_WAYPOINT_PROGRESS_STUDS then bestDistance, progressAt = distance, now end
+					if bestDistance - distance >= settings.MINIMUM_WAYPOINT_PROGRESS_STUDS then
+						bestDistance, progressAt = distance, now diagnostics.Progressed = true
+					end
 					if now >= deadline then return false, "Slice ended" end
 					if blocked and blocked >= index then return false, "Path was blocked" end
-					if moveResult == false then return false, "MoveTo failed before arrival" end
+					-- MoveToFinished has no request identity; late failure events cannot reject a newer waypoint.
 					if now - progressAt >= settings.WAYPOINT_STALL_SECONDS then return false, "Waypoint stalled without forward progress" end
 					if now - issuedAt >= settings.MOVE_REISSUE_SECONDS then
 						if token:CheckCancelled() then return false, "Cancelled" end

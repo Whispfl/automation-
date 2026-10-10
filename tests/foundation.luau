@@ -43,6 +43,10 @@ local Vector3 = {}
 function Vector3.new(x, y, z) return setmetatable({ X = x, Y = y, Z = z }, vectorMeta) end
 function vectorMeta.__sub(a, b) return Vector3.new(a.X - b.X, a.Y - b.Y, a.Z - b.Z) end
 function vectorMeta.__add(a, b) return Vector3.new(a.X + b.X, a.Y + b.Y, a.Z + b.Z) end
+function vectorMeta.__mul(a, b)
+	if type(b) == "number" then return Vector3.new(a.X*b, a.Y*b, a.Z*b) end
+	return Vector3.new(a.X*b.X, a.Y*b.Y, a.Z*b.Z)
+end
 function vectorMeta.__index(a, key) if key == "Magnitude" then return math.sqrt(a.X*a.X + a.Y*a.Y + a.Z*a.Z) end end
 local services = {
 	Players = {}, ReplicatedStorage = { FindFirstChild = function() return nil end },

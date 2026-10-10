@@ -60,6 +60,8 @@ return {
 		SELL_RETRY_COOLDOWN_SECONDS = 20, --// Back off after an unavailable or unconfirmed sell attempt.
 	},
 	FARMING_SETTINGS = {
+		FARMING_STRATEGY = "EFFICIENCY", --// EFFICIENCY preserves comparison trials; PICKUP_FIRST prioritizes pickups with guarded background blowing.
+		ISOLATED_PICKUP_PROBES = false, --// Opt into isolated diagnostic trials under PICKUP_FIRST; full bubbles still interrupt them.
 		AUTO_RESOURCE_FARM = true, --// Permit the Brain to schedule Phase 2 actions; false retains account analysis only.
 		ENABLE_EFFICIENCY_COMPARISON = true, --// Compare measured currency gains for pickup, bubble, and combined sessions.
 		ENABLE_ACTIVITY_SWITCHING = true, --// Reevaluate modes as yields or availability change; safety and full-bubble selling remain active.
@@ -72,7 +74,7 @@ return {
 		ACTIVITY_SWITCH_GAIN_RATIO = 0.2, --// Require this fractional measured-rate advantage before switching a viable mode.
 		EARNINGS_CONFIRMATION_TIMEOUT_SECONDS = 3, --// Allow delayed account credit to arrive before reporting a collection or sale as unconfirmed.
 		BUBBLE_PROBE_TIMEOUT_SECONDS = 180, --// Bound an initial unsold bubble trial; an unfinished trial is not a measured sale rate.
-		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Finish useful pickup coverage briefly when measured lost pickup income exceeds estimated sale value; then sell full bubbles.
+		MAXIMUM_COMBINED_SELL_DELAY_SECONDS = 6, --// Bound discretionary full-bubble pickup delay; native travel and confirmation have separate timeouts.
 		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Fallback earning priorities when the recommended goal has no unmet currency cost.
 		AUTO_FARM_FALLBACK = true, --// Permit another useful eligible activity when the preferred farming method is unavailable.
 	},
@@ -118,6 +120,7 @@ return {
 		MINIMUM_WAYPOINT_PROGRESS_STUDS = 0.5, --// Require this cumulative distance improvement to reset the stall timer.
 		MOVE_REISSUE_SECONDS = 2, --// Refresh normal MoveTo while progressing; cannot extend the foreground task deadline.
 		MAXIMUM_PATH_RECOMPUTES = 1, --// Bound recovery attempts for stalled, blocked or failed paths within the same task slice; zero disables recovery.
+		ROUTE_CONTINUATION_SECONDS = 24, --// Bound total time for a progressing cluster route across slices; stalled routes still back off.
 		MAXIMUM_PATH_DETOUR_RATIO = 2.5, --// Reject paths whose length greatly exceeds the direct route.
 	},
 	UPGRADE_SETTINGS = {

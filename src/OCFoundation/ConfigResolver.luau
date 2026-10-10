@@ -32,6 +32,7 @@ function ConfigResolver.Resolve(defaults, overrides)
 			result[category][key] = copy(value)
 		end
 	end
+	assert(result.FARMING_SETTINGS.FARMING_STRATEGY == "EFFICIENCY" or result.FARMING_SETTINGS.FARMING_STRATEGY == "PICKUP_FIRST", "[OC] Unknown FARMING_STRATEGY")
 	return result
 end
 

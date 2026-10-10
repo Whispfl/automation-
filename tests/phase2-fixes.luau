@@ -176,10 +176,13 @@ test("Combined rates need actual growth, pickup credit and a complete sale withi
 	local coordinator = requireOC("FarmingCoordinator").new({ Config = config(), Reader = {}, Log = function() end }, {})
 	coordinator.Metrics:SetMode("COMBINED", "Synthetic/A", { Coins = 100 }, 0)
 	coordinator.Metrics:Observe({ Coins = 200 }, 20)
-	assert(not coordinator:_pickupRates("Synthetic/A", 20).COMBINED.Ready)
+	assert(coordinator:_pickupRates("Synthetic/A", 20).COMBINED == nil)
 	coordinator.CombinedEvidence["Synthetic/A"] = { GrowthAt = 10, PickupAt = 15 }
-	assert(not coordinator:_pickupRates("Synthetic/A", 20).COMBINED.Ready)
+	assert(coordinator:_pickupRates("Synthetic/A", 20).COMBINED == nil)
 	coordinator.CombinedEvidence["Synthetic/A"].SaleAt = 20
+	assert(not coordinator:_pickupRates("Synthetic/A", 20).COMBINED, "Incomplete interval cannot publish combined earnings")
+	coordinator.Metrics:AddSample("COMBINED", "Synthetic/A", { Coins = 100 }, 20, 20)
+	coordinator.CombinedEvidence["Synthetic/A"].ReturnedAt = 20
 	assert(coordinator:_pickupRates("Synthetic/A", 20).COMBINED.Ready)
 end)
 
@@ -229,7 +232,7 @@ test("Cancellation during collection settling prevents verification and further 
 	local controller = { Config = config(), Reader = { ReadBalances = function() return { Coins = 100 } end, GetSnapshot = function() return {} end, GetLiveProfile = function() return {} end }, Log = function() end }
 	local coordinator = requireOC("FarmingCoordinator").new(controller, {})
 	local model = { Parent = true }
-	coordinator.Tracker.Current = { Key = "Synthetic/A", EligibleCount = 1 }
+	coordinator.Tracker.Current = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, EligibleCount = 1 }
 	coordinator.Mechanics.Walk = function() return true end
 	coordinator._settle = function() cancelled = true model.Parent = nil end
 	coordinator._awaitCredit = function() waited = true return { Coins = 110 } end
@@ -257,7 +260,7 @@ test("Full-bubble collection ends at the delay bound without blowing or misclass
 		local controller = { Config = config(), Reader = { GetSnapshot = function() return {} end, ReadBalances = function() return { Coins = 100 } end,
 			GetLiveProfile = function() return { Bubble = { Amount = 100 } } end, _stat = function() return 100 end }, Log = function() end }
 		local coordinator = requireOC("FarmingCoordinator").new(controller, {})
-		coordinator.Tracker.Current = { Key = "Synthetic/A", EligibleCount = 1 }
+		coordinator.Tracker.Current = { Key = "Synthetic/A", Name = "A", World = "Synthetic", Unlocked = true, EligibleCount = 1 }
 		coordinator.Tracker.BackOff = function() backoffs += 1 end coordinator.Tracker.Refresh = function() end
 		coordinator.Mechanics.Blow = function() blows += 1 end
 		coordinator.Mechanics.Walk = function(_, _, _, deadline, tick, finished)
