@@ -1,5 +1,6 @@
 -- Temporary Phase 2 isolation test. Omitted settings inherit OCConfig defaults.
 local Config = {
+	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Restrict pickup farming and exploration to this world.
 	GENERAL_SETTINGS = {
 		OC_ENABLED = true, --// Enable OC controls.
 		AUTO_START = true, --// Start the enabled account and farming tasks.
@@ -13,7 +14,7 @@ local Config = {
 		AUTO_SELECT_BEST_ISLAND = true, --// Rank supported unlocked islands.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Use the working native island teleport interface.
 		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Test unknown pickup yields.
-		SELECTED_ISLANDS = { "Floating Island", "Outer Space" }, --// Focus this test on the two reported islands; empty allows all.
+		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Require real unlocks and farm only these selected islands.
 		MIN_ISLAND_DWELL_SECONDS = 5, --// Short test dwell before considering another island.
 		ARRIVAL_PICKUP_GRACE_SECONDS = 3, --// Keep scanning while rendered assets load.
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// Bound empty or unconfirmed trials.

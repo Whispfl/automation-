@@ -1,5 +1,6 @@
 -- Phase 2 test configuration. Omitted settings inherit the central OCConfig defaults.
 local Config = {
+	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" } }, --// Restrict the next farming test to this world.
 	GENERAL_SETTINGS = {
 		OC_ENABLED = true, --// Permit initialization and controls.
 		AUTO_START = true, --// Start account analysis and enabled farming tasks.
@@ -23,7 +24,7 @@ local Config = {
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End an isolated pickup trial if an adequate sample is not obtained.
 		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked, scene-present candidates.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Use verified native island/sell teleport destinations.
-		SELECTED_ISLANDS = {}, --// Empty considers all supported unlocked islands.
+		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Only these actually unlocked islands are farming destinations.
 		MIN_ISLAND_GAIN_ADVANTAGE_PERCENT = 25, --// Require a meaningful improvement to switch.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Avoid rapidly switching viable islands.
 	},
@@ -44,9 +45,9 @@ local Config = {
 		AUTO_BUY_FLAVORS = false, --// Keep spending disabled during combined farming verification.
 	},
 	UPGRADE_SETTINGS = {
-		ENABLE_SMART_UPGRADES = true, --// Require meaningful gains and measured-income payback.
-		ENABLE_CAPACITY_UPGRADES = true, --// Gum increases bubble storage; pet storage is not purchased.
-		ENABLE_FLAVOR_UPGRADES = true, --// Evaluate supported flavor improvements.
+		ENABLE_SMART_UPGRADES = false, --// Keep upgrade execution disabled during farming verification.
+		ENABLE_CAPACITY_UPGRADES = false, --// Keep gum purchases disabled during this test.
+		ENABLE_FLAVOR_UPGRADES = false, --// Keep flavor purchases disabled during this test.
 		AUTO_EQUIP_OWNED_UPGRADES = false, --// Preserve current equipment during farming comparisons.
 		ENABLE_GOAL_RESERVATION = true, --// Protect important world/Mastery goal funds.
 		MAXIMUM_PURCHASE_COST = 1000000, --// Per-purchase currency cap.

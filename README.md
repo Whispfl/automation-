@@ -46,7 +46,7 @@ Bubble **storage** is purchased through gum. No verified pet-storage purchase in
 ## Owner-run verification
 
 1. Check `[OC][INIT]` build ID and dependency statuses; compare all Phase 1 account statistics and goals against the game.
-2. Check `[OC][FARM][DISCOVERY]`, `[ZONES]` and `[ISLANDS]`: Floating Island and Outer Space should appear individually, either eligible or with an explicit exclusion. In the reference scene their configured Counts are 5 and 8 respectively; these are not live available counts. Confirm real world/discovery membership, actual loaded zone roots, target currency and unknown/estimated/observed evidence.
+2. Check `[OC][FARM][DISCOVERY]`, `[ZONES]` and `[ISLANDS]`: only The Void and Zen in The Overworld may be eligible farming destinations. Locked islands must be excluded; Floating Island, Outer Space and the main Overworld must be excluded from farming/exploration. Confirm actual loaded zone roots, target currency and unknown/estimated/observed evidence. Definition counts are not live availability.
 3. Confirm `[TRAVEL]` reports arrival at the selected island, with no rapid ping-pong travel.
 4. Check [PICKUP][SOURCES] registry/Chunker/spawn counters and [DETECTED] live IDs/resolved positions. Then check [COLLECTION] eligible/cluster counts and the declared native radius fallback. Confirm actual before/after balances increase in `[EARNINGS]`; model disappearance alone is not success.
 5. Let pickups respawn. Confirm new cycles occur without duplicate OC collection calls or repeated unreachable targets.

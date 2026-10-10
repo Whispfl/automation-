@@ -46,9 +46,16 @@ const pickupFirstAssertions = await readFile(path.join(root, 'tests/pickup-first
 const example = await readFile(path.join(root, 'examples/Loader.luau'), 'utf8');
 const exampleConfig = example.slice(0, example.indexOf('loadstring(game:HttpGet('));
 assert(exampleConfig.includes('local Config = {'), 'Copy-ready example is missing Config');
+function assertFarmingSelection(contents) {
+  assert(contents.includes('SELECTED_ISLANDS = { "The Void", "Zen" }'));
+  assert(contents.includes('SELECTED_WORLDS = { "The Overworld" }'));
+  assert(!/Floating Island|Outer Space/.test(contents));
+}
+assertFarmingSelection(exampleConfig);
 const exampleCheck = `\nlocal exampleOverrides = (function()\n${exampleConfig}\nreturn Config\nend)()\nexampleOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal exampleController = requireOC("OCController").new(config(exampleOverrides))\nassert(exampleController.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == false)\nexampleController:Destroy()\nprint("[OC TEST] Published example Config validation passed")\n`;
 const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau'), 'utf8');
 const pickupConfig = pickupExample.slice(0, pickupExample.indexOf('loadstring(game:HttpGet('));
+assertFarmingSelection(pickupConfig);
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
 await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
@@ -60,9 +67,7 @@ for (const [filename, enabled] of [['CombinedFarming.luau', false], ['UpgradeTes
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
   const configText = contents.slice(0, contents.indexOf('loadstring(game:HttpGet('));
   if (filename === 'CombinedFarming.luau') {
-    assert(configText.includes('SELECTED_ISLANDS = { "The Void", "Zen" }'));
-    assert(configText.includes('SELECTED_WORLDS = { "The Overworld" }'));
-    assert(!/Floating Island|Outer Space/.test(configText));
+    assertFarmingSelection(configText);
   }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;
   await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);
