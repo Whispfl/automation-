@@ -53,10 +53,37 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 		decision.Reason = "Farming disabled or real account/planner not ready" return decision
 	end
 	if context.SceneReady == false then decision.Reason = context.Blocker or "Waiting for actual zone inspection before selecting a farming activity" return decision end
+	local preferred = config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND
+	if preferred ~= "" and config.ISLAND_SETTINGS.AUTO_SELECT_BEST_ISLAND and config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND then
+		local destination, fallback, returning
+		for _, area in ipairs(context.Islands or {}) do
+			if not FarmingPolicy.IsStationaryArea(config, area) or area.ActualUnlocked ~= true then continue end
+			if context.ReturnKey == area.Key then returning = area end
+			if area.Name == preferred then destination = area else fallback = area end
+		end
+		destination = returning or destination or fallback
+		if not destination then decision.Reason = "Neither selected farming island has confirmed LocalData world/island access; no unlock or invalid teleport attempted" return decision end
+		decision.PreferredIsland = destination.Key
+		local current = context.Current
+		if not current or current.Key ~= destination.Key then
+			if context.CanInteract and context.CanTravel and not destination.InBackoff and (destination.Spawn or destination.DestinationPath) then
+				decision.Kind, decision.Island, decision.Returning = "TRAVEL", destination, returning ~= nil
+				decision.Reason = returning and "Return to the saved farming island after selling" or "Native island travel: prefer unlocked " .. preferred .. "; The Void is the approved fallback"
+			else
+				decision.Kind = "INSPECT"
+				decision.Reason = "Preferred farming island travel pending: " .. tostring(context.Blocker or (destination.InBackoff and "destination retry backoff" or "native destination/cooldown unavailable"))
+			end
+			return decision
+		end
+		if context.Now - (context.ArrivedAt or context.Now) < config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS then
+			decision.Kind, decision.Reason = "INSPECT", "Waiting for selected island/character state to stabilize before stationary collection"
+			return decision
+		end
+	end
 	if config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then
 		decision.Goal = "Stationary Coins/Gems farming with isolated balance logging"
 		if not FarmingPolicy.IsStationaryArea(config, context.Current) then
-			decision.Reason = "Manually position on an unlocked selected island; isolated test never travels"
+			decision.Reason = "Selected unlocked island required; enable native island travel or position manually"
 		elseif not context.CanInteract then decision.Reason = context.Blocker or "Native interaction guard"
 		elseif context.Cluster then
 			decision.Kind, decision.Mode, decision.Cluster = "FARM", "PICKUPS", context.Cluster
@@ -128,7 +155,8 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	if config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then
 		for _, area in ipairs(context.Islands or {}) do
 			local exclusion
-			if not area.Unlocked then exclusion = "World locked/unknown or island not discovered"
+			if decision.PreferredIsland and area.Key ~= decision.PreferredIsland then exclusion = "Excluded by preferred farming island"
+			elseif not area.Unlocked then exclusion = "World locked/unknown or island not discovered"
 			elseif not (allowed(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Name) or table.find(config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Key) ~= nil) then exclusion = "Excluded by SELECTED_ISLANDS"
 			elseif not allowed(config.BRAIN_SETTINGS.SELECTED_WORLDS, area.World) then exclusion = "Excluded by SELECTED_WORLDS"
 			elseif area.ZoneCount == 0 then exclusion = "No live tagged PickupZone; availability unknown"

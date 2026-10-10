@@ -19,7 +19,9 @@ const mechanics = source.modules.find(m => m.name === 'GameMechanics').source;
 assert(!/PathfindingService|\bMoveTo\s*\(|\bMoveToFinished\b|\bPivotTo\s*\(/.test(generated.output), 'OC automatic navigation/repositioning must be absent');
 const coordinatorSource = source.modules.find(m => m.name === 'FarmingCoordinator').source;
 assert(!/\.Mechanics:Walk\s*\(/.test(coordinatorSource), 'No active farming or selling walking route');
-assert(!/Model:Destroy|model:Destroy|registry\[[^\]]+\]\s*=/.test(mechanics), 'Pickup adapter must not destroy models or mutate the native registry');
+assert(mechanics.includes('if registry[key] == model then registry[key] = nil end'), 'Cleanup must preserve replacement registry entries');
+assert(mechanics.includes('chunker:Remove(pending.Position, model)'), 'Cleanup must release native Chunker references');
+assert(!/getgc|(?:get|set)upvalue/.test(generated.output), 'No private runtime enumeration or upvalue manipulation');
 assert(!/\._activePickups\s*=/.test(generated.output), 'OC must not replace the native pickup registry');
 assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics), 'No position or speed modification');
 assert(!/GitHubToken|Authorization|\bRequest\s*=/.test(generated.output), 'No client authentication');
@@ -81,7 +83,8 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
   if (filename === 'StationaryOnly.luau') {
     assertFarmingSelection(configText);
     assert(configText.includes('STATIONARY_ISOLATED_TEST = true'));
-    for (const key of ['AUTO_TRAVEL_BEST_ISLAND', 'AUTO_EXPLORE_UNLOCKED_ISLANDS', 'AUTO_SELL_BUBBLES', 'AUTO_BLOW_BUBBLES', 'ENABLE_SMART_UPGRADES']) {
+    assert(configText.includes('AUTO_TRAVEL_BEST_ISLAND = true') && configText.includes('PREFERRED_FARMING_ISLAND = "Zen"'));
+    for (const key of ['AUTO_EXPLORE_UNLOCKED_ISLANDS', 'AUTO_SELL_BUBBLES', 'AUTO_BLOW_BUBBLES', 'ENABLE_SMART_UPGRADES']) {
       assert(configText.includes(key + ' = false'), 'Initial stationary test must disable ' + key);
     }
   }

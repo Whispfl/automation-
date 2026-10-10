@@ -87,6 +87,10 @@ end
 function GameMechanics:CollectStationary(record, token)
 	local settings = self.Config.PICKUP_SETTINGS
 	if token:CheckCancelled() then return false, "Cancelled" end
+	if self.PendingPickupCleanup then
+		self:RetryPickupCleanup(token)
+		if self.PendingPickupCleanup then return false, "Native visual cleanup is pending; new dispatches are held to prevent accumulation" end
+	end
 	if settings.COLLECTION_METHOD ~= "STATIONARY" or not settings.BULK_COLLECT_PICKUPS or not settings.ENABLE_CONTINUOUS_SCANNING then return false, "Stationary collection disabled" end
 	if os.clock() - (self.LastPickupRequestAt or -math.huge) < settings.STATIONARY_REQUEST_COOLDOWN_SECONDS - 1e-6 then return false, "Stationary request cooldown" end
 	local permitted, reason, root = self:Guard()
@@ -94,6 +98,8 @@ function GameMechanics:CollectStationary(record, token)
 	local area = self.Tracker.Current
 	if not area or area.World ~= "The Overworld" or (area.Name ~= "The Void" and area.Name ~= "Zen")
 		or record.AreaKey ~= area.Key or not self:Unlocked(area.World, area.Name) then return false, "Stationary island excluded, stale or locked" end
+	if self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and self.Config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND ~= ""
+		and os.clock() - (self.Tracker.ArrivedAt or os.clock()) < self.Config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS then return false, "Selected island/character stabilization pending" end
 	local selected = self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS
 	local worlds = self.Config.BRAIN_SETTINGS.SELECTED_WORLDS
 	if (#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key))
@@ -107,7 +113,8 @@ function GameMechanics:CollectStationary(record, token)
 		or not model:IsDescendantOf(workspace) or tostring(key) ~= model.Name then return false, "Live native registry entry unavailable or changed" end
 	if record.Currency ~= "Coins" and record.Currency ~= "Gems" then return false, "Stationary collection accepts only Coins/Gems" end
 	local range = self.Tracker:ReadRange()
-	local distance = (model:GetPivot().Position - root.Position).Magnitude
+	local position = model:GetPivot().Position
+	local distance = (position - root.Position).Magnitude
 	local outsideNative = nil
 	if range then outsideNative = distance > range end
 	-- Distance/radius are observations only. Genuine loaded IDs are subject to the server's validation.
@@ -115,14 +122,43 @@ function GameMechanics:CollectStationary(record, token)
 	local pickups = remotes and remotes:FindFirstChild("Pickups")
 	local remote = pickups and pickups:FindFirstChild("CollectPickup")
 	if not remote or not remote:IsA("RemoteEvent") then return false, "Native CollectPickup RemoteEvent unavailable" end
+	local chunker, chunkerReason = self.Tracker.Knowledge:PickupChunker()
+	if not chunker then return false, chunkerReason end
+	if not chunker:IsValueLoaded(model) then return false, "Pickup is no longer in the native pickup Chunker" end
 	local freshRegistry = self.Tracker.Knowledge:ActivePickups()
 	if not self.Tracker.Current or self.Tracker.Current.Key ~= area.Key or not self:Unlocked(area.World, area.Name)
 		or not freshRegistry or freshRegistry[key] ~= model or not model.Parent or tostring(key) ~= model.Name then return false, "Registry/island changed before dispatch" end
 	if token:CheckCancelled() then return false, "Cancelled" end
 	self.LastPickupRequestAt = os.clock()
 	local ok, errorText = pcall(function() remote:FireServer(key) end)
+	local cleaned, cleanupReason = false, nil
+	if ok then
+		self.PendingPickupCleanup = { Record = record, Chunker = chunker, Position = position, Until = os.clock() }
+		cleaned, cleanupReason = self:RetryPickupCleanup({ CheckCancelled = function() return false end }) -- Finish cleanup of this already-dispatched request.
+	end
 	return true, ok and "Request invoked; credit awaits LocalData" or "Invocation error; credit unknown: " .. tostring(errorText),
-		{ Id = tostring(key), Distance = distance, Radius = range, OutsideNativeRange = outsideNative, InvocationSucceeded = ok }
+		{ Id = tostring(key), Distance = distance, Radius = range, OutsideNativeRange = outsideNative, InvocationSucceeded = ok, VisualCleaned = cleaned, CleanupError = cleanupReason }
+end
+
+function GameMechanics:RetryPickupCleanup(token)
+	local pending = self.PendingPickupCleanup
+	if not pending then return true end
+	if token:CheckCancelled() or os.clock() < pending.Until then return false, pending.Reason or "Native cleanup retry backoff" end
+	local record, chunker = pending.Record, pending.Chunker
+	local model, key = record.Model, record.RegistryKey or record.Id
+	local ok, reason = pcall(function()
+		local registry = self.Tracker.Knowledge:ActivePickups()
+		if not registry then error("Native registry unavailable for cleanup") end
+		if registry[key] ~= nil and registry[key] ~= model then error("Native registry replacement retained; cleanup pending") end
+		-- Native Remove releases the actual chunk, Unloaded/animation state and registry entry.
+		chunker:Remove(pending.Position, model) -- Also release a chunk that unloaded while cleanup was in backoff.
+		if chunker:IsValueLoaded(model) then error("Native Chunker still retains pickup") end
+		if registry[key] == model then registry[key] = nil end
+		model:Destroy() self.Tracker:ForgetCollected(record)
+	end)
+	if ok then self.PendingPickupCleanup = nil
+	else pending.Reason, pending.Until = tostring(reason), os.clock() + self.Config.PICKUP_SETTINGS.STATIONARY_ID_RETRY_SECONDS end
+	return ok, not ok and tostring(reason) or nil
 end
 
 function GameMechanics:SellStations()
@@ -158,8 +194,8 @@ function GameMechanics:SellStations()
 	return result
 end
 
-function GameMechanics:Travel(destination, world, area, token)
-	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks travel" end
+function GameMechanics:Travel(destination, world, area, token, islandTravel)
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and not islandTravel then return false, "Pickup-only mode blocks selling excursions" end
 	local permitted, reason = self:Guard()
 	if not permitted then return false, reason end
 	if token:CheckCancelled() then return false, "Cancelled" end
@@ -174,7 +210,11 @@ function GameMechanics:Travel(destination, world, area, token)
 	local started = os.clock()
 	self.LastTravelAt = started
 	if token:CheckCancelled() then return false, "Cancelled" end
-	remote:FireServer("Teleport", path)
+	local sent, transportError = pcall(function() remote:FireServer("Teleport", path) end)
+	if not sent then
+		self:Failure("TRAVEL:" .. path, self.Config.ISLAND_SETTINGS.TRAVEL_RETRY_COOLDOWN_SECONDS, tostring(transportError))
+		return false, "Native teleport invocation failed: " .. tostring(transportError)
+	end
 	local arrivedAt
 	while not token:CheckCancelled() and os.clock() - started < self.Config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS do
 		local root = self.Tracker:Root()
@@ -193,15 +233,31 @@ function GameMechanics:Travel(destination, world, area, token)
 end
 
 function GameMechanics:TravelIsland(area, token)
-	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return false, "Isolated stationary test blocks travel" end
-	if area.Spawn then return self:Travel(area.Spawn, area.World, area.Name, token) end
+	if token:CheckCancelled() then return false, "Cancelled" end
+	if not self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND or not self.Config.ISLAND_SETTINGS.AUTO_SELECT_BEST_ISLAND then return false, "Native island selection/travel disabled" end
+	if not self:Unlocked(area.World, area.Name) then return false, "Actual LocalData island/world access is locked or unavailable" end
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST or self.Config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND ~= "" then
+		local selected = self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS
+		if area.World ~= "The Overworld" or (area.Name ~= "Zen" and area.Name ~= "The Void")
+			or (#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key)) then return false, "Farming teleport destination is excluded" end
+	end
+	if self.Tracker.Current and self.Tracker.Current.Key == area.Key then
+		local root = self.Tracker:Root()
+		for _, zone in ipairs(self.Tracker.Current.Zones or {}) do
+			if root and math.abs(root.Position.Y - zone.Data.Zone.Height) <= self.Config.PICKUP_SETTINGS.MAXIMUM_VERTICAL_DIFFERENCE_STUDS
+				and zone.Data.Zone:GetDistanceToPoint(root.Position) <= self.Config.PICKUP_SETTINGS.MAXIMUM_ROUTE_DISTANCE_STUDS then
+				return true, "Already on selected island; no teleport dispatched", 0
+			end
+		end
+	end
+	if area.Spawn then return self:Travel(area.Spawn, area.World, area.Name, token, true) end
 	local permitted, reason = self:Guard()
 	if not permitted then return false, reason end
 	if token:CheckCancelled() then return false, "Cancelled" end
 	local path = area.DestinationPath
 	local expected = "Workspace.Worlds." .. tostring(area.World) .. ".Islands." .. tostring(area.Name) .. ".Island.Portal.Spawn"
 	if not self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND or not self.Config.ISLAND_SETTINGS.AUTO_SELECT_BEST_ISLAND
-		or not area.CatalogKnown or path ~= expected or #area.Zones == 0 or area.MappingWarning or not self:Unlocked(area.World, area.Name) then
+		or not area.CatalogKnown or path ~= expected or area.MappingWarning or not self:Unlocked(area.World, area.Name) then
 		return false, "Native island destination/access/zone evidence unavailable"
 	end
 	if not self:Available("TRAVEL:" .. path) or os.clock() - self.LastTravelAt < self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS then return false, "Travel cooldown/backoff" end
@@ -211,7 +267,11 @@ function GameMechanics:TravelIsland(area, token)
 	self.LastTravelAt = started
 	-- Matches native WorldMap/WorldUtil; a server destination need not be replicated locally.
 	if token:CheckCancelled() then return false, "Cancelled" end
-	remote:FireServer("Teleport", path)
+	local sent, transportError = pcall(function() remote:FireServer("Teleport", path) end)
+	if not sent then
+		self:Failure("TRAVEL:" .. path, self.Config.ISLAND_SETTINGS.TRAVEL_RETRY_COOLDOWN_SECONDS, tostring(transportError))
+		return false, "Native teleport invocation failed: " .. tostring(transportError)
+	end
 	while not token:CheckCancelled() and os.clock() - started < self.Config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS do
 		self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
 		local actual = self.Tracker.Current

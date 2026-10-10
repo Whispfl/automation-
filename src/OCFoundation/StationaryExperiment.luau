@@ -50,7 +50,7 @@ function StationaryExperiment:Collect(decision, token)
 	local saleSequence, previousBubble = owner.SaleSequence or 0, initialBubble
 	local previous, after = before, before
 	local contaminated, missing, areaChanged = false, false, false
-	local ids, currencies, outside, invocationSucceeded = {}, {}, 0, true
+	local ids, currencies, outside, invocationSucceeded, cleaned = {}, {}, 0, true, 0
 	local function observe()
 		after = owner.Reader:ReadBalances()
 		for _, currency in ipairs({ "Coins", "Gems" }) do
@@ -76,17 +76,23 @@ function StationaryExperiment:Collect(decision, token)
 		end
 		if token:CheckCancelled() or areaChanged or os.clock() >= deadline then break end
 		local requested, invocation, evidence = owner.Mechanics:CollectStationary(record, token)
-		if not requested then reason = invocation continue end
+		if not requested then
+			reason = invocation
+			if owner.Mechanics.PendingPickupCleanup then break end
+			continue
+		end
 		self.StartedAt = self.StartedAt or started
 		self.Requests += 1
 		local state = self.PerId[record.Id]
-		if not state or state.Model ~= record.Model then state = { Attempts = 0, Key = record.RegistryKey or record.Id, Model = record.Model } end
+		if not state or state.Model ~= record.Model then state = setmetatable({ Attempts = 0, Key = record.RegistryKey or record.Id, Model = record.Model }, { __mode = "v" }) end
 		self.PerId[record.Id] = state
 		state.Attempts += 1 state.Until = os.clock() + settings.STATIONARY_ID_RETRY_SECONDS state.LastSeen = os.clock()
 		state.Dispatched = evidence.InvocationSucceeded -- Invocation deduplication, never credit evidence.
 		table.insert(ids, record.Id) currencies[record.Currency] = true
 		if evidence.OutsideNativeRange then outside += 1 end
 		invocationSucceeded = invocationSucceeded and evidence.InvocationSucceeded
+		if evidence.VisualCleaned then cleaned += 1 end
+		if evidence.CleanupError then owner.Controller:Log("PICKUP][CLEANUP_ERROR", "id=" .. tostring(record.Id) .. " | " .. evidence.CleanupError .. "; dispatch is not credit") end
 		owner.Controller:Log("PICKUP][STATIONARY_REQUEST", string.format("id=%s currency=%s distance=%.2f radius=%s outsideNative=%s | %s",
 			tostring(record.Id), record.Currency, evidence.Distance, tostring(evidence.Radius), tostring(evidence.OutsideNativeRange), invocation))
 		observe()
@@ -143,10 +149,10 @@ function StationaryExperiment:Collect(decision, token)
 		or (contaminated or missing or areaChanged) and "INCONCLUSIVE_WINDOW" or "INCONCLUSIVE_NO_MATCHING_CREDIT"
 	self.LastResult = { Ids = ids, BatchSize = #ids, CreditObserved = credit, Gains = gains, Before = before, After = after,
 		ObservedDeltas = deltas, ProcessingSeconds = processingSeconds, WindowSeconds = os.clock() - started, Outcome = outcome, Cancelled = cancelled,
-		OutsideNativeRange = outside > 0, OutsideNativeCount = outside, Contaminated = contaminated or missing or areaChanged,
+		VisualsCleaned = cleaned, OutsideNativeRange = outside > 0, OutsideNativeCount = outside, Contaminated = contaminated or missing or areaChanged,
 		InvocationSucceeded = invocationSucceeded, Reason = cancelled and reason or owner.Metrics.LastConfirmation, Attribution = "UNPROVEN: native collection/external rewards can contribute" }
-	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("batch=%d processing=%.3fs window=%.3fs outcome=%s creditObserved=%s outsideNative=%d | Coins gained=%s (%s -> %s) | Gems gained=%s (%s -> %s) | %s",
-		#ids, processingSeconds, os.clock() - started, outcome, tostring(credit), outside, tostring(deltas.Coins or "UNKNOWN"), tostring(before.Coins), tostring(after.Coins),
+	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("batch=%d visualsCleaned=%d processing=%.3fs window=%.3fs outcome=%s creditObserved=%s outsideNative=%d | Coins gained=%s (%s -> %s) | Gems gained=%s (%s -> %s) | %s",
+		#ids, cleaned, processingSeconds, os.clock() - started, outcome, tostring(credit), outside, tostring(deltas.Coins or "UNKNOWN"), tostring(before.Coins), tostring(after.Coins),
 		tostring(deltas.Gems or "UNKNOWN"), tostring(before.Gems), tostring(after.Gems), self.LastResult.Reason))
 	if cancelled then return nil end
 	return { Verified = credit, CreditObserved = credit, CombinedCreditObserved = credit and decision.Mode == "COMBINED", Gains = gains, Reason = owner.Metrics.LastConfirmation }

@@ -4,11 +4,12 @@ Phase 1 remains owner-approved. Phase 2 remains unapproved; Phase 3 has not star
 Stationary pickup requests now use the Flame reference's genuine-ID approach in
 the existing Brain/scheduler. Only its pickup mechanism is used.
 
-Run [examples/StationaryOnly.luau](examples/StationaryOnly.luau) after manually
-standing on unlocked **The Void** or **Zen** in **The Overworld**.
+Run [examples/StationaryOnly.luau](examples/StationaryOnly.luau). OC checks actual
+LocalData unlocks, prefers **Zen**, falls back to **The Void**, and uses native
+island teleportation in **The Overworld** before waiting for stable arrival.
 [Loader.luau](examples/Loader.luau) and [PickupOnly.luau](examples/PickupOnly.luau)
 contain the same complete continuous configuration. This test disables OC blowing,
-selling, exploration, travel, purchases and equipment changes to isolate balances.
+selling, exploration, purchases and equipment changes to isolate balances.
 
 ## Public loader
 
@@ -40,21 +41,27 @@ retains the Phase 1 account report.
 - No lifetime quota, expiry or permanent position invalidation. Old quota/time/
   drift settings are deprecated no-ops. Manual position changes permit continued
   farming once new eligible IDs are available.
-- OC never destroys pickup Models, edits the game registry, walks, pathfinds,
-  repositions the character or enables a movement fallback.
+- After successful dispatch, OC calls the actual native pickup Chunker's Remove,
+  clears only the matching registry entry, and destroys that local visual Model.
+  Failed dispatches retain their pickups. Cleanup failure holds further dispatches
+  and retries cleanup with backoff; no hidden Model store is created.
+- No walking, pathfinding, pickup repositioning or movement fallback. Native
+  teleportation is for selected-island travel only. Already on the selected island
+  means no repeated teleport; locked islands are never unlocked automatically.
 
 STATIONARY_RESULT prints actual Coins/Gems gains, before/after balances, batch size,
-processing/window times and matching-credit or inconclusive outcomes. Matching balance
+processing/window times, visuals cleaned and matching-credit or inconclusive outcomes. Matching balance
 increases are required for observed credit; invocation and disappearance never
 establish collection success. Native collection and other rewards can contribute.
-The owner reports actual Zen currency increases during some outside-native-radius
-requests. Each batch still verifies balances; individual server acceptance remains
+The owner reports continuous stationary collection earning actual Coins and Gems.
+Cleanup and automatic startup travel require this build's owner test. Each batch
+still verifies balances; individual server acceptance remains
 unknown and the implementation does not assume all requests succeed.
 
 See [test instructions and evidence limits](docs/STATIONARY_TEST.md).
 [CombinedFarming.luau](examples/CombinedFarming.luau) preserves cooperative background
-blowing in the same lease. Native selling and island teleportation remain separately
-configurable; purchase toggles stay disabled in farming examples.
+blowing in the same lease. Selling remains separately configurable and preserves
+the farming island for native return travel; purchase toggles stay disabled in farming examples.
 
 Studio tools are strictly read-only. Source inspection, offline tests and bundle
 verification are not live gameplay verification. The owner-confirmed saved session

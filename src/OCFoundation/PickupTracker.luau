@@ -64,7 +64,7 @@ end
 
 function PickupTracker.new(config, reader, player, knowledge)
 	return setmetatable({ Config = config, Reader = reader, Knowledge = knowledge or GameKnowledge.new(reader), Player = player, Zones = {}, Areas = {},
-		Metadata = {}, Models = {}, Backoff = {}, Connections = {}, Prefabs = nil,
+		Metadata = {}, Models = {}, ModelIds = {}, Backoff = {}, Connections = {}, Prefabs = nil,
 		LastZoneRefresh = -math.huge, LastScan = -math.huge, ObservedSpawns = 0, Disappeared = 0,
 		LastPrefabRefresh = -math.huge, IdentityCache = {}, PrefabRevision = 0,
 		NativeSpawnEvents = 0, NativeSpawnRecords = 0,
@@ -359,6 +359,11 @@ function PickupTracker:IsActive(record)
 	return true
 end
 
+function PickupTracker:ForgetCollected(record)
+	self.Models[record.Model], self.IdentityCache[record.Model], self.ModelIds[record.Model] = nil, nil, nil
+	self.Metadata[record.Id], self.Backoff[record.Id] = nil, nil
+end
+
 function PickupTracker:_scan(now)
 	if not self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS or not self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING then return end
 	self:_prefabs(now)
@@ -369,6 +374,11 @@ function PickupTracker:_scan(now)
 		if model and #report.Examples < 3 then table.insert(report.Examples, model:GetFullName() .. " | " .. reason) end
 	end
 	local objects = self:_discover(report, reject)
+	local liveIds = {}
+	for _, model in ipairs(objects) do liveIds[model.Name] = true end
+	for id, metadata in pairs(self.Metadata) do
+		if not liveIds[id] and now - metadata.At > 300 then self.Metadata[id] = nil end
+	end
 	local seen, root = {}, self:Root()
 	for _, area in pairs(self.Areas) do
 		area.Available = {} area.VisibleCount = 0 area.EligibleCount = 0 area.UnknownCount = 0 area.CurrencyCount = 0
@@ -508,6 +518,7 @@ function PickupTracker:Destroy()
 	self.Destroyed = true
 	for _, connection in ipairs(self.Connections) do connection:Disconnect() end
 	table.clear(self.Models) table.clear(self.Metadata) table.clear(self.Backoff)
+	table.clear(self.IdentityCache) table.clear(self.ModelIds)
 end
 
 return PickupTracker

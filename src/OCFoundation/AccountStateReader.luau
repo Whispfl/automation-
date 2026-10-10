@@ -373,7 +373,9 @@ function AccountStateReader:Start()
 		end
 		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM then
 			if self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
-				and self.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY then self:_load("Tutorial", "Client.Tutorial") end
+				and self.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY then
+				self:_load("Tutorial", "Client.Tutorial") self:_load("Chunker", "Shared.Utils.Chunker")
+			end
 			self:_load("GetPickupZones", "Shared.Utils.GetPickupZones", "function")
 			self:_load("Remote", "Shared.Framework.Network.Remote")
 			self:_load("GuiFrame", "Client.Gui.GuiFrame")

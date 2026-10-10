@@ -33,6 +33,8 @@ function ConfigResolver.Resolve(defaults, overrides)
 		end
 	end
 	assert(result.FARMING_SETTINGS.FARMING_STRATEGY == "EFFICIENCY" or result.FARMING_SETTINGS.FARMING_STRATEGY == "PICKUP_FIRST", "[OC] Unknown FARMING_STRATEGY")
+	local preferred = result.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND
+	assert(preferred == "" or preferred == "Zen" or preferred == "The Void", "[OC] PREFERRED_FARMING_ISLAND must be Zen, The Void or empty")
 	local pickup = result.PICKUP_SETTINGS
 	if pickup.COLLECTION_METHOD == "STATIONARY_EXPERIMENT" then pickup.COLLECTION_METHOD = "STATIONARY" end -- Old Config compatibility.
 	assert(pickup.COLLECTION_METHOD == "STATIONARY", "[OC] Only STATIONARY pickup collection is supported")

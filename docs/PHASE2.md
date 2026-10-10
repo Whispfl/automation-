@@ -2,7 +2,28 @@
 
 Phase 1 is owner-tested and approved. Phase 2 is an implementation candidate, **not an owner-approved gameplay pass**. The definitive input is the user's final pasted specification and [updated Notion revision](https://app.notion.com/p/3f53d7e9278d8145a85aff38d5497e12). Older requests to install/test code through Studio are superseded: all code is maintained in this repository, Studio tools are read-only, and the owner executes the published bundle.
 
-## Latest follow-up: continuous stationary-only batches
+## Latest follow-up: pickup visual cleanup and automatic native island travel
+
+The owner confirms continuous stationary 32-ID collection earning real Coins/Gems,
+but reports accumulated local pickup Models. This targeted fix performs native
+Chunker.Remove, identity-checked registry cleanup and Model destruction only after
+successful adapter dispatch. It retains LocalData credit checks independently;
+cleanup and invocation never prove server credit. Failed invocation preserves the
+visual; failed cleanup holds further dispatches and retries without redispatch.
+Retired diagnostics expire and no hidden Models are retained.
+
+The same island policy/scheduler now prefers actually unlocked Zen, falls back to
+The Void if Zen is locked/unavailable, and uses the inspected native Teleport path.
+Stable observed arrival and the existing arrival grace precede pickups. An already
+selected island is retained even when pickups are temporarily absent. Locked or
+unknown islands block travel; there is no unlock action. Pause/Stop prevent new
+travel and pickup requests. Selling remains disabled in the ready configuration;
+the existing saved farming-origin/native return mechanism is preserved.
+
+The owner must test this build's cleanup and startup travel. Phase 2 remains pending
+overall live approval; Phase 3 has not started. See [STATIONARY_TEST.md](STATIONARY_TEST.md).
+
+## Earlier follow-up: continuous stationary-only batches
 
 The owner's critical instruction supersedes movement-based collection and fallback
 requirements below. See [STATIONARY_TEST.md](STATIONARY_TEST.md). Walking/pathfinding

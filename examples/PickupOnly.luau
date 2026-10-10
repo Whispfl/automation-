@@ -1,5 +1,5 @@
--- Continuous stationary farming with isolated balance logging. Manually stand on unlocked The Void or Zen first.
--- No OC walking, repositioning, teleportation, blowing, selling, or purchases.
+-- Continuous stationary farming: native travel to unlocked Zen, with The Void as fallback.
+-- Native island teleportation only; no pickup movement, blowing, selling, or purchases.
 -- Omitted values inherit central OCConfig; each batch checks real balances without assuming every ID succeeded.
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true }, --// Start the central Brain and scheduler.
@@ -15,13 +15,14 @@ local Config = {
 	},
 	ISLAND_SETTINGS = {
 		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Actual unlock membership is rechecked before every request.
-		AUTO_SELECT_BEST_ISLAND = false, --// Manually choose either unlocked selected island.
+		AUTO_SELECT_BEST_ISLAND = true, --// Select an actually unlocked approved island.
+		PREFERRED_FARMING_ISLAND = "Zen", --// Fall back to The Void when Zen is unavailable or locked.
 		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Never explore automatically during isolation.
-		AUTO_TRAVEL_BEST_ISLAND = false, --// Never teleport during isolation.
+		AUTO_TRAVEL_BEST_ISLAND = true, --// Native island travel followed by stable arrival; never approach pickups.
 	},
 	PICKUP_SETTINGS = {
 		COLLECTION_METHOD = "STATIONARY", --// Only supported OC pickup strategy.
-		STATIONARY_ISOLATED_TEST = true, --// Executor also blocks stale non-pickup action tasks.
+		STATIONARY_ISOLATED_TEST = true, --// Permit approved island travel and pickups; block other farming actions.
 		STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, --// Pace requests at least 50 ms apart.
 		STATIONARY_MAXIMUM_BATCH_SIZE = 32, --// Process remaining IDs in subsequent scheduler batches.
 		STATIONARY_BATCH_COOLDOWN_SECONDS = 1, --// Idle at least one second between completed batches.

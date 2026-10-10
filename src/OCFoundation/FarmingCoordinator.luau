@@ -254,6 +254,7 @@ function FarmingCoordinator:Context(plan)
 	local tracker, mechanics = self.Tracker, self.Mechanics
 	local islands, areaRates = {}, {}
 	for _, area in pairs(tracker.Areas) do
+		area.ActualUnlocked = mechanics:Unlocked(area.World, area.Name)
 		area.InBackoff = not mechanics:Available("ISLAND:" .. area.Key)
 		local destination = area.Spawn and area.Spawn:GetFullName() or area.DestinationPath
 		if destination then
@@ -271,7 +272,7 @@ function FarmingCoordinator:Context(plan)
 	local context = { Current = tracker.Current, Islands = islands, AreaRates = areaRates,
 		SceneReady = tracker.LastZoneRefresh > -math.huge and tracker.Error == nil,
 		Rates = self:_pickupRates(currentKey, now), Sells = mechanics:SellStations(), CanInteract = allowed,
-		CanBlow = canBlow, CanTravel = not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND
+		CanBlow = canBlow, CanTravel = self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND
 			and now - mechanics.LastTravelAt >= self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS,
 		Blocker = reason or tracker.Error, BlowBlocker = bubbleReason, Now = now, ArrivedAt = tracker.ArrivedAt,
 		ReturnKey = self.ReturnKey,
@@ -301,10 +302,8 @@ function FarmingCoordinator:Context(plan)
 	end
 	local currency = self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and "Coins" or FarmingPolicy.Target(self.Config, snapshot, plan, context)
 	context.Cluster = currency and tracker:Cluster(currency) or nil
-	if context.Cluster then
-		local candidate, stationaryReason = self.Stationary:Candidate(context.Cluster)
-		if not candidate then context.Cluster = nil tracker.ClusterReason = stationaryReason end
-	end
+	local candidate, stationaryReason = self.Stationary:Candidate(context.Cluster)
+	if not candidate then context.Cluster = nil tracker.ClusterReason = stationaryReason end
 	context.PickupUnavailableReason = tracker.Error or tracker.ClusterReason
 	context.ActiveSweepPending = false
 	-- A zero-yield completed trial must not be advertised as proven bubble income merely because time elapsed.
@@ -535,7 +534,10 @@ function FarmingCoordinator:Definition(decision, generation)
 		Execute = function(token)
 			if token:CheckCancelled() or generation ~= self.Controller.Generation then return nil end
 			if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and decision.Kind ~= "INSPECT"
-				and (decision.Kind ~= "FARM" or decision.Mode ~= "PICKUPS") then return { Verified = false, Reason = "Isolated stationary experiment blocks other OC actions" } end
+				and (decision.Kind ~= "FARM" or decision.Mode ~= "PICKUPS")
+				and (decision.Kind ~= "TRAVEL" or not self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND or not FarmingPolicy.IsStationaryArea(self.Config, decision.Island)) then
+				return { Verified = false, Reason = "Pickup-only mode permits selected-island travel, inspection and stationary collection only" }
+			end
 			if decision.Kind == "TRAVEL" and not FarmingPolicy.IsFarmingArea(self.Config, decision.Island) then return { Verified = false, Reason = "Travel destination excluded or stale" } end
 			if decision.Kind == "FARM" and decision.Mode ~= "BUBBLES" and
 				(not FarmingPolicy.IsFarmingArea(self.Config, self.Tracker.Current) or not decision.Cluster or decision.Cluster.AreaKey ~= self.Tracker.Current.Key) then
@@ -554,6 +556,7 @@ function FarmingCoordinator:Definition(decision, generation)
 					self.ProbeStart = raw and raw.Bubble and { Amount = raw.Bubble.Amount, At = os.clock() } or nil
 				end
 			elseif decision.Kind == "INSPECT" then
+				self.Mechanics:RetryPickupCleanup(token)
 				local ready = self.PickupProbe and os.clock() >= self.PickupProbe.ReadyAt
 				self.Metrics:SetMode(nil, scope, beforeBalances, os.clock())
 			elseif decision.Kind ~= "SELL" or (self.Metrics.Active and (self.Metrics.Active.Mode == "PICKUPS" or self.Metrics.Active.Mode == "STATIONARY")) then
@@ -633,6 +636,7 @@ function FarmingCoordinator:Halt(preserveReturn)
 	self.Activity = nil self.ProbeStart = nil self.PendingSale = nil self.EmptySince = {} self.PickupProbe = nil self.FullSince = nil self.CombinedProbeStart = nil
 	self.RouteContinuation = nil self.Cycle = nil
 	self.Stationary.LastSampleAt, self.Stationary.LastSampleArea = nil, nil -- Resumed sessions exclude paused time without resetting ID deduplication.
+	self.Knowledge:ReleaseChunkerObserver()
 	if not preserveReturn then self.ReturnKey = nil end
 end
 
@@ -648,6 +652,7 @@ function FarmingCoordinator:GetStatus()
 		Rates = self:_pickupRates(current and current.Key or "UNKNOWN", os.clock()), Scan = self.Tracker.ScanReport, CollectionBlocker = self.Tracker.ClusterReason,
 		ConfirmedCycles = self.Metrics.ConfirmedCycles, LastConfirmation = self.Metrics.LastConfirmation,
 		Error = self.Tracker.Error, GameKnowledge = self.Knowledge:GetStatus(), Stationary = self.Stationary:GetStatus(),
+		CleanupBlocker = self.Mechanics.PendingPickupCleanup and self.Mechanics.PendingPickupCleanup.Reason,
 		CollectionMethod = "Continuous stationary ID batches; batch credit checked against LocalData; no movement fallback" }
 end
 
@@ -655,6 +660,7 @@ function FarmingCoordinator:Destroy()
 	self:Halt() self.Destroyed = true
 	if self.ObservationThread then pcall(task.cancel, self.ObservationThread) end
 	self.Tracker:Destroy()
+	self.Knowledge:Destroy()
 end
 
 return FarmingCoordinator

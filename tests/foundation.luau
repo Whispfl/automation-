@@ -72,7 +72,7 @@ local function config(overrides)
 	-- Broad synthetic fixtures exercise separately configured future policies. Production
 	-- defaults/isolated behavior are tested explicitly without these fixture overrides.
 	local values = { PICKUP_SETTINGS = { STATIONARY_ISOLATED_TEST = false },
-		ISLAND_SETTINGS = { SELECTED_ISLANDS = {}, AUTO_TRAVEL_BEST_ISLAND = true, AUTO_EXPLORE_UNLOCKED_ISLANDS = true } }
+		ISLAND_SETTINGS = { SELECTED_ISLANDS = {}, PREFERRED_FARMING_ISLAND = "", AUTO_TRAVEL_BEST_ISLAND = true, AUTO_EXPLORE_UNLOCKED_ISLANDS = true } }
 	for category, settings in pairs(overrides or {}) do
 		values[category] = values[category] or {}
 		for key, value in pairs(settings) do values[category][key] = value end

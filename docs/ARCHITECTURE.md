@@ -3,8 +3,9 @@
 This is the owner's global architecture instruction. Phase 1 is owner-approved;
 Phase 2 bubbles, selling and island teleportation have owner-observed success.
 Prior movement-based pickups had owner verification. The owner's latest instruction
-removes movement collection; continuous paced stationary-only batches await live
-credit results. Combined farming, upgrades and Phase 2 approval remain pending. Phases 3–9 remain plans and have
+removes movement collection; the owner now reports continuous stationary batches
+earning real Coins and Gems. Post-dispatch visual cleanup and automatic preferred
+island travel await this build's owner test. Combined farming, upgrades and Phase 2 approval remain pending. Phases 3–9 remain plans and have
 no new executors in this build.
 
 ## Sources and reusable layers
@@ -15,15 +16,24 @@ no new executors in this build.
 | Native interfaces and capabilities | ReplicatedStorage.Client, Remotes and Shared.Framework; GameKnowledge contract/status and GameMechanics | Inspect client behavior, argument shape, guards, cooldowns and result channels. Pickup contract records client source evidence and unknown server validation; no batch capability is invented. Dependency READY means loaded, not an action verified. |
 | Live account | AccountStateReader using Client.Framework.Services.LocalData | Actual balances, ownership/equipment, inventory, Mastery and unlock membership. No profile replacement or fabricated progress. Phase 1's approved reader/loader remains intact. |
 | Live world | PickupTracker / existing scene adapters | Rendered objects, native zone geometry, character location, interaction positions and changing availability. Resolve scene observations against definitions instead of deriving rewards from object names. |
-| Supported actions | GameMechanics, leased by OCBrain through TaskScheduler / OCController | Native commands and paced batches of genuine stationary IDs. Walking/pathfinding are removed. Optional isolation blocks non-pickup OC actions. No session quota, position latch or independent action-choice loop. |
+| Supported actions | GameMechanics, leased by OCBrain through TaskScheduler / OCController | Native commands, paced genuine-ID stationary batches and post-dispatch native Chunker/visual cleanup. Walking/pathfinding are removed. Pickup isolation permits selected-island native travel while blocking other earning actions. No session quota, position latch or independent action-choice loop. |
 | Action verification | FarmingCoordinator, existing StationaryExperiment module and ResourceMetrics, received LocalData updates | Matching actual currency credit, bubble changes, native arrival and prior purchase/equipment verification. Invocation/disappearance never prove credit. Position changes never permanently disable farming. Combined rates require growth/credit/sale/return. Native/external rewards limit attribution; server acceptance remains unknown. Offline tests do not prove gameplay execution. |
 
 GameKnowledge introduces no second module loader, discovery loop or action loop.
 It exposes the same game dependencies already cached by the approved reader,
-ReplicatedStorage asset access, read-only native active pickup registry access, and an evidence-qualified pickup contract. The
+ReplicatedStorage asset access, native active pickup registry access, and an evidence-qualified pickup contract. The
 pickup tracker now consumes that shared facade; legacy working adapters continue
 using the same underlying cache. Future features extend this facade after their
 native interfaces are inspected, rather than replacing working modules wholesale.
+
+The pickup Chunker instance is private to ClientScript. GameKnowledge temporarily
+observes the shared Chunker.Update receiver, delegates the original call unchanged,
+and identifies the genuine pickup instance by its folder and registered loaded
+Models. It restores Update on capture, observation timeout, Pause/Stop or Destroy.
+No remote or cleanup action runs in this observer. Only the existing foreground
+adapter calls native Remove after dispatch; this releases chunk and Unloaded/
+animation references before destroying the visual. No runtime object enumeration,
+upvalue manipulation, hidden-model container or independent automation loop is used.
 
 `controller.Knowledge:GetStatus()` and
 `controller:GetStatus().Farming.GameKnowledge` expose source/load status and the

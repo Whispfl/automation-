@@ -79,12 +79,13 @@ return {
 		AUTO_FARM_FALLBACK = true, --// Permit another useful eligible activity when the preferred farming method is unavailable.
 	},
 	ISLAND_SETTINGS = {
-		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Manual placement by default; future island exploration requires explicit configuration.
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = false, --// Do not explore beyond the configured preferred island and fallback.
 		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Wait this long before repeating an island/currency trial, including empty or failed trials.
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End a pickup trial at this limit if no adequate actual earning sample is obtained.
 		ARRIVAL_PICKUP_GRACE_SECONDS = 3, --// Keep scanning during this bounded arrival-loading period before measuring a pickup trial.
-		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked islands using goal-currency value and observed area rates.
-		AUTO_TRAVEL_BEST_ISLAND = false, --// Initial stationary experiment never travels; future native travel is separately configured.
+		AUTO_SELECT_BEST_ISLAND = true, --// Apply configured preference, or rank unlocked islands by income when the preference is empty.
+		AUTO_TRAVEL_BEST_ISLAND = true, --// Use verified native island teleportation; pickup collection remains stationary.
+		PREFERRED_FARMING_ISLAND = "Zen", --// Prefer this selected unlocked Overworld island, with The Void as fallback; empty retains efficiency-based selection.
 		SELECTED_ISLANDS = { "The Void", "Zen" }, --// Only these unlocked Overworld islands are approved farming destinations.
 		MIN_ISLAND_GAIN_ADVANTAGE_PERCENT = 25, --// Require this net earning advantage before leaving a useful current island.
 		MIN_ISLAND_DWELL_SECONDS = 60, --// Stay on a viable island for this long before another farming-island switch.
@@ -99,7 +100,7 @@ return {
 	},
 	PICKUP_SETTINGS = {
 		COLLECTION_METHOD = "STATIONARY", --// Only approved pickup action; movement collection cannot be enabled.
-		STATIONARY_ISOLATED_TEST = false, --// Optional pickup-only balance test; blocks OC blowing, selling, travel and upgrades when true.
+		STATIONARY_ISOLATED_TEST = false, --// Optional pickup-only balance test; permits selected-island travel while blocking blowing, selling and upgrades.
 		STATIONARY_ALLOW_OUTSIDE_NATIVE_RANGE = true, --// Deprecated compatibility key; loaded eligible registry IDs are processed regardless of distance.
 		STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05, --// Pace individual real-ID requests inside each scheduled batch.
 		STATIONARY_MAXIMUM_BATCH_SIZE = 32, --// Process at most this many IDs per task; remaining and newly spawned IDs follow in later batches.
