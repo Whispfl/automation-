@@ -60,6 +60,33 @@ test("No known active deficit cannot borrow another candidate's need or invent a
 	data.Balances.Coins = nil assert(Policy.Decide(settings, data, plan, context, memory).Kind == "WAIT")
 end)
 
+test("Reported XL Gum affordability is WAIT under the existing upgrade budget without spending", function()
+	-- Supplied historical numbers in an offline fixture; not a current live account read.
+	local settings, data, plan, context, memory = goalFixture()
+	data.Balances = { Coins = 3305406, Gems = 881040 }
+	plan.Objective = { Id = "BUY_UPGRADE:XL Gum", Title = "Consider XL Gum",
+		Metadata = { Upgrade = "XL Gum", Cost = { Type = "Currency", Currency = "Coins", Amount = 650000 } } }
+	context.Current = { Key = "The Overworld", Name = "The Overworld", World = "The Overworld" }
+	local decision = Policy.Decide(settings, data, plan, context, memory)
+	assert(decision.Kind == "WAIT" and not decision.Island and not decision.Currency)
+	assert(data.Balances.Coins == 3305406 and data.Balances.Gems == 881040)
+end)
+
+test("Disabled unfinished bubble goals cannot initiate island travel and preserve pending cleanup or return", function()
+	local settings, data, plan, context, memory, void = goalFixture()
+	local requirement = { QuestId = "synthetic-unfinished-bubble", TaskIndex = 1, Type = "Bubbles", Current = 0, Required = 100 }
+	data.TaskRequirements = { requirement } plan.Objective.Metadata = { Requirement = requirement }
+	context.Current = { Key = "The Overworld", Name = "The Overworld", World = "The Overworld" }
+	local decision = Policy.Decide(settings, data, plan, context, memory)
+	assert(decision.Kind == "WAIT" and not decision.Island and decision.Reason:find("disabled; no island travel", 1, true))
+	context.PendingCleanup = true
+	decision = Policy.Decide(settings, data, plan, context, memory)
+	assert(decision.Kind == "INSPECT" and not decision.Island)
+	context.ReturnKey = void.Key
+	decision = Policy.Decide(settings, data, plan, context, memory)
+	assert(decision.Kind == "TRAVEL" and decision.Returning and decision.Island == void)
+end)
+
 test("Actual collect progress drives currency farming independently of existing balances", function()
 	local settings, data, plan, context, memory = goalFixture()
 	local taskRequirement = { QuestId = "received", TaskIndex = 1, Type = "Collect", Currency = "Gems", Current = 1, Required = 100 }

@@ -364,7 +364,9 @@ function FarmingPolicy.Decide(config, snapshot, plan, context, memory)
 	local diagnostic = config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and not currency and not bubbleGoal
 	if diagnostic then currency = config.FARMING_SETTINGS.CURRENCY_PRIORITIES[1] end -- Explicit pickup diagnostic; no bubble objective is invented.
 	decision.Currency, decision.Deficit, decision.Requirement = currency, deficit, requirement
-	if not currency and not bubbleGoal and not context.ReturnKey then
+	local bubbleActionsDisabled = not config.BUBBLE_SETTINGS.AUTO_BLOW_BUBBLES and not config.BUBBLE_SETTINGS.AUTO_SELL_BUBBLES
+	if not currency and (not bubbleGoal or bubbleActionsDisabled) and not context.ReturnKey then
+		if bubbleGoal then decision.Reason = "Actual bubble task pending, but blowing and selling are disabled; no island travel" end
 		if context.PendingCleanup then decision.Kind, decision.Reason = "INSPECT", "Finish pending cleanup of an already-dispatched pickup; no new farming goal" end
 		return decision
 	end

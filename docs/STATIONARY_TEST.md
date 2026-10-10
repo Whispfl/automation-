@@ -126,6 +126,9 @@ CombinedFarming.luau contain the same complete configuration and public dist/OC.
 loader. This is continuous farming while a real active resource goal remains:
 blowing, selling, exploration, purchases and equipment changes are disabled.
 STATIONARY_ISOLATED_TEST is false so an absent or satisfied goal goes idle.
+An unfinished bubble task also stays in WAIT when both bubble action permissions
+are off: it cannot trigger a new island trip. Previously dispatched pickup cleanup
+and a saved return from an earlier authorized selling trip remain permitted.
 
 Supported actual goals are received unfinished native Coins/Gems collection tasks
 or unmet verified currency costs in the Brain's active recommendation. Lower-ranked
