@@ -546,6 +546,8 @@ test("Collection needs disappearance and matching balance credit; combined gains
 	model.Parent = true decision.Mode = "PICKUPS"
 	controller.Reader.GetLiveProfile = function() return { Bubble = { Amount = model.Parent and 100 or 0 } } end
 	assert(not coordinator:_collection(decision, token).Verified, "Observed bubble selling cannot verify pickup credit")
+	model.Parent = true decision.Mode = "COMBINED"
+	assert(not coordinator:_collection(decision, token).CombinedCreditObserved, "Mixed sale credit cannot demonstrate combined pickup contribution")
 	coordinator:Destroy()
 end)
 

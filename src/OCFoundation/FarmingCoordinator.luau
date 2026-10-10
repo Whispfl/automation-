@@ -506,7 +506,7 @@ function FarmingCoordinator:_collection(decision, token)
 	local afterBubble = afterProfile and afterProfile.Bubble and afterProfile.Bubble.Amount
 	local mixedSale = self.PendingSale ~= nil or beforeSale ~= (self.SaleSequence or 0) or (type(beforeBubble) == "number" and type(afterBubble) == "number" and afterBubble < beforeBubble)
 	local verified = next(gains) ~= nil and decision.Mode == "PICKUPS" and not mixedSale
-	local combined = decision.Mode == "COMBINED" and next(gains) ~= nil
+	local combined = decision.Mode == "COMBINED" and next(gains) ~= nil and not mixedSale
 	if decision.Mode == "COMBINED" then
 		self.Controller:Log("FARM][BACKGROUND", "visit=" .. self.CollectionVisits .. " cycle=" .. tostring(self.Cycle and self.Cycle.Id) .. " requests=" .. requests .. " actual bubbles=" .. tostring(beforeBubble) .. " -> " .. tostring(afterBubble) .. " | " .. tostring(self.Mechanics.LastBlocker or "native guards applied"))
 	end
@@ -525,6 +525,8 @@ function FarmingCoordinator:_collection(decision, token)
 		self.Metrics:ConfirmCycle(before, after, "Native pickup disappearance and matching credit observed; external rewards can affect attribution")
 		for currency in pairs(gains) do self.PickupEvidence[cluster.AreaKey .. ":" .. currency] = os.clock() end
 		if self.PickupProbe and gains[self.PickupProbe.Currency] then self.PickupProbe.Confirmed = true end
+	elseif combined then
+		self.Metrics.LastConfirmation = "Combined pickup credit observed; full combined cycle and rate await sale/return; external rewards may contribute"
 	else
 		self.Metrics.UnconfirmedCycles += 1
 		self.Metrics.LastConfirmation = mixedSale and "Bubble sale may have contributed; isolated pickup credit unconfirmed" or (decision.Mode == "COMBINED" and "Combined balance gain; isolated pickup credit unconfirmed" or "Pickup credit unconfirmed: disappearance and matching currency increase are both required")
@@ -533,7 +535,7 @@ function FarmingCoordinator:_collection(decision, token)
 	self.Controller:Log("FARM][EARNINGS", "before: " .. balancesText(before) .. " | after: " .. balancesText(after) .. " | " .. self.Metrics.LastConfirmation)
 	self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
 	if self.Config.DIAGNOSTIC_SETTINGS.LOG_PICKUP_DIAGNOSTICS then
-		self.Controller:Log("PICKUP][RESULT", string.format("%s | targets before=%d after=%d disappeared=%d | before: %s | after: %s | %s", verified and "SUCCESS: matching live balance credit" or "UNCONFIRMED", beforeVisible, math.max(0, beforeVisible - disappeared), disappeared, balancesText(before), balancesText(after), self.Metrics.LastConfirmation))
+		self.Controller:Log("PICKUP][RESULT", string.format("%s | targets before=%d after=%d disappeared=%d | before: %s | after: %s | %s", verified and "SUCCESS: matching live balance credit" or combined and "CREDIT OBSERVED (COMBINED)" or "UNCONFIRMED", beforeVisible, math.max(0, beforeVisible - disappeared), disappeared, balancesText(before), balancesText(after), self.Metrics.LastConfirmation))
 	end
 	if not permitted and not continuing and not saleDue and self.Config.DIAGNOSTIC_SETTINGS.LOG_MOVEMENT_DIAGNOSTICS then
 		self.Controller:Log("MOVE][SKIP", tostring(reason) .. " | selected IDs in temporary backoff; other eligible targets remain available")
@@ -727,7 +729,7 @@ function FarmingCoordinator:Completed(status, result, reason)
 	self.Activity = nil
 	self.Metrics:Observe(self.Reader:ReadBalances(), os.clock())
 	if status == "FAILED" then self.Controller:Log("FARM][ERROR", tostring(result))
-	elseif result and not result.Verified and result.Reason then
+	elseif result and not result.Verified and not result.CombinedCreditObserved and result.Reason then
 		local now = os.clock()
 		if self.LastFallbackReason ~= result.Reason or now - (self.LastFallbackLogAt or -math.huge) >= math.max(5, self.Config.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then
 			self.LastFallbackReason, self.LastFallbackLogAt = result.Reason, now

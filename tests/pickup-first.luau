@@ -109,7 +109,7 @@ end)
 
 test("Actual background growth and pickup credit share one scheduled collection", function()
 	simulated(function(clock)
-		local coordinator, profile, area, root = coordinatorFixture()
+		local coordinator, profile, area, root, logs = coordinatorFixture()
 		local model = { Parent = true }
 		local record = { Id = "one", Model = model, Currency = "Coins", Position = Vector3.new(20, 3.5, 0) }
 		coordinator:_beginCombined(area.Key)
@@ -120,6 +120,7 @@ test("Actual background growth and pickup credit share one scheduled collection"
 		local result = coordinator:_collection({ Mode = "COMBINED", Cluster = { AreaKey = area.Key, Position = record.Position,
 			Records = { record }, Radius = 7.5, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }, { CheckCancelled = function() return false end })
 		assert(result.CombinedCreditObserved and coordinator.Cycle.Requests > 0 and coordinator.Cycle.GrowthAt and coordinator.Cycle.PickupAt)
+		assert(table.concat(logs, "\n"):find("CREDIT OBSERVED (COMBINED)", 1, true))
 		assert(coordinator:_pickupRates(area.Key, clock.Time).COMBINED == nil, "Unsold cycle cannot publish income")
 	end)
 end)
