@@ -202,6 +202,11 @@ function GameMechanics:Walk(point, token, deadline, tick, finished)
 	if not permitted then return false, reason end
 	local settings = self.Config.PICKUP_SETTINGS
 	local start = root.Position
+	local function reached(position, waypoint)
+		-- Pathfinding waypoints lie on the floor; HumanoidRootPart is above it.
+		local dx, dz = position.X - waypoint.X, position.Z - waypoint.Z
+		return dx * dx + dz * dz <= 9 and math.abs(position.Y - waypoint.Y) <= math.min(8, settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS)
+	end
 	if (point - start).Magnitude <= 2 then return true, "Already in range" end
 	if math.abs(point.Y - start.Y) > settings.MAXIMUM_VERTICAL_DIFFERENCE_STUDS then return false, "Destination is outside current island height" end
 	local path = game:GetService("PathfindingService"):CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 6 })
@@ -239,7 +244,7 @@ function GameMechanics:Walk(point, token, deadline, tick, finished)
 			local active, blockReason = self:Guard()
 			if not liveRoot or not active then result, message = false, blockReason or "Character unavailable" break end
 			if blocked and blocked >= index then result, message = false, "Path was blocked" break end
-			if (liveRoot.Position - waypoint.Position).Magnitude <= 3 then break end
+			if reached(liveRoot.Position, waypoint.Position) then break end
 			if finished and finished() then break end
 			if tick then tick() end
 			task.wait(0.1)
@@ -247,7 +252,7 @@ function GameMechanics:Walk(point, token, deadline, tick, finished)
 		if not result then break end
 		local liveRoot = self.Tracker:Root()
 		if token:CheckCancelled() then result, message = false, "Cancelled" break end
-		if not (finished and finished()) and (not liveRoot or (liveRoot.Position - waypoint.Position).Magnitude > 3) then
+		if not (finished and finished()) and (not liveRoot or not reached(liveRoot.Position, waypoint.Position)) then
 			result, message = false, os.clock() >= deadline and "Slice ended" or "Waypoint stalled" break
 		end
 	end

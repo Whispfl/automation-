@@ -234,13 +234,13 @@ test("Island discovery diagnostics explain every exclusion and trials respect co
 	local data, context, plan, memory = policyFixture()
 	context.IslandProbeHistory = {}
 	local decision = Policy.Decide(config(), data, plan, context, memory)
-	assert(decision.Probe and decision.Mode == "PICKUPS" and decision.Kind == "FARM", "Current-island trial precedes unknown destinations")
+	assert(decision.Probe and decision.Kind == "INSPECT", "Current-island loading trial precedes unknown destinations")
 	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = 100 }
 	memory.Mode = "BUBBLES" context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 18000 } }
 	decision = Policy.Decide(config(), data, plan, context, memory)
 	assert(decision.Mode == "PICKUPS", "Isolated trial must not become combined income or a global-mode hold")
 	context.Cluster = nil
-	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "WAIT")
+	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "INSPECT")
 	context.PickupProbe = nil context.Cluster = {}
 	local disabled = config({ ISLAND_SETTINGS = { AUTO_EXPLORE_UNLOCKED_ISLANDS = false } })
 	assert(not Policy.Decide(disabled, data, plan, context, memory).Probe)
@@ -358,6 +358,9 @@ test("Pickup trial ends on an actual sample or timeout and bubble sales cannot b
 	coordinator.Decision = { Currency = "Coins" }
 	coordinator.Metrics.Samples = { { At = now, Seconds = 15, Mode = "PICKUPS", Scope = context.Current.Key, Gains = { Coins = 10 } } }
 	coordinator:Observe()
+	assert(coordinator.PickupProbe ~= nil, "An elapsed sample alone is not pickup collection proof")
+	coordinator.PickupProbe.Attempts = 1 coordinator.PickupProbe.Confirmed = true
+	coordinator:Observe()
 	assert(coordinator.PickupProbe == nil and coordinator.IslandProbeHistory[context.Current.Key .. ":Coins"])
 	assert(messages[#messages]:find("actual sample", 1, true))
 	coordinator.Metrics.Samples = {}
@@ -373,6 +376,210 @@ test("Pickup trial ends on an actual sample or timeout and bubble sales cannot b
 	coordinator._sell = function() assert(coordinator.Metrics.Active.Mode == "BUBBLES") return { Verified = true } end
 	assert(coordinator:Definition(decision, 1).Execute({ CheckCancelled = function() return false end }).Verified)
 	coordinator:Destroy()
+end)
+
+
+-- Reproduces the verified native Model/folder/prefab contract, using synthetic geometry.
+local function pickupScene()
+	local Tracker = requireOC("PickupTracker")
+	local oldWorkspace, oldStorage = workspace.FindFirstChild, services.ReplicatedStorage.FindFirstChild
+	local function node(name, kind, parent)
+		local object = { Name = name, ClassName = kind, Parent = parent, Children = {} }
+		if parent and parent.Children then table.insert(parent.Children, object) end
+		function object:GetChildren() return self.Children end
+		function object:FindFirstChild(name) for _, child in ipairs(self.Children) do if child.Name == name then return child end end end
+		function object:GetDescendants()
+			local result = {} for _, child in ipairs(self.Children) do table.insert(result, child) for _, descendant in ipairs(child:GetDescendants()) do table.insert(result, descendant) end end return result
+		end
+		function object:IsA(class) return class == self.ClassName or (class == "BasePart" and (self.ClassName == "Part" or self.ClassName == "MeshPart")) end
+		function object:IsDescendantOf(ancestor) local at = self.Parent while at do if at == ancestor then return true end at = at.Parent end return false end
+		function object:GetFullName() return self.Parent and self.Parent.GetFullName and self.Parent:GetFullName() .. "." .. self.Name or self.Name end
+		function object:GetPivot() return { Position = self.Position } end
+		return object
+	end
+	local worlds = node("Worlds", "Folder", workspace)
+	local world = node("Synthetic", "Folder", worlds)
+	local islands = node("Islands", "Folder", world)
+	local a = node("A", "Folder", islands)
+	local island = node("Island", "Model", a)
+	local zoneRoot = node("Pickup", "Folder", island)
+	local rendered = node("Rendered", "Folder", workspace)
+	local folder = node("Pickups", "Folder", rendered)
+	local stages = node("Stages", "Folder", workspace)
+	local assets = node("Assets", "Folder", services.ReplicatedStorage)
+	local prefabs = node("Pickups", "Folder", assets)
+	workspace.FindFirstChild = function(_, name) return ({ Worlds = worlds, Rendered = rendered, Stages = stages })[name] end
+	services.ReplicatedStorage.FindFirstChild = function(_, name) return name == "Assets" and assets or nil end
+	local root, humanoid = { Position = Vector3.new(0, 103.5, 0) }, { Health = 100, WalkSpeed = 16 }
+	local pool = { { Chance = 100, Item = { Visual = "Gem", Item = { Type = "Currency", Currency = "Gems", Amount = 5 } } } }
+	local geometry = { Height = 100, GetDistanceToPoint = function() return 0 end }
+	local zones = { [zoneRoot] = { Area = "A", Count = 5, Zone = geometry, Pickups = pool } }
+	local reader = { GetLiveProfile = function() return {} end, RegisterCurrency = function() end,
+		_dependency = function(_, name)
+			if name == "GetPickupZones" then return function() return zones end end
+			if name == "Worlds" then return { Synthetic = { Islands = { { Name = "A" }, { Name = "B" } } } } end
+			if name == "StatsUtil" then return { GetCurrencyMultiplier = function() return 2 end, GetPickupRange = function() return 7.5 end } end
+		end }
+	local tracker = Tracker.new(config(), reader, { Character = { FindFirstChild = function() return root end, FindFirstChildOfClass = function() return humanoid end } })
+	local snapshot = { UnlockedWorlds = { Synthetic = true }, UnlockedIslands = { A = true, B = true }, AvailableProgression = { Islands = {} } }
+	local function meshModel(name, parent, meshId)
+		local model = node(name, "Model", parent) model.Position = Vector3.new(1, 102, 0)
+		local mesh = node("NativeMesh", "MeshPart", model)
+		mesh.MeshId, mesh.TextureID, mesh.Size = meshId or "synthetic-mesh", "synthetic-texture", Vector3.new(2, 2, 2)
+		return model
+	end
+	return { Tracker = tracker, Snapshot = snapshot, Node = node, Zones = zones, ZoneRoot = zoneRoot, Island = island,
+		Folder = folder, Prefabs = prefabs, Stages = stages, Pool = pool, Geometry = geometry, Root = root, MeshModel = meshModel,
+		Close = function() tracker:Destroy() workspace.FindFirstChild = oldWorkspace services.ReplicatedStorage.FindFirstChild = oldStorage end }
+end
+
+test("Cold-start scanning accepts duplicate same-name Gem prefabs and overlapping same-island zones", function()
+	local scene = pickupScene()
+	for index = 1, 4 do scene.MeshModel("Gem", scene.Prefabs) end
+	local existing = scene.MeshModel("existing-native-id", scene.Folder)
+	local extra = scene.Node("SecondZone", "Part", scene.Island)
+	scene.Zones[extra] = { Area = "A", Count = 1, Zone = scene.Geometry, Pickups = scene.Pool }
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	local report, record = scene.Tracker.ScanReport, scene.Tracker.Models[existing]
+	assert(report.Models == 1 and report.CurrencyCount == 1 and report.Unidentified == 0)
+	assert(record.Currency == "Gems" and record.Source == "LIVE_PREFAB_GEOMETRY" and record.RouteEligible)
+	assert(scene.Tracker:Cluster("Coins").Records[1] == record, "All native currencies participate in the frozen sweep")
+	scene.Folder.Children = {} existing.Parent = nil scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(scene.Tracker.Models[existing] == nil and scene.Tracker.ScanReport.RenderedObjects == 0)
+	local respawn = scene.MeshModel("new-native-id", scene.Folder)
+	scene.Tracker:Refresh(scene.Snapshot, 102)
+	assert(scene.Tracker.Models[respawn].Currency == "Gems" and scene.Tracker.RespawnObservations == 1)
+	scene.Close()
+end)
+
+test("Delayed prefabs recover on bounded refresh and distinct ambiguous visuals remain rejected", function()
+	local scene = pickupScene()
+	local existing = scene.MeshModel("existing-native-id", scene.Folder)
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	assert(scene.Tracker.ScanReport.Unidentified == 1)
+	scene.MeshModel("Gem", scene.Prefabs)
+	scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(scene.Tracker.Models[existing].Currency == nil)
+	scene.Tracker:Refresh(scene.Snapshot, 115)
+	assert(scene.Tracker.Models[existing].Currency == "Gems")
+	scene.MeshModel("Coin", scene.Prefabs)
+	table.insert(scene.Pool, { Chance = 100, Item = { Visual = "Coin", Item = { Type = "Currency", Currency = "Coins", Amount = 10 } } })
+	scene.Tracker:Refresh(scene.Snapshot, 130)
+	assert(scene.Tracker.Models[existing].Currency == nil and scene.Tracker.ScanReport.Rejected["Ambiguous prefab visuals in native pool"] == 1)
+	scene.Close()
+end)
+
+test("Jump-stage Area labels resolve to real worlds but cannot inflate island farming yields", function()
+	local scene = pickupScene()
+	local transit = scene.Node("Node", "Part", scene.Stages)
+	scene.Zones[transit] = { Area = "A", Count = 90, Zone = { Height = 2000, GetDistanceToPoint = function() return 0 end }, Pickups = scene.Pool }
+	scene.MeshModel("Gem", scene.Prefabs)
+	local model = scene.MeshModel("transit-id", scene.Folder) model.Position = Vector3.new(0, 2002, 0)
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	local area = scene.Tracker.Areas["Synthetic/A"]
+	assert(area.ZoneCount == 1 and area.TransitZoneCount == 1 and area.ConfiguredCount == 5 and area.Expected.Gems == 50)
+	assert(scene.Tracker.Areas["Live event/A"] == nil)
+	assert(scene.Tracker.Models[model].Currency == "Gems" and not scene.Tracker.Models[model].RouteEligible)
+	assert(scene.Tracker:Cluster("Gems") == nil)
+	scene.Close()
+end)
+
+test("Different-area overlap requires metadata and unexpected native classes are diagnosed", function()
+	local scene = pickupScene()
+	scene.MeshModel("Gem", scene.Prefabs)
+	local existing = scene.MeshModel("existing-id", scene.Folder)
+	local other = scene.Node("OtherArea", "Part", workspace)
+	scene.Zones[other] = { Area = "B", Count = 1, Zone = scene.Geometry, Pickups = scene.Pool }
+	scene.Node("Unexpected", "Part", scene.Folder)
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	assert(scene.Tracker.ScanReport.Unidentified == 1 and scene.Tracker.ScanReport.Rejected["Unexpected native pickup class Part"] == 1)
+	assert(scene.Tracker.ScanReport.Rejected["Overlapping zones from different areas; metadata required"] == 1)
+	scene.Tracker.Metadata[existing.Name] = { Root = scene.ZoneRoot, Visual = "Gem", At = 100 }
+	scene.Tracker:Refresh(scene.Snapshot, 101)
+	assert(scene.Tracker.Models[existing].Currency == "Gems")
+	scene.Tracker.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING = false
+	local at = scene.Tracker.ScanReport.At scene.Tracker:Refresh(scene.Snapshot, 102)
+	assert(scene.Tracker.ScanReport.At == at and scene.Tracker:Cluster("Gems") == nil)
+	scene.Close()
+end)
+
+test("Radius routing uses a midpoint to cover two pickups with one movement", function()
+	local scene = pickupScene()
+	scene.MeshModel("Gem", scene.Prefabs)
+	local first, second = scene.MeshModel("first", scene.Folder), scene.MeshModel("second", scene.Folder)
+	first.Position, second.Position = Vector3.new(20, 103.5, -6), Vector3.new(20, 103.5, 6)
+	scene.Tracker:Refresh(scene.Snapshot, 100)
+	local cluster = scene.Tracker:Cluster("Gems")
+	assert(#cluster.Records == 2 and cluster.Position.X == 20 and cluster.Position.Z == 0 and cluster.Radius == 7.5)
+	scene.Close()
+end)
+
+test("Arrival grace keeps a full bubble from interrupting an active isolated pickup trial", function()
+	local data, context, plan, memory = policyFixture()
+	data.Bubble.Amount = data.Bubble.Capacity
+	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = 103, ReadyAt = 103 }
+	local result = Policy.Decide(config(), data, plan, context, memory)
+	assert(result.Kind == "INSPECT", "Wait through loading grace without a bubble sale")
+	context.Now = 104 result = Policy.Decide(config(), data, plan, context, memory)
+	assert(result.Kind == "FARM" and result.Mode == "PICKUPS")
+	context.PickupProbe = nil
+	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "SELL", "Presell already-full bubbles before a new trial")
+end)
+
+test("Collection needs disappearance and matching balance credit; combined gains stay unattributed", function()
+	local Coordinator = requireOC("FarmingCoordinator")
+	local coins, disappear, credit = 100, false, false
+	local controller = { Config = config(), Reader = { ReadBalances = function() return { Coins = coins } end, GetSnapshot = function() return {} end, GetLiveProfile = function() return {} end }, Log = function() end }
+	local coordinator = Coordinator.new(controller, {})
+	local model = { Parent = true }
+	coordinator.Tracker.Current = { Key = "Synthetic/A", VisibleCount = 1, EligibleCount = 1 }
+	coordinator.Tracker.Refresh = function() end coordinator.Tracker.BackOff = function() end
+	coordinator.Mechanics.Walk = function() if disappear then model.Parent = nil end if credit then coins += 10 end return true end
+	coordinator._settle = function() end coordinator._awaitCredit = function() return { Coins = coins } end
+	local decision = { Mode = "PICKUPS", Cluster = { Records = { { Model = model, Currency = "Coins" } }, AreaKey = "Synthetic/A", Position = Vector3.new(0, 0, 0), Radius = 7.5, SweepId = 1, SweepRemaining = 1, SweepTotal = 1 } }
+	local token = { CheckCancelled = function() return false end }
+	disappear = true assert(not coordinator:_collection(decision, token).Verified)
+	model.Parent = true disappear = false credit = true assert(not coordinator:_collection(decision, token).Verified)
+	model.Parent = true disappear = true credit = true assert(coordinator:_collection(decision, token).Verified)
+	assert(coordinator.PickupEvidence["Synthetic/A:Coins"] and coordinator.Metrics.ConfirmedCycles == 1)
+	model.Parent = true decision.Mode = "COMBINED" assert(not coordinator:_collection(decision, token).Verified)
+	model.Parent = true decision.Mode = "PICKUPS"
+	controller.Reader.GetLiveProfile = function() return { Bubble = { Amount = model.Parent and 100 or 0 } } end
+	assert(not coordinator:_collection(decision, token).Verified, "Observed bubble selling cannot verify pickup credit")
+	coordinator:Destroy()
+end)
+
+test("Pathfinding floor waypoints allow the normal HumanoidRootPart height offset", function()
+	local root = { Position = Vector3.new(0, 3.5, 0), Parent = true }
+	local humanoid = { MoveTo = function(_, point) root.Position = Vector3.new(point.X, 3.5, point.Z) end, Move = function() end }
+	local mechanics = Mechanics.new(config(), {}, { Root = function() return root, humanoid end }, {})
+	mechanics.Guard = function() return true, nil, root, humanoid end
+	local destroyed = false
+	local path = { Status = Enum.PathStatus.Success, Blocked = event().Event, ComputeAsync = function() end,
+		GetWaypoints = function() return { { Position = Vector3.new(0, 0, 0) }, { Position = Vector3.new(10, 0, 0) } } end,
+		Destroy = function() destroyed = true end }
+	services.PathfindingService = { CreatePath = function() return path end }
+	local oldSpawn = task.spawn
+	task.spawn = function(callback) local thread = coroutine.create(callback) assert(coroutine.resume(thread)) return thread end
+	local success, reason = mechanics:Walk(Vector3.new(10, 0, 0), { CheckCancelled = function() return false end }, os.clock() + 6)
+	task.spawn = oldSpawn services.PathfindingService = nil
+	assert(success and destroyed and reason == "Cluster reached")
+end)
+
+test("GameKnowledge reuses native definitions without claiming server or action verification", function()
+	local Knowledge = requireOC("GameKnowledge")
+	local native = { Synthetic = { Islands = {} } }
+	local reader = { Dependencies = { Worlds = { Status = "READY", Path = "Shared.Data.Worlds", Value = native } },
+		_dependency = function(_, name) return name == "Worlds" and native or nil end }
+	local knowledge = Knowledge.new(reader)
+	assert(knowledge:Get("Worlds") == native and knowledge:Get("UninspectedFeature") == nil)
+	local status = knowledge:GetStatus()
+	assert(status.Dependencies.Worlds.Source == "ReplicatedStorage.Shared.Data.Worlds")
+	assert(status.Pickup.ServerValidation == "UNAVAILABLE" and status.ServerOnlyRules == "UNAVAILABLE")
+	assert(not status.Pickup.IslandWideBatchFound and status.Pickup.Evidence:find("owner verification", 1, true))
+	assert(status.Pickup.RenderedClass == "Model" and status.Pickup.AssetSource == "ReplicatedStorage.Assets.Pickups")
+	status.Pickup.RenderedClass = "Part"
+	assert(knowledge:PickupContract().RenderedClass == "Model", "Status callers cannot overwrite the knowledge contract")
 end)
 
 print("[OC TEST] " .. (tests - farmingTestsBefore) .. " Phase 2 offline tests passed; " .. tests .. " total. Phase 2 live verification awaits the owner.")

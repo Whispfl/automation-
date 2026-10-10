@@ -1,8 +1,14 @@
 # OCscript — Phase 2 test candidate
 
-**Phase 1: USER APPROVED PASS.** The owner confirmed live statistics, account progression and Brain goals in their authorized runtime on October 10, 2026. **Phase 2: PARTIAL OWNER VERIFICATION; island pickup farming and overall approval pending.** The owner confirmed blowing and automatic selling: Coins increased from 43,714 to 78,466, with approximately 18,000 Coins/min reported. This does not verify pickup collection, island travel or upgrades.
+**Phase 1: USER APPROVED PASS.** The owner confirmed live statistics, account progression and Brain goals in their authorized runtime on October 10, 2026. **Phase 2: PARTIAL OWNER VERIFICATION; island pickup farming and overall approval pending.** The owner confirmed blowing and automatic selling: Coins increased from 43,714 to 78,466, with approximately 18,000 Coins/min reported. The owner subsequently confirmed travel to Floating Island and Outer Space. Pickup collection and upgrades remain unverified.
 
 Intelligent Island Farming, Bulk Currency Collection Fallback, Bubble Farming and Upgrades extend the existing account reader, configuration, OCBrain, foreground scheduler, controls and status panel. All source and the generated single-file entry live in this public [OCscript repository](https://github.com/ryanrooflead-source/OCscript). Development uses Roblox Studio only as a read-only reference. No Studio objects or scripts are installed or modified.
+
+## Pickup fix and global architecture
+
+Use [examples/PickupOnly.luau](examples/PickupOnly.luau) for the next isolated test: it targets Floating Island/Outer Space, scans every second, and disables OC blowing, selling and all upgrade/equip tasks. Existing models, same-name duplicate Gem prefabs, overlapping same-island zones and late assets are handled. Stage jump-course zones use native world/area definitions but cannot inflate island surface yields or become island navigation targets. Arrival gets a bounded loading grace; unconfirmed empty scans do not become measured zero income. Detailed pickup diagnostics summarize counts and rejection reasons without dumping hundreds of paths.
+
+The global [ReplicatedStorage-first architecture](docs/ARCHITECTURE.md) applies to every phase. GameKnowledge reuses the approved dependency cache; LocalData supplies account facts, Workspace supplies live state, and the existing Brain/scheduler selects and verifies tasks. No Phase 3 executors are added.
 
 ## Run the single entry
 
@@ -22,7 +28,7 @@ There is no GitHub authentication in client code. Partial overrides preserve UPP
 - Goal-currency island ranking from unlocked scene zones, real pickup definitions, native stat multipliers and observed rates. Unknown availability, travel or respawn overhead is labeled **estimated**.
 - Native travel to supported unlocked island destinations and accessible selling roots, with arrival checks, dwell thresholds, cooldowns and failed/empty-destination backoff. Island travel follows WorldMap's exact destination path even if its Portal.Spawn is absent locally; that request is not proof the server accepts it.
 - Explicit discovery/exclusion logs for every defined permanent island, including missing geometry/tags and unknown yields, plus bounded isolated pickup trials before settling on measured bubbles.
-- Full rendered-pickup scans, spawn metadata, unique prefab matching for preexisting pickups, fair frozen-set sweeps, cluster coverage and normal Humanoid pathfinding.
+- Full rendered-pickup scans, spawn metadata, native-pool-qualified prefab matching for preexisting pickups (duplicate assets with the same visual are accepted), fair frozen-set sweeps, cluster coverage and normal Humanoid pathfinding.
 - Pickup, bubble and combined activity measurements; no conversion that treats a coin as equal to a gem or event token.
 - Guarded `BlowBubble`, native activation selling, useful currency-only gum/flavor purchase/equip commands, live affordability checks and ownership/equipment confirmation.
 - Farming, area, rates, island evidence, real balances and confirmed/unconfirmed outcomes in the existing UI and `[OC]` logs.
@@ -38,7 +44,7 @@ Bubble **storage** is purchased through gum. No verified pet-storage purchase in
 3. Confirm `[TRAVEL]` reports arrival at the selected island, with no rapid ping-pong travel.
 4. Check `[BULK]` eligible/cluster counts and the declared native radius fallback. Confirm actual before/after balances increase in `[EARNINGS]`; model disappearance alone is not success.
 5. Let pickups respawn. Confirm new cycles occur without duplicate OC collection calls or repeated unreachable targets.
-6. Allow several minutes for dwell, native travel cooldowns and any pending bubble fill/sale. Look for `[EXPLORE]` and a `PICKUPS` trial (no blowing during isolation), then `[BULK]` actual before/after credit and subsequent observed rates. A trial ends at an adequate sample or the 45s default timeout; repeats wait 300s by default. If native arrival fails or no tagged zones exist, send that explicit reason; manually visiting an unlocked island lets the reader reassess its geometry without inventing a route. Bubbles may legitimately win after real pickup measurement. Combined activity is evaluated separately.
+6. Allow several minutes for dwell, native travel cooldowns and any pending bubble fill/sale. Look for `[EXPLORE]` and a `PICKUPS` trial (no blowing during isolation), then `[BULK]` actual before/after credit and subsequent observed rates. A trial ends after an adequate sample plus actual collection/credit evidence, or at the 45s default timeout after loading grace; repeats wait 300s by default. If native arrival fails or no tagged zones exist, send that explicit reason; manually visiting an unlocked island lets the reader reassess its geometry without inventing a route. Bubbles may legitimately win after real pickup measurement. Combined activity is evaluated separately.
 7. Check sell-station currency/multiplier, real bubble decrease, affordable useful upgrades, ownership/equipment changes and reserves. Purchases can be intentionally skipped when no measured payback or budget supports them.
 8. Pause/Stop must halt OC movement and future commands; statistics keep updating. Set feature toggles false and rerun to verify exclusions. Check that rerunning leaves one hosted panel.
 

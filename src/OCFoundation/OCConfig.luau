@@ -79,6 +79,7 @@ return {
 		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Run bounded isolated pickup trials on supported unlocked islands even when bubbles currently win.
 		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Wait this long before repeating an island/currency trial, including empty or failed trials.
 		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End a pickup trial at this limit if no adequate actual earning sample is obtained.
+		ARRIVAL_PICKUP_GRACE_SECONDS = 3, --// Keep scanning during this bounded arrival-loading period before measuring a pickup trial.
 		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked islands using goal-currency value and observed area rates.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Use the native Teleport command only to verified unlocked island spawn paths.
 		SELECTED_ISLANDS = {}, --// Empty considers all unlocked scene-present islands; names further restrict travel candidates.
@@ -94,6 +95,10 @@ return {
 		EMPTY_ISLAND_RETRY_SECONDS = 60, --// Back off empty islands; a newly observed eligible spawn clears this backoff early.
 	},
 	PICKUP_SETTINGS = {
+		ENABLE_CONTINUOUS_SCANNING = true, --// Refresh all currently rendered pickups at COLLECTION_REFRESH_SECONDS, including models predating OC.
+		PREFAB_REFRESH_SECONDS = 15, --// Rebuild live prefab identity indexes to recover from delayed asset replication.
+		ZONE_MATCH_TOLERANCE_STUDS = 0.5, --// Allow this small geometric border tolerance when associating a model with native zones.
+		PICKUP_RANGE_MARGIN_STUDS = 0.25, --// Stay slightly inside the actual native radius; never increase the collection range.
 		BULK_COLLECT_PICKUPS = true, --// Use the supported radius-cluster fallback; this game exposes no genuine island-wide batch API.
 		ENABLE_CLUSTER_ROUTING = true, --// Walk between dense reachable clusters when the game has no island-wide batch API.
 		FARM_CURRENCY_TYPES = {}, --// Empty includes every live currency pickup; names restrict OC route scoring and tracking.
@@ -158,6 +163,8 @@ return {
 		PANEL_HEIGHT_PIXELS = 420, --// Set the maximum panel height; content can scroll.
 	},
 	DIAGNOSTIC_SETTINGS = {
+		LOG_PICKUP_DIAGNOSTICS = true, --// Print rate-limited scan, classification, rejection, range and balance-result summaries.
+		LOG_PICKUP_DETAIL_PATHS = false, --// Include a bounded number of problem paths only when diagnosing rejected or missing targets.
 		LOG_ISLAND_DISCOVERY = true, --// Explain every catalog/zone island's unlocks, mapping, destination, counts and exclusion reason.
 		ENABLE_CONSOLE_LOGGING = true, --// Print prefixed control, account, dependency, and objective diagnostics.
 		LOG_ACCOUNT_DETAILS = true, --// Print bounded pet, inventory, unlock, upgrade, and Mastery details on changes.

@@ -4,6 +4,7 @@ local OCBrain = require(script.Parent.OCBrain)
 local TaskScheduler = require(script.Parent.TaskScheduler)
 local AccountPresentation = require(script.Parent.AccountPresentation)
 local FarmingCoordinator = require(script.Parent.FarmingCoordinator)
+local GameKnowledge = require(script.Parent.GameKnowledge)
 
 local OCController = {}
 OCController.__index = OCController
@@ -49,7 +50,7 @@ local function validate(config)
 	end
 	for _, value in ipairs({ config.FARMING_SETTINGS.OBSERVATION_INTERVAL_SECONDS, config.FARMING_SETTINGS.ACTION_SLICE_SECONDS,
 		config.FARMING_SETTINGS.MINIMUM_RATE_SAMPLE_SECONDS, config.FARMING_SETTINGS.RATE_WINDOW_SECONDS,
-		config.PICKUP_SETTINGS.COLLECTION_REFRESH_SECONDS, config.PICKUP_SETTINGS.ZONE_REFRESH_SECONDS,
+		config.PICKUP_SETTINGS.COLLECTION_REFRESH_SECONDS, config.PICKUP_SETTINGS.ZONE_REFRESH_SECONDS, config.PICKUP_SETTINGS.PREFAB_REFRESH_SECONDS,
 		config.PICKUP_SETTINGS.PATH_TIMEOUT_SECONDS, config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS,
 		config.ISLAND_SETTINGS.PICKUP_PROBE_TIMEOUT_SECONDS, config.ISLAND_SETTINGS.ISLAND_EXPLORATION_RETRY_SECONDS,
 		config.UPGRADE_SETTINGS.PURCHASE_CONFIRMATION_TIMEOUT_SECONDS, config.BUBBLE_SETTINGS.SELL_CONFIRMATION_TIMEOUT_SECONDS }) do
@@ -58,6 +59,9 @@ local function validate(config)
 	assert(config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS >= 0.5, "Native blowing cooldown must be at least 0.5 seconds")
 	assert(config.FARMING_SETTINGS.RATE_WINDOW_SECONDS >= config.FARMING_SETTINGS.MINIMUM_RATE_SAMPLE_SECONDS, "Rate window is smaller than the minimum sample")
 	assert(config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES >= 1 and config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES % 1 == 0, "Cluster candidate limit must be a positive integer")
+	assert(config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES <= 64, "Cluster candidate limit must not exceed 64")
+	assert(config.PICKUP_SETTINGS.ZONE_MATCH_TOLERANCE_STUDS <= 2, "Zone boundary tolerance must not exceed two studs")
+	assert(config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS < config.ISLAND_SETTINGS.PICKUP_PROBE_TIMEOUT_SECONDS, "Arrival grace must be smaller than the pickup trial timeout")
 	-- Unimplemented future executors still cannot be silently enabled.
 	for _, category in ipairs({ "PET_SETTINGS", "FALL_EVENT_SETTINGS" }) do
 		for key, value in pairs(config[category]) do
@@ -74,6 +78,7 @@ function OCController.new(config, player)
 	self.Config = config
 	self.Changed = Instance.new("BindableEvent")
 	self.Reader = AccountStateReader.new(config, player)
+	self.Knowledge = GameKnowledge.new(self.Reader)
 	self.Brain = OCBrain.new(config)
 	self.Scheduler = TaskScheduler.new(config.TASK_SETTINGS)
 	self.State = "STOPPED"

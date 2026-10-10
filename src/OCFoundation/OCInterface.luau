@@ -115,6 +115,8 @@ function OCInterface:Render(status)
 			farming.UnknownPickups or 0, tostring(farming.Radius or "unavailable"))
 		.. "\n" .. tostring(farming.CollectionMethod or "") .. "\n" .. tostring(farming.LastConfirmation or "")
 		.. "\nObserved new models: " .. tostring(farming.ObservedSpawns or 0) .. "; respawn observations: " .. tostring(farming.RespawnObservations or 0)
+		.. (farming.Scan and string.format("\nRendered folder: %s; %d global objects, %d Models", farming.Scan.FolderPresent and "present" or "missing", farming.Scan.RenderedObjects, farming.Scan.Models) or "")
+		.. (farming.CollectionBlocker and "\nCollection unavailable: " .. farming.CollectionBlocker or "")
 	local rates = {}
 	for mode, entry in pairs(farming.Rates or {}) do
 		local values = {}
