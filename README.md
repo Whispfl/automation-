@@ -6,22 +6,28 @@ Implemented: AccountStateReader, one centralized OCConfig, OCBrain recommendatio
 
 ## First test build
 
-This repository is **private**. Its actual raw path is:
+This development repository stays **private**. Only the generated bundle is published in the public [OCscript-builds repository](https://github.com/ryanrooflead-source/OCscript-builds). The public bundle necessarily contains the readable bundled Luau; separate source files and development history remain private.
 
-`https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua`
+Use [examples/Loader.luau](examples/Loader.luau), or paste a custom Config above this single line:
 
-An unauthenticated `game:HttpGet` cannot download this private file. [GitHub's contents API](https://docs.github.com/en/rest/repos/contents#get-repository-content) supports authenticated raw-file responses. Use [examples/PrivateLoader.luau](examples/PrivateLoader.luau), enter a read-only token **only in your local runtime input**, and edit its Config table. A fine-grained token should be restricted to this repository with Contents: read. No credential is included in this repository, OCConfig, or the generated bundle.
+```lua
+local Config = {
+    GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true },
+    STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = true },
+}
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript-builds/main/dist/OC.lua"))()(Config)
+```
 
-The example expects a client testing runtime with `loadstring` and a header-capable `request`, `http_request`, or `http.request` function. These are runtime-specific capabilities, not a promise of ordinary LocalScript compatibility. Standard Roblox `loadstring` is server-only and disabled by default; a server entry cannot inspect a client's LocalData or PlayerGui. See [Roblox's loadstring documentation](https://create.roblox.com/docs/reference/engine/globals/LuaGlobals#loadstring).
+The download is public and requires no GitHub token, Request function, custom headers, or authentication. Partial configuration overrides preserve the existing UPPER_SNAKE_CASE category/setting structure. Omitted settings inherit the single OCConfig defaults.
 
-For a runtime that compiles client Luau but cannot send authenticated HTTP headers: sign into GitHub, download `dist/OC.lua`, and supply that one file as source using your authorized runtime's file/source input. If it supports `readfile`, the entry is:
+The entry expects an authorized client testing runtime with `loadstring` and `game:HttpGet`. These are runtime-specific capabilities, not a promise of ordinary LocalScript compatibility. Standard Roblox `loadstring` is server-only and disabled by default; a server entry cannot inspect a client's LocalData or PlayerGui. See [Roblox's loadstring documentation](https://create.roblox.com/docs/reference/engine/globals/LuaGlobals#loadstring). If your client runtime instead accepts local source/files, download the public `dist/OC.lua` and supply that single bundle; for a runtime with `readfile`:
 
 ```lua
 local Config = { GENERAL_SETTINGS = { AUTO_START = true } }
 local OC = loadstring(readfile("OC.lua"))()(Config)
 ```
 
-This does not require adding scripts to the Studio project. A normal LocalScript-only runtime has no compatible dynamic client entry for this design; report your runtime capabilities so the entry can be adapted without claiming it works.
+This does not require adding scripts to the Studio project. In-game require compatibility and account delivery still need owner-run testing.
 
 ## In-game verification checklist
 
@@ -43,6 +49,6 @@ node scripts/test.mjs
 
 Node uses no external npm dependencies. Tests additionally need the official [Luau CLI](https://github.com/luau-lang/luau/releases). Set `LUAU_BIN` and `LUAU_COMPILE_BIN`, or place executables in ignored `.tools/luau/`. The build is deterministic and packages all OC modules as private function factories, replacing OC imports without creating ModuleScripts or overriding the game's native require.
 
-Local verification: all modules and the bundle compile with Luau 0.742; nine offline tests cover configuration replacement/validation, unknown account handling, disabled features, resource-aware recommendation eligibility, scheduler priorities/completion/cancellation, and controller lifecycle/stale-result rejection. Test fixtures are explicitly synthetic, live outside `dist/`, and do not verify any real account data.
+Local verification: all modules and the bundle compile with Luau 0.742; nine offline tests cover configuration replacement/validation, unknown account handling, disabled features, resource-aware recommendation eligibility, scheduler priorities/completion/cancellation, and controller lifecycle/stale-result rejection. Test fixtures are explicitly synthetic, live outside `dist/`, and do not verify any real account data. The public raw file is downloaded without authentication and checked against the private build byte for byte before handoff.
 
 See [Phase 1 architecture and each setting's execution rules](docs/PHASE1.md) and [observed interfaces and limitations](docs/WORKSPACE_REFERENCE.md).

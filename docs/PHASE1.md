@@ -184,4 +184,4 @@ No hatching, fishing, minigames, Rifts, world travel, remote contracts, event bo
 
 ## Verification boundary
 
-Source/scene inspection establishes adapter paths and intended field semantics. Official Luau compilation and nine offline behavioral tests establish syntax and isolated foundation logic. They do not establish real account data, module require permissions, live game updates, rendering, or user-runtime compatibility. The owner runs the private hosted build, sends observations, and explicitly confirms Phase 1 before Phase 2 work begins.
+Source/scene inspection establishes adapter paths and intended field semantics. Official Luau compilation and nine offline behavioral tests establish syntax and isolated foundation logic. They do not establish real account data, module require permissions, live game updates, rendering, or user-runtime compatibility. The private source repository publishes only its generated dist/OC.lua to the public OCscript-builds repository. The owner runs that public hosted build using Config + loadstring, sends observations, and explicitly confirms Phase 1 before Phase 2 work begins.
