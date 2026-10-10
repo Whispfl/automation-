@@ -128,7 +128,8 @@ function OCInterface:Render(status)
 	local islands = {}
 	for index, candidate in ipairs(decision.IslandCandidates or {}) do
 		if index > settings.MAXIMUM_DISPLAY_ENTRIES then break end
-		table.insert(islands, string.format("%s: %.2f %s/min | %s", candidate.Name, candidate.PerMinute, candidate.Currency, candidate.Evidence))
+		table.insert(islands, string.format("%s: %s %s/min | %s", candidate.Name,
+			candidate.PerMinute and string.format("%.2f", candidate.PerMinute) or "unknown", candidate.Currency, candidate.Evidence))
 	end
 	self.Labels.Islands.Visible = settings.SHOW_ISLAND_CANDIDATES and #islands > 0
 	self.Labels.Islands.Text = "ELIGIBLE ISLANDS\n" .. table.concat(islands, "\n")

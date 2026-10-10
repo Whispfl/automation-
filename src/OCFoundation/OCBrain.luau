@@ -28,6 +28,10 @@ end
 
 function OCBrain:PlanFarming(snapshot, plan, context)
 	self.FarmingMemory = self.FarmingMemory or { Mode = nil, StartedAt = 0, LastTest = {} }
+	local scope = context.Current and context.Current.Key
+	if scope ~= self.FarmingMemory.Scope then
+		self.FarmingMemory = { Mode = nil, StartedAt = 0, LastTest = {}, Scope = scope }
+	end
 	local result = FarmingPolicy.Decide(self.Config, snapshot, plan, context, self.FarmingMemory)
 	if result.Kind == "FARM" and result.Mode ~= self.FarmingMemory.Mode then
 		self.FarmingMemory.Mode, self.FarmingMemory.StartedAt = result.Mode, context.Now

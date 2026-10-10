@@ -145,6 +145,49 @@ function GameMechanics:Travel(destination, world, area, token)
 	return false, token:CheckCancelled() and "Cancelled" or "Arrival was not confirmed"
 end
 
+function GameMechanics:TravelIsland(area, token)
+	if area.Spawn then return self:Travel(area.Spawn, area.World, area.Name, token) end
+	local permitted, reason = self:Guard()
+	if not permitted then return false, reason end
+	if token:CheckCancelled() then return false, "Cancelled" end
+	local path = area.DestinationPath
+	local expected = "Workspace.Worlds." .. tostring(area.World) .. ".Islands." .. tostring(area.Name) .. ".Island.Portal.Spawn"
+	if not self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND or not self.Config.ISLAND_SETTINGS.AUTO_SELECT_BEST_ISLAND
+		or not area.CatalogKnown or path ~= expected or #area.Zones == 0 or area.MappingWarning or not self:Unlocked(area.World, area.Name) then
+		return false, "Native island destination/access/zone evidence unavailable"
+	end
+	if not self:Available("TRAVEL:" .. path) or os.clock() - self.LastTravelAt < self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS then return false, "Travel cooldown/backoff" end
+	local remote = self.Reader:_dependency("Remote")
+	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote module unavailable" end
+	local started, stable = os.clock(), nil
+	self.LastTravelAt = started
+	-- Matches native WorldMap/WorldUtil; a server destination need not be replicated locally.
+	remote:FireServer("Teleport", path)
+	while not token:CheckCancelled() and os.clock() - started < self.Config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS do
+		self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
+		local actual = self.Tracker.Current
+		local root = self.Tracker:Root()
+		local inside = false
+		if root and actual and actual.Key == area.Key then
+			for _, zone in ipairs(actual.Zones) do
+				if math.abs(root.Position.Y - zone.Data.Zone.Height) <= self.Config.PICKUP_SETTINGS.MAXIMUM_VERTICAL_DIFFERENCE_STUDS
+					and zone.Data.Zone:GetDistanceToPoint(root.Position) <= self.Config.PICKUP_SETTINGS.MAXIMUM_ROUTE_DISTANCE_STUDS then inside = true break end
+			end
+		end
+		if inside then
+			stable = stable or os.clock()
+			if os.clock() - stable >= 0.4 then
+				local seconds = os.clock() - started
+				self.TravelTimes = self.TravelTimes or {} self.TravelTimes[path] = seconds
+				return true, "Actual island height and nearby target pickup-zone arrival confirmed", seconds
+			end
+		else stable = nil end
+		task.wait(0.2)
+	end
+	if not token:CheckCancelled() then self:Failure("TRAVEL:" .. path, self.Config.ISLAND_SETTINGS.TRAVEL_RETRY_COOLDOWN_SECONDS, "Target pickup-zone arrival unconfirmed") end
+	return false, token:CheckCancelled() and "Cancelled" or "Target pickup-zone arrival unconfirmed"
+end
+
 function GameMechanics:StopMovement()
 	if self.PathThread then pcall(task.cancel, self.PathThread) self.PathThread = nil end
 	local lease = self.MovementLease

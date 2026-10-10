@@ -50,6 +50,7 @@ local function policyFixture()
 	local context = { Current = a, Islands = { a, b }, AreaRates = {}, Rates = {}, Sells = {
 		{ Currency = "Coins", World = "Synthetic", Area = "A", Multiplier = 2, Distance = 10 } },
 		CanInteract = true, CanBlow = true, CanTravel = true, Now = 100, ArrivedAt = 0, WalkSpeed = 16, Cluster = {}, UpgradeBackoff = {} }
+	context.IslandProbeHistory = { ["Synthetic/A:Coins"] = 100, ["Synthetic/B:Coins"] = 100, ["Synthetic/A:Gems"] = 100, ["Synthetic/B:Gems"] = 100 }
 	local plan = { Objective = { Title = "Synthetic goal", Metadata = {} }, Candidates = {} }
 	local memory = { Mode = nil, StartedAt = 0, LastTest = { PICKUPS = 100, BUBBLES = 100, COMBINED = 100 } }
 	return data, context, plan, memory
@@ -208,6 +209,170 @@ test("Frozen island sweep includes all currencies before newly spawned coins", f
 	local third = tracker:Cluster("Coins")
 	assert(third.SweepId ~= first.SweepId and third.Records[1] == respawn)
 	tracker:Destroy()
+end)
+
+test("Unknown yields stay visible and missing local spawns do not suppress supported native destinations", function()
+	local data, context, plan, memory = policyFixture()
+	local area = context.Islands[2]
+	area.Expected = {} area.Spawn = nil area.DestinationPath = "Workspace.Worlds.Synthetic.Islands.B.Island.Portal.Spawn"
+	context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 18000 } }
+	context.IslandProbeHistory["Synthetic/B:Coins"] = nil
+	local decision = Policy.Decide(config(), data, plan, context, memory)
+	assert(decision.Kind == "TRAVEL" and decision.Probe and decision.Island == area, "Measured bubbles cannot permanently suppress unknown pickup trials")
+	local found
+	for _, candidate in ipairs(decision.IslandCandidates) do if candidate.Area == area then found = candidate end end
+	assert(found and found.PerMinute == nil and found.Evidence:find("UNKNOWN", 1, true), "Unknown income cannot become a fabricated estimate")
+	area.ZoneCount = 0
+	decision = Policy.Decide(config(), data, plan, context, memory)
+	assert(decision.Kind ~= "TRAVEL")
+	local reason
+	for _, row in ipairs(decision.IslandDiagnostics) do if row.Area == area then reason = row.Reason end end
+	assert(reason and reason:find("No live tagged", 1, true))
+end)
+
+test("Island discovery diagnostics explain every exclusion and trials respect configuration and dwell", function()
+	local data, context, plan, memory = policyFixture()
+	context.IslandProbeHistory = {}
+	local decision = Policy.Decide(config(), data, plan, context, memory)
+	assert(decision.Probe and decision.Mode == "PICKUPS" and decision.Kind == "FARM", "Current-island trial precedes unknown destinations")
+	context.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = 100 }
+	memory.Mode = "BUBBLES" context.Rates.BUBBLES = { Ready = true, PerMinute = { Coins = 18000 } }
+	decision = Policy.Decide(config(), data, plan, context, memory)
+	assert(decision.Mode == "PICKUPS", "Isolated trial must not become combined income or a global-mode hold")
+	context.Cluster = nil
+	assert(Policy.Decide(config(), data, plan, context, memory).Kind == "WAIT")
+	context.PickupProbe = nil context.Cluster = {}
+	local disabled = config({ ISLAND_SETTINGS = { AUTO_EXPLORE_UNLOCKED_ISLANDS = false } })
+	assert(not Policy.Decide(disabled, data, plan, context, memory).Probe)
+	context.ArrivedAt = 95
+	assert(not Policy.Decide(config(), data, plan, context, memory).Probe)
+	context.ArrivedAt = 0 context.Islands[2].Unlocked = false
+	decision = Policy.Decide(config(), data, plan, context, memory)
+	assert(#decision.IslandDiagnostics == 2 and #decision.IslandCandidates == 1)
+	assert(decision.IslandDiagnostics[2].Reason:find("not discovered", 1, true))
+	context.Islands[2].Unlocked = true context.Islands[2].MappingWarning = "Mismatched native reward pool"
+	decision = Policy.Decide(config(), data, plan, context, memory)
+	assert(#decision.IslandCandidates == 1 and decision.IslandDiagnostics[2].Reason == context.Islands[2].MappingWarning)
+end)
+
+test("Tracker keeps distinct Floating Island and Outer Space zones, counts, metadata and discovery membership", function()
+	local Tracker = requireOC("PickupTracker")
+	local original = workspace.FindFirstChild
+	local function node(name, kind, parent)
+		local object = { Name = name, ClassName = kind, Parent = parent, Children = {} }
+		if parent and parent.Children then parent.Children[name] = object end
+		function object:FindFirstChild(child) return self.Children[child] end
+		function object:GetChildren() local items = {} for _, child in pairs(self.Children) do table.insert(items, child) end return items end
+		function object:GetDescendants() return {} end
+		function object:IsA(class) return class == self.ClassName or (class == "BasePart" and self.ClassName == "Part") end
+		function object:IsDescendantOf(ancestor) local at = self.Parent while at do if at == ancestor then return true end at = at.Parent end return false end
+		function object:GetFullName() return self.Parent and self.Parent.GetFullName and self.Parent:GetFullName() .. "." .. self.Name or self.Name end
+		return object
+	end
+	local worlds = node("Worlds", "Folder", workspace)
+	local world = node("The Overworld", "Folder", worlds)
+	local islands = node("Islands", "Folder", world)
+	local floating = node("Floating Island", "Folder", islands)
+	local outer = node("Outer Space", "Folder", islands)
+	local floatingModel = node("Island", "Model", floating)
+	local outerModel = node("Island", "Model", outer)
+	local zoneRoot = node("Pickup", "Folder", floatingModel)
+	local spaceRoot = node("Pickups", "Folder", outerModel)
+	local rendered = node("Rendered", "Folder", workspace)
+	local pickupFolder = node("Pickups", "Folder", rendered)
+	workspace.FindFirstChild = function(_, name) return name == "Worlds" and worlds or (name == "Rendered" and rendered or nil) end
+	local root = { Position = Vector3.new(0, 423, 0) }
+	local player = { Character = { FindFirstChild = function() return root end, FindFirstChildOfClass = function() return { Health = 100 } end } }
+	local pool = { { Chance = 100, Item = { Visual = "Coin", Item = { Type = "Currency", Currency = "Coins", Amount = 5 } } } }
+	local function zone(height) return { Height = height, GetDistanceToPoint = function() return 0 end, IsPointInside = function() return true end } end
+	local zones = { [zoneRoot] = { Area = "Floating Island", Count = 5, Zone = zone(420), Pickups = pool } }
+	for index = 1, 4 do
+		local point = node(tostring(index), "Part", spaceRoot)
+		zones[point] = { Area = "Outer Space", Count = 2, Zone = zone(2660), Pickups = pool }
+	end
+	local reader = { GetLiveProfile = function() return {} end, RegisterCurrency = function() end,
+		_dependency = function(_, name) if name == "GetPickupZones" then return function() return zones end end
+			if name == "Worlds" then return { ["The Overworld"] = { Islands = { { Name = "Absent geometry" } } } } end
+			if name == "StatsUtil" then return { GetCurrencyMultiplier = function() return 2 end } end end }
+	local tracker = Tracker.new(config(), reader, player)
+	local snapshot = { UnlockedWorlds = { ["The Overworld"] = true }, UnlockedIslands = { ["Floating Island"] = false, ["Outer Space"] = true },
+		AvailableProgression = { Islands = { { Name = "Floating Island", World = "The Overworld" }, { Name = "Outer Space", World = "The Overworld" }, { Name = "Not loaded", World = "The Overworld" } } } }
+	tracker:Refresh(snapshot, 100)
+	local f, s = tracker.Areas["The Overworld/Floating Island"], tracker.Areas["The Overworld/Outer Space"]
+	assert(f and s and f ~= s and f.ConfiguredCount == 5 and s.ConfiguredCount == 8)
+	assert(f.Unlocked and f.Discovered and s.Unlocked, "Native membership is non-nil, not truthiness")
+	assert(tracker.Current == f and f.Spawn == nil and f.CatalogKnown and f.DestinationPath:find("Floating Island", 1, true))
+	assert(f.Expected.Coins == 50 and s.Expected.Coins == 80, "Only actual zone counts/pools/helpers may estimate yield")
+	assert(tracker.Areas["The Overworld/Not loaded"].ZoneCount == 0)
+	assert(tracker.Areas["The Overworld/Absent geometry"].ZoneCount == 0, "Defined absent scene islands must still have explicit diagnostics")
+	local model = node("synthetic-id", "Model", pickupFolder)
+	function model:GetPivot() return { Position = Vector3.new(0, 423, 0) } end
+	tracker.Metadata[model.Name] = { Root = zoneRoot, Visual = "Coin", At = 100 }
+	tracker:Refresh(snapshot, 101)
+	assert(tracker.Models[model].AreaKey == f.Key and tracker.Current.EligibleCount == 1)
+	snapshot.UnlockedIslands["Outer Space"] = nil
+	tracker:Refresh(snapshot, 102)
+	assert(not tracker.Areas[s.Key].Unlocked and not tracker.Areas[s.Key].Discovered)
+	tracker:Destroy() workspace.FindFirstChild = original
+end)
+
+test("Native island path requests require real access and cannot report success without observed arrival", function()
+	local profile = { WorldsUnlocked = { Synthetic = true }, AreasUnlocked = { B = true } }
+	local requests, cancelled = {}, false
+	local reader = { GetLiveProfile = function() return profile end, GetSnapshot = function() return {} end,
+		_dependency = function() return { FireServer = function(_, command, path) table.insert(requests, { command, path }) end } end }
+	local target = { Key = "Synthetic/B", World = "Synthetic", Name = "B", CatalogKnown = true,
+		DestinationPath = "Workspace.Worlds.Synthetic.Islands.B.Island.Portal.Spawn",
+		Zones = { { Data = { Zone = { Height = 400, GetDistanceToPoint = function() return 0 end } } } } }
+	local tracker = { Current = { Key = target.Key, Zones = target.Zones }, Refresh = function() end,
+		Root = function() return { Position = Vector3.new(0, 0, 0) } end }
+	local mechanics = Mechanics.new(config(), reader, tracker, {}) mechanics.Guard = function() return true end
+	local result, reason
+	local token = { CheckCancelled = function() return cancelled end }
+	local thread = coroutine.create(function() result, reason = mechanics:TravelIsland(target, token) end)
+	assert(coroutine.resume(thread))
+	assert(#requests == 1 and requests[1][1] == "Teleport" and requests[1][2] == target.DestinationPath)
+	assert(result == nil, "Matching name alone cannot verify arrival at a different island height")
+	cancelled = true assert(coroutine.resume(thread))
+	assert(result == false and reason == "Cancelled")
+	cancelled = false mechanics.LastTravelAt = -math.huge profile.AreasUnlocked.B = nil
+	assert(not mechanics:TravelIsland(target, token) and #requests == 1, "Recheck fresh discovery before native request")
+	profile.AreasUnlocked.B = true target.CatalogKnown = false
+	assert(not mechanics:TravelIsland(target, token) and #requests == 1, "Unknown paths cannot be requested")
+end)
+
+test("Pickup trial ends on an actual sample or timeout and bubble sales cannot become pickup earnings", function()
+	local Coordinator = requireOC("FarmingCoordinator")
+	local data, context = policyFixture()
+	local messages = {}
+	local profile = { Bubble = { Amount = 0 } }
+	local controller = { Config = config(), State = "RUNNING", Brain = Brain.new(config()), Generation = 1,
+		Reader = { GetSnapshot = function() return data end, GetLiveProfile = function() return profile end,
+			ReadBalances = function() return { Coins = 100 } end, _stat = function() return 100 end },
+		Log = function(_, _, message) table.insert(messages, message) end, _requestPlan = function() end, _notify = function() end }
+	local coordinator = Coordinator.new(controller, {})
+	coordinator.Tracker.Current = context.Current coordinator.Tracker.Current.EligibleCount = 1
+	coordinator.Tracker.Refresh = function() end
+	local now = os.clock()
+	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = now }
+	coordinator.Decision = { Currency = "Coins" }
+	coordinator.Metrics.Samples = { { At = now, Seconds = 15, Mode = "PICKUPS", Scope = context.Current.Key, Gains = { Coins = 10 } } }
+	coordinator:Observe()
+	assert(coordinator.PickupProbe == nil and coordinator.IslandProbeHistory[context.Current.Key .. ":Coins"])
+	assert(messages[#messages]:find("actual sample", 1, true))
+	coordinator.Metrics.Samples = {}
+	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = os.clock() - 46 }
+	coordinator:Observe()
+	assert(coordinator.PickupProbe == nil and messages[#messages]:find("remains unverified", 1, true))
+	coordinator.Metrics:SetMode("PICKUPS", context.Current.Key, { Coins = 100 }, os.clock())
+	coordinator.PickupProbe = { Key = context.Current.Key, Currency = "Coins", StartedAt = os.clock() }
+	coordinator._sell = function() assert(coordinator.Metrics.Active == nil and coordinator.PickupProbe == nil) return { Verified = true } end
+	local decision = { Kind = "SELL", Sell = {}, Currency = "Coins" }
+	assert(coordinator:Definition(decision, 1).Execute({ CheckCancelled = function() return false end }).Verified)
+	coordinator.Metrics:SetMode("BUBBLES", context.Current.Key, { Coins = 100 }, os.clock())
+	coordinator._sell = function() assert(coordinator.Metrics.Active.Mode == "BUBBLES") return { Verified = true } end
+	assert(coordinator:Definition(decision, 1).Execute({ CheckCancelled = function() return false end }).Verified)
+	coordinator:Destroy()
 end)
 
 print("[OC TEST] " .. (tests - farmingTestsBefore) .. " Phase 2 offline tests passed; " .. tests .. " total. Phase 2 live verification awaits the owner.")

@@ -16,7 +16,8 @@ end
 
 function FarmingCoordinator.new(controller, player)
 	local self = setmetatable({ Controller = controller, Config = controller.Config, Reader = controller.Reader,
-		Activity = nil, Decision = nil, Destroyed = false, LastLogAt = -math.huge, SaleEvidence = {}, ProbeStart = nil }, FarmingCoordinator)
+		Activity = nil, Decision = nil, Destroyed = false, LastLogAt = -math.huge, SaleEvidence = {}, ProbeStart = nil,
+		IslandProbeHistory = {}, PickupProbe = nil }, FarmingCoordinator)
 	self.Tracker = PickupTracker.new(self.Config, self.Reader, player)
 	self.Mechanics = GameMechanics.new(self.Config, self.Reader, self.Tracker, player)
 	self.Metrics = ResourceMetrics.new(self.Config.FARMING_SETTINGS)
@@ -43,6 +44,19 @@ function FarmingCoordinator:Observe()
 	if self.PendingSale and now > self.PendingSale.ExpiresAt then self.PendingSale = nil end
 	self.LastBubbleAmount = amount
 	local current = self.Tracker.Current
+	if self.PickupProbe then
+		local probe = self.PickupProbe
+		local sample = self.Metrics:Rates(probe.Key, now).PICKUPS
+		local finished = not current or current.Key ~= probe.Key or probe.Currency ~= (self.Decision and self.Decision.Currency)
+			or (sample and sample.Ready) or now - probe.StartedAt >= self.Config.ISLAND_SETTINGS.PICKUP_PROBE_TIMEOUT_SECONDS
+		if finished then
+			self.IslandProbeHistory[probe.Key .. ":" .. probe.Currency] = now
+			self.PickupProbe = nil
+			self.Controller:Log("FARM][EXPLORE", probe.Key .. " | trial ended | " .. (sample and sample.Ready
+				and string.format("actual sample %.1fs, %.2f %s/min; external rewards may affect attribution", sample.Seconds, sample.PerMinute[probe.Currency] or 0, probe.Currency)
+				or "insufficient sample, unavailable location, or timeout; pickup income remains unverified"))
+		end
+	end
 	if current then
 		self.EmptySince = self.EmptySince or {}
 		if current.EligibleCount > 0 then
@@ -85,9 +99,10 @@ function FarmingCoordinator:Context(plan)
 	local islands, areaRates = {}, {}
 	for _, area in pairs(tracker.Areas) do
 		area.InBackoff = not mechanics:Available("ISLAND:" .. area.Key)
-		if area.Spawn then
-			area.InBackoff = area.InBackoff or not mechanics:Available("TRAVEL:" .. area.Spawn:GetFullName())
-			area.TravelSeconds = mechanics.TravelTimes and mechanics.TravelTimes[area.Spawn:GetFullName()]
+		local destination = area.Spawn and area.Spawn:GetFullName() or area.DestinationPath
+		if destination then
+			area.InBackoff = area.InBackoff or not mechanics:Available("TRAVEL:" .. destination)
+			area.TravelSeconds = mechanics.TravelTimes and mechanics.TravelTimes[destination]
 		end
 		table.insert(islands, area) areaRates[area.Key] = self.Metrics:Rates(area.Key, now)
 	end
@@ -104,7 +119,10 @@ function FarmingCoordinator:Context(plan)
 		CanBlow = canBlow, CanTravel = now - mechanics.LastTravelAt >= self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS,
 		Blocker = reason or bubbleReason or tracker.Error, Now = now, ArrivedAt = tracker.ArrivedAt,
 		WalkSpeed = humanoid and humanoid.WalkSpeed, UpgradeBackoff = {}, EffectiveUpgrades = {},
-		BubbleProbePending = self.ProbeStart and raw and raw.Bubble and raw.Bubble.Amount > self.ProbeStart.Amount }
+		BubbleProbePending = self.ProbeStart and now - self.ProbeStart.At < self.Config.FARMING_SETTINGS.BUBBLE_PROBE_TIMEOUT_SECONDS
+			and not self.SaleEvidence[currentKey] and raw and raw.Bubble and raw.Bubble.Amount > self.ProbeStart.Amount,
+		PickupProbe = self.PickupProbe, IslandProbeHistory = self.IslandProbeHistory }
+	table.sort(islands, function(a, b) return a.Key < b.Key end)
 	for _, upgrade in ipairs((snapshot.AvailableProgression or {}).Upgrades or {}) do
 		context.UpgradeBackoff[upgrade.Name] = not mechanics:Available("UPGRADE:" .. upgrade.Name)
 		local enabled = upgrade.Kind == "Gum" and self.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM
@@ -139,8 +157,21 @@ function FarmingCoordinator:Select(plan)
 		self.Controller:Log("FARM][GOAL", tostring(decision.Goal) .. " | required=" .. tostring(decision.Currency) .. " | deficit=" .. tostring(decision.Deficit or "no fixed deficit"))
 		for index, candidate in ipairs(decision.IslandCandidates) do
 			if index > self.Config.DIAGNOSTIC_SETTINGS.MAXIMUM_LOG_ENTRIES then break end
-			self.Controller:Log("FARM][ISLANDS", string.format("%s | %.2f %s/min | %s | overhead %.1fs | respawn %s", candidate.Key, candidate.PerMinute,
+			self.Controller:Log("FARM][ISLANDS", string.format("%s | %s %s/min | %s | overhead %.1fs | respawn %s", candidate.Key,
+				candidate.PerMinute and string.format("%.2f", candidate.PerMinute) or "unknown",
 				candidate.Currency, candidate.Evidence, candidate.TravelSeconds, tostring(candidate.RespawnSeconds or "unknown")))
+		end
+		if self.Config.DIAGNOSTIC_SETTINGS.LOG_ISLAND_DISCOVERY then
+			for index, row in ipairs(decision.IslandDiagnostics or {}) do
+				if index > self.Config.DIAGNOSTIC_SETTINGS.MAXIMUM_LOG_ENTRIES then break end
+				local area, pools = row.Area, {}
+				for _, zone in ipairs(area.Zones or {}) do table.insert(pools, zone.Root:GetFullName() .. " [Area=" .. tostring(zone.Data.Area) .. ",Count=" .. tostring(zone.Data.Count) .. "]") end
+				self.Controller:Log("FARM][DISCOVERY", string.format("%s | worldUnlocked=%s discovered=%s current=%s | zones=%d configured=%s visible=%d eligible=%d unidentified=%d | destination=%s | %s",
+					area.Key, tostring(area.WorldUnlocked), tostring(area.Discovered), tostring(area.AtCurrentLocation), area.ZoneCount or #(area.Zones or {}),
+					area.UnknownZoneCount and "partial/unknown" or tostring(area.ConfiguredCount), area.VisibleCount or 0, area.EligibleCount or 0, area.UnknownCount or 0,
+					area.Spawn and area.Spawn:GetFullName() or (area.DestinationPath and area.DestinationPath .. " (native path; local part absent)" or "unavailable"), row.Reason))
+				if #pools > 0 then self.Controller:Log("FARM][ZONES", table.concat(pools, "; ")) end
+			end
 		end
 		self.Controller:Log(decision.Kind == "WAIT" and "FARM][FALLBACK" or "FARM][DECISION", decision.Kind .. "/" .. tostring(decision.Mode) .. " | " .. decision.Reason)
 		for mode, entry in pairs(context.Rates) do
@@ -289,21 +320,38 @@ function FarmingCoordinator:Definition(decision, generation)
 			local scope = self.Tracker.Current and self.Tracker.Current.Key or "UNKNOWN"
 			local beforeBalances = self.Reader:ReadBalances()
 			if decision.Kind == "FARM" then
+				if decision.Probe and not self.PickupProbe then
+					self.PickupProbe = { Key = scope, Currency = decision.Currency, StartedAt = os.clock() }
+					self.IslandProbeHistory[scope .. ":" .. decision.Currency] = os.clock()
+					self.Controller:Log("FARM][EXPLORE", scope .. " | begin isolated pickup trial; no bubble blowing during this measurement")
+				end
 				self.Metrics:SetMode(decision.Mode, scope, beforeBalances, os.clock())
 				if decision.Mode == "BUBBLES" and not self.ProbeStart then
 					local raw = self.Reader:GetLiveProfile()
 					self.ProbeStart = raw and raw.Bubble and { Amount = raw.Bubble.Amount, At = os.clock() } or nil
 				end
-			elseif decision.Kind ~= "SELL" then self.Metrics:SetMode(nil, scope, beforeBalances, os.clock()) end
+			elseif decision.Kind ~= "SELL" or (self.Metrics.Active and self.Metrics.Active.Mode == "PICKUPS") then
+				-- A standalone bubble sale cannot count as isolated pickup income.
+				self.Metrics:SetMode(nil, scope, beforeBalances, os.clock())
+				if decision.Kind == "SELL" and self.PickupProbe then
+					self.IslandProbeHistory[self.PickupProbe.Key .. ":" .. self.PickupProbe.Currency] = os.clock()
+					self.PickupProbe = nil
+					self.Controller:Log("FARM][EXPLORE", "Pickup trial interrupted by required selling; sale excluded from isolated pickup income")
+				end
+			end
 			if decision.Kind == "TRAVEL" then
 				local area = decision.Island
+				if decision.Probe then self.IslandProbeHistory[area.Key .. ":" .. decision.Currency] = os.clock() end
 				self.Controller:Log("FARM][TRAVEL", "Request " .. area.Key .. " through native unlocked island Teleport | " .. decision.Reason)
-				local success, reason, seconds = self.Mechanics:Travel(area.Spawn, area.World, area.Name, token)
+				local success, reason, seconds = self.Mechanics:TravelIsland(area, token)
 				if success then
 					self.Tracker:Refresh(self.Reader:GetSnapshot(), os.clock())
 					local actual = self.Tracker.Current
 					success = actual ~= nil and actual.Key == area.Key
-					if success then self.Controller:Log("FARM][TRAVEL", "Arrival and island identity confirmed: " .. area.Key .. " | " .. tostring(seconds) .. "s") end
+					if success then
+						self.Controller:Log("FARM][TRAVEL", "Arrival and island identity confirmed: " .. area.Key .. " | " .. tostring(seconds) .. "s")
+						if decision.Probe then self.PickupProbe = { Key = area.Key, Currency = decision.Currency, StartedAt = os.clock() } end
+					end
 				end
 				if not success and not token:CheckCancelled() then
 					self.Mechanics:Failure("ISLAND:" .. area.Key, self.Config.ISLAND_SETTINGS.TRAVEL_RETRY_COOLDOWN_SECONDS, reason or "Island identity uncertain")
@@ -340,7 +388,7 @@ end
 function FarmingCoordinator:Halt()
 	self.Mechanics:StopMovement()
 	self.Metrics:SetMode(nil, nil, self.Reader:ReadBalances(), os.clock())
-	self.Activity = nil self.ProbeStart = nil self.PendingSale = nil self.EmptySince = {}
+	self.Activity = nil self.ProbeStart = nil self.PendingSale = nil self.EmptySince = {} self.PickupProbe = nil
 end
 
 function FarmingCoordinator:GetStatus()

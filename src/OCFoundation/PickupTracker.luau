@@ -45,6 +45,18 @@ local function spawnFor(area, world)
 	return portal and portal:FindFirstChild("Spawn")
 end
 
+local function islandOf(instance, world)
+	local worlds = workspace:FindFirstChild("Worlds")
+	local root = worlds and worlds:FindFirstChild(world or "")
+	local islands = root and root:FindFirstChild("Islands")
+	local node = instance
+	while node and node ~= workspace do
+		if node.Parent == islands then return node.Name end
+		node = node.Parent
+	end
+	return nil
+end
+
 function PickupTracker.new(config, reader, player)
 	return setmetatable({ Config = config, Reader = reader, Player = player, Zones = {}, Areas = {},
 		Metadata = {}, Models = {}, Backoff = {}, Connections = {}, Prefabs = nil,
@@ -111,17 +123,44 @@ function PickupTracker:Refresh(snapshot, now)
 	local profile = self.Reader:GetLiveProfile()
 	local stats = self.Reader:_dependency("StatsUtil")
 	local oldAreas, areas, current, currentDistance = self.Areas, {}, nil, math.huge
+	self.ZoneAreas = {}
+	local catalog = (snapshot.AvailableProgression or {}).Islands or {}
+	local function areaFor(name, world)
+		local key = (world or "Live event") .. "/" .. name
+		if areas[key] then return areas[key] end
+		local prior = oldAreas[key]
+		local area = { Key = key, Name = name, World = world, Zones = {}, Currencies = {}, Expected = {}, Available = {},
+			VisibleCount = 0, EligibleCount = 0, UnknownCount = 0, ZoneCount = 0, ConfiguredCount = 0,
+			LastDepletionAt = prior and prior.LastDepletionAt, RespawnSeconds = prior and prior.RespawnSeconds,
+			LastSpawnAt = prior and prior.LastSpawnAt, TravelSeconds = prior and prior.TravelSeconds }
+		areas[key] = area
+		return area
+	end
+	-- Keep real catalog islands visible even when no tagged zone is loaded. This is not pickup availability.
+	local function catalogIsland(name, world)
+		local area = areaFor(name, world)
+		area.CatalogKnown = true
+		-- Native WorldMap sends this exact path without requiring a locally visible Portal.Spawn.
+		area.DestinationPath = "Workspace.Worlds." .. world .. ".Islands." .. name .. ".Island.Portal.Spawn"
+	end
+	for _, island in ipairs(catalog) do catalogIsland(island.Name, island.World) end
+	-- The Phase 1 progression catalog filters absent scene models. Still diagnose defined islands whose geometry is not loaded.
+	local definitions = self.Reader:_dependency("Worlds")
+	for world, definition in pairs(type(definitions) == "table" and definitions or {}) do
+		if type(definition) == "table" and not definition.Removed and not definition.Event then
+			for _, island in ipairs(definition.Islands or {}) do catalogIsland(island.Name, world) end
+		end
+	end
 	local multiplierCache = {}
 	for zoneRoot, data in pairs(self.Zones) do
 		if zoneRoot.Parent and zoneRoot:IsDescendantOf(workspace) and data.Zone and type(data.Area) == "string" and data.Area ~= "" then
 			local world = worldOf(zoneRoot)
-			local key = (world or "Live event") .. "/" .. data.Area
-			local prior = oldAreas[key]
-			local area = areas[key] or { Key = key, Name = data.Area, World = world, Zones = {}, Currencies = {},
-				Expected = {}, Available = {}, VisibleCount = 0, EligibleCount = 0, UnknownCount = 0,
-				LastDepletionAt = prior and prior.LastDepletionAt, RespawnSeconds = prior and prior.RespawnSeconds,
-				LastSpawnAt = prior and prior.LastSpawnAt, TravelSeconds = prior and prior.TravelSeconds }
-			areas[key] = area
+			local physicalIsland = islandOf(zoneRoot, world)
+			local area = areaFor(physicalIsland or data.Area, world)
+			self.ZoneAreas[zoneRoot] = area
+			area.ZoneCount += 1
+			if type(data.Count) == "number" then area.ConfiguredCount += data.Count else area.UnknownZoneCount = true end
+			if physicalIsland and physicalIsland ~= data.Area then area.MappingWarning = "Physical island differs from native reward pool Area=" .. data.Area end
 			table.insert(area.Zones, { Root = zoneRoot, Data = data })
 			local sumChance = 0
 			for _, pickup in ipairs(data.Pickups or {}) do sumChance += type(pickup.Chance) == "number" and pickup.Chance or 0 end
@@ -154,9 +193,11 @@ function PickupTracker:Refresh(snapshot, now)
 		end
 	end
 	for _, area in pairs(areas) do
-		area.Unlocked = area.World ~= nil and snapshot.UnlockedWorlds ~= nil and snapshot.UnlockedWorlds[area.World] ~= nil
-			and (area.Name == area.World or (snapshot.UnlockedIslands and snapshot.UnlockedIslands[area.Name] ~= nil))
+		area.WorldUnlocked = area.World ~= nil and snapshot.UnlockedWorlds ~= nil and snapshot.UnlockedWorlds[area.World] ~= nil or false
+		area.Discovered = snapshot.UnlockedIslands ~= nil and snapshot.UnlockedIslands[area.Name] ~= nil or false
+		area.Unlocked = area.WorldUnlocked and (area.Name == area.World or area.Discovered)
 		-- A live special zone may be farmed where the player already is, but no unverified event teleport is invented.
+		area.AtCurrentLocation = area == current
 		if area == current then area.Unlocked = true end
 		area.Spawn = spawnFor(area.Name, area.World)
 		if area.Spawn and not area.Spawn:IsA("BasePart") then area.Spawn = nil end
@@ -189,7 +230,7 @@ function PickupTracker:_scan(now)
 		local metadata = self.Metadata[model.Name]
 		local zoneData = metadata and self.Zones[metadata.Root]
 		local area
-		if zoneData then area = self.Areas[(worldOf(metadata.Root) or "Live event") .. "/" .. zoneData.Area] end
+		if zoneData then area = self.ZoneAreas[metadata.Root] end
 		if not area then
 			local matches = 0
 			for _, candidate in pairs(self.Areas) do
@@ -233,7 +274,7 @@ function PickupTracker:_scan(now)
 		if record.Currency and allowed(self.Config.PICKUP_SETTINGS.FARM_CURRENCY_TYPES, record.Currency) then
 			area.EligibleCount += 1
 			area.Available[record.Currency] = (area.Available[record.Currency] or 0) + 1
-		elseif not item then area.UnknownCount += 1 end
+		elseif not item or conflicting then area.UnknownCount += 1 end
 	end
 	for model, record in pairs(self.Models) do
 		if not seen[model] then

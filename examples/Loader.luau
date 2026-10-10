@@ -18,6 +18,9 @@ local Config = {
 		CURRENCY_PRIORITIES = { "Coins", "Gems", "Tickets", "Pearls" }, --// Fallback priorities; an unmet goal's currency takes precedence.
 	},
 	ISLAND_SETTINGS = {
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Try supported unlocked pickup islands before settling on bubble farming.
+		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Bound retries of empty, failed or previously sampled islands.
+		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End an isolated pickup trial if an adequate sample is not obtained.
 		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked, scene-present candidates.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Use verified native island/sell teleport destinations.
 		SELECTED_ISLANDS = {}, --// Empty considers all supported unlocked islands.
@@ -61,6 +64,7 @@ local Config = {
 		SHOW_ISLAND_CANDIDATES = true, --// Identify measured and estimated candidate yields.
 	},
 	DIAGNOSTIC_SETTINGS = {
+		LOG_ISLAND_DISCOVERY = true, --// Explain island unlocks, zone mapping and exclusion reasons.
 		ENABLE_CONSOLE_LOGGING = true, --// Print useful [OC] test diagnostics.
 		LOG_ACCOUNT_DETAILS = false, --// Keep farming logs compact; account details remain in the UI.
 	},

@@ -76,6 +76,9 @@ return {
 		AUTO_FARM_FALLBACK = true, --// Permit another useful eligible activity when the preferred farming method is unavailable.
 	},
 	ISLAND_SETTINGS = {
+		AUTO_EXPLORE_UNLOCKED_ISLANDS = true, --// Run bounded isolated pickup trials on supported unlocked islands even when bubbles currently win.
+		ISLAND_EXPLORATION_RETRY_SECONDS = 300, --// Wait this long before repeating an island/currency trial, including empty or failed trials.
+		PICKUP_PROBE_TIMEOUT_SECONDS = 45, --// End a pickup trial at this limit if no adequate actual earning sample is obtained.
 		AUTO_SELECT_BEST_ISLAND = true, --// Rank already unlocked islands using goal-currency value and observed area rates.
 		AUTO_TRAVEL_BEST_ISLAND = true, --// Use the native Teleport command only to verified unlocked island spawn paths.
 		SELECTED_ISLANDS = {}, --// Empty considers all unlocked scene-present islands; names further restrict travel candidates.
@@ -155,6 +158,7 @@ return {
 		PANEL_HEIGHT_PIXELS = 420, --// Set the maximum panel height; content can scroll.
 	},
 	DIAGNOSTIC_SETTINGS = {
+		LOG_ISLAND_DISCOVERY = true, --// Explain every catalog/zone island's unlocks, mapping, destination, counts and exclusion reason.
 		ENABLE_CONSOLE_LOGGING = true, --// Print prefixed control, account, dependency, and objective diagnostics.
 		LOG_ACCOUNT_DETAILS = true, --// Print bounded pet, inventory, unlock, upgrade, and Mastery details on changes.
 		LOG_DEPENDENCIES = true, --// Print game module load status changes and errors.
