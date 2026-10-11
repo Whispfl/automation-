@@ -49,6 +49,9 @@ function GameKnowledge:ProgressionContract()
 		Activation = "Client.Activation:357-360 horizontal <= Root.Size.Y/2; vertical <= 10",
 		IslandTravel = "Client.Gui.Frames.WorldMap:168-198; Shared.Utils.WorldUtil.toIslandLocation; discovered islands only",
 		Traversal = "Client.Effects.Physics uses actual Bubble.Amount and Bubble Gravity; no verified minimum or safe undiscovered-island route",
+		IslandDiscovery = "Overworld Island.UnlockHitbox: anchored, touch-enabled, noncolliding; server handler unavailable; simulated contact is an owner-requested runtime experiment",
+		DiscoveryVerification = "Correct LocalData.AreasUnlocked absent -> present, received by LocalData PlayerDataChanged; durable save requires owner rejoin testing",
+		DiscoveryCapability = "firetouchinterest is runtime-specific, absent from inspected native scripts; check at live execution, never assume Studio support",
 		WorldTravel = "Native FastTravel.Spawn; Seven Seas has a separate fishing-area contract, deferred",
 		UnlockVerification = "Actual WorldsUnlocked absent -> present; balances logged separately; invocation/visuals not proof",
 		ServerValidation = "UNAVAILABLE", LivePhase3Verification = "OWNER_PENDING" }

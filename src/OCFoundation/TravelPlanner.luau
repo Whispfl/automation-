@@ -12,6 +12,14 @@ function TravelPlanner.Decide(config, snapshot, plan, context)
 		decision.Reason = "Progression state changed; waiting for a fresh Brain objective" return decision
 	end
 	decision.Node = fresh
+	if fresh.Kind == "ISLAND" and config.WORLD_SETTINGS.AUTO_DISCOVER_ISLANDS then
+		if not context.CanInteract then decision.Reason = context.Blocker or "Native interaction guard blocks discovery"
+		elseif not context.Discovery then decision.Reason = context.Blocker or "Loaded island discovery hitbox unavailable"
+		elseif context.DiscoveryAttempts >= config.WORLD_SETTINGS.MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS then decision.Reason = "Island contact attempt limit reached; no confirmed account discovery"
+		elseif context.DiscoveryBackoff then decision.Reason = "Island discovery retry/global pacing; actual account flags still observed"
+		else decision.Kind, decision.Reason = "DISCOVER_ISLAND", "Experimental runtime contact with the genuine island UnlockHitbox; awaiting correct LocalData acknowledgement" end
+		return decision
+	end
 	if fresh.State == "BLOCKED" then decision.Reason = fresh.Blocker return decision end
 	if fresh.State == "FUNDING" then
 		if config.WORLD_SETTINGS.AUTO_FARM_UNLOCK_REQUIREMENTS then return nil end -- Existing goal-driven stationary collector.

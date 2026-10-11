@@ -7,7 +7,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 function GameMechanics.new(config, reader, tracker, player, log)
 	return setmetatable({ Config = config, Reader = reader, Tracker = tracker, Player = player,
-		LastBlowAt = -math.huge, LastTravelAt = -math.huge, Failures = {}, PathThread = nil, Log = log }, GameMechanics)
+		LastBlowAt = -math.huge, LastTravelAt = -math.huge, LastDiscoveryAt = -math.huge,
+		IslandDiscoveryAttempts = {}, Failures = {}, PathThread = nil, Log = log }, GameMechanics)
 end
 
 function GameMechanics:Guard(expectedUnlockTitle)
@@ -388,6 +389,110 @@ function GameMechanics:Upgrade(upgrade, token)
 	local reason = token:CheckCancelled() and "Cancelled" or (currentOwned and "Equipment change unconfirmed" or
 		("Purchase unconfirmed: ownership=" .. tostring(evidence.OwnedAfter) .. "; observed deduction=" .. tostring(evidence.ObservedDeduction or 0) .. "; required=" .. tostring(evidence.Cost)))
 	return false, reason, evidence
+end
+
+function GameMechanics:IslandDiscoveryCapability()
+	return { Available = type(firetouchinterest) == "function", Method = "RUNTIME_SIMULATED_CONTACT",
+		Source = "Runtime global firetouchinterest; not a native Studio Luau API", ServerValidation = "UNVERIFIED",
+		SavedPersistence = "OWNER_REJOIN_TEST_REQUIRED" }
+end
+
+function GameMechanics:IslandDiscovery(node)
+	if not node or node.Kind ~= "ISLAND" or node.World ~= "The Overworld" then return nil, "Only researched Overworld island hitboxes are supported by this discovery experiment" end
+	if not self:IslandDiscoveryCapability().Available then return nil, "Runtime firetouchinterest unavailable; stationary discovery cannot dispatch; no climbing or movement fallback" end
+	local raw, definitions = self.Reader:GetLiveProfile(), self.Reader:_dependency("Worlds")
+	if not raw or type(raw.AreasUnlocked) ~= "table" or type(raw.WorldsUnlocked) ~= "table" then return nil, "Actual LocalData discovery/world maps unavailable" end
+	if raw.WorldsUnlocked[node.World] == nil then return nil, "Discovery origin world is not unlocked" end
+	if raw.AreasUnlocked[node.Name] ~= nil then return nil, "Island already discovered in actual LocalData; refresh the Brain" end
+	local worldDefinition = definitions and definitions[node.World]
+	local nativeIsland
+	for _, island in ipairs(worldDefinition and worldDefinition.Islands or {}) do if island.Name == node.Name then nativeIsland = island break end end
+	if not nativeIsland or worldDefinition.Event or worldDefinition.Removed then return nil, "Island is absent from the native permanent Overworld definition" end
+	local root = self.Tracker:Root()
+	local util = self.Reader:_dependency("WorldUtil")
+	if not root or not root.Parent or not util or util:GetPlayerWorld(self.Player) ~= node.World then return nil, "Alive character in the actual Overworld is required; no automatic travel for discovery" end
+	local worlds = workspace:FindFirstChild("Worlds")
+	local world = worlds and worlds:FindFirstChild(node.World)
+	local islands = world and world:FindFirstChild("Islands")
+	local island = islands and islands:FindFirstChild(node.Name)
+	local model = island and island:FindFirstChild("Island")
+	local hitbox = model and model:FindFirstChild("UnlockHitbox")
+	if not hitbox or not hitbox:IsA("BasePart") or not hitbox:IsDescendantOf(workspace) or not hitbox.CanTouch or not hitbox.Anchored then
+		return nil, "Correct native Island.UnlockHitbox is missing, unloaded or not touch-enabled"
+	end
+	if root.CanTouch == false then return nil, "Character root has native contact disabled" end
+	return { Root = root, Hitbox = hitbox, Path = hitbox:GetFullName(), Distance = (root.Position-hitbox.Position).Magnitude,
+		NativeIsland = nativeIsland, Contact = firetouchinterest }
+end
+
+function GameMechanics:EndIslandContact()
+	local contact = self.PendingIslandContact
+	if not contact then return true end
+	self.PendingIslandContact = nil -- One end call only, including Pause/Stop and transport errors.
+	local ok, reason = pcall(contact.Callback, contact.Root, contact.Hitbox, 1)
+	contact.EndSucceeded, contact.EndReason = ok, reason
+	if not ok then self.Log("ISLAND][CONTACT", "Contact end failed for " .. contact.Id .. ": " .. tostring(reason) .. "; outcome unconfirmed") end
+	return ok, reason
+end
+
+function GameMechanics:DiscoverIsland(node, token)
+	local settings = self.Config.WORLD_SETTINGS
+	local function current()
+		local goal = self.ProgressionGoalProvider and self.ProgressionGoalProvider()
+		return not token:CheckCancelled() and settings.ENABLE_WORLD_PROGRESSION and settings.AUTO_DISCOVER_ISLANDS
+			and not self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and goal and goal.Kind == "ISLAND" and goal.Id == node.Id
+	end
+	if not current() then return false, "Discovery disabled, isolated, cancelled or Brain goal changed" end
+	local raw = self.Reader:GetLiveProfile()
+	if raw and type(raw.AreasUnlocked) == "table" and raw.AreasUnlocked[node.Name] ~= nil then return true, "Already discovered in actual LocalData; no contact replay" end
+	local discovery, reason = self:IslandDiscovery(node)
+	if not discovery then return false, reason end
+	local permitted, guardReason = self:Guard()
+	if not permitted then return false, guardReason end
+	if self.PendingIslandContact then return false, "A previous contact must finish before another attempt" end
+	if not self:Available("DISCOVER:" .. node.Id) or os.clock()-self.LastDiscoveryAt < settings.ISLAND_DISCOVERY_INTERVAL_SECONDS then return false, "Discovery retry/global pacing" end
+	if (self.IslandDiscoveryAttempts[node.Id] or 0) >= settings.MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS then return false, "Island contact attempt limit reached" end
+	local graph = self.Reader:GetSnapshot().ProgressionGraph
+	if not graph or not graph.Next or graph.Next.Id ~= node.Id then return false, "Fresh Brain graph no longer selects this discovery island" end
+	-- Recheck identities and received flags immediately before touching; no position or account writes.
+	local fresh = self:IslandDiscovery(node)
+	if not current() or not fresh or fresh.Root ~= discovery.Root or fresh.Hitbox ~= discovery.Hitbox or fresh.Contact ~= discovery.Contact then return false, "Discovery character, hitbox, runtime capability, access or goal changed" end
+	local beforePosition = discovery.Root.Position
+	self.IslandDiscoveryAttempts[node.Id] = (self.IslandDiscoveryAttempts[node.Id] or 0)+1
+	self.LastDiscoveryAt = os.clock()
+	self:Failure("DISCOVER:" .. node.Id, settings.ISLAND_DISCOVERY_RETRY_COOLDOWN_SECONDS, "Awaiting actual island acknowledgement")
+	local contactRecord = { Callback = discovery.Contact, Root = discovery.Root, Hitbox = discovery.Hitbox, Id = node.Id }
+	self.PendingIslandContact = contactRecord
+	self.Log("ISLAND][ATTEMPT", string.format("%s | attempt=%d/%d | distance=%.2f | %s | discoveryBefore=absent | runtime simulated contact, server acceptance unknown",
+		node.Id, self.IslandDiscoveryAttempts[node.Id], settings.MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS, discovery.Distance, discovery.Path))
+	local began, beginReason = pcall(discovery.Contact, discovery.Root, discovery.Hitbox, 0)
+	local contactUntil = os.clock()+settings.ISLAND_DISCOVERY_CONTACT_SECONDS
+	while began and current() and os.clock() < contactUntil and self.PendingIslandContact do task.wait(math.min(0.05, contactUntil-os.clock())) end
+	local ended, endReason = self:EndIslandContact() -- End is cleanup of this attempt, even after cancellation; never another begin.
+	ended, endReason = contactRecord.EndSucceeded, contactRecord.EndReason
+	local evidence = { Island = node.Name, BeginSucceeded = began, EndSucceeded = ended, AccountAcknowledged = false, SavedPersistenceVerified = false }
+	if not began or not ended then return false, "Runtime contact failed; no discovery inferred: " .. tostring(beginReason or endReason), evidence end
+	local started, deadline = self.LastDiscoveryAt, os.clock()+settings.ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS
+	while current() and os.clock() < deadline do
+		local actual = self.Reader:GetLiveProfile()
+		if not actual or type(actual.AreasUnlocked) ~= "table" or type(actual.WorldsUnlocked) ~= "table" then return false, "Actual discovery account maps became unavailable", evidence end
+		if actual.WorldsUnlocked[node.World] == nil then return false, "Actual origin world access changed", evidence end
+		if actual.AreasUnlocked[node.Name] ~= nil then
+			evidence.AccountAcknowledged, evidence.Seconds = true, os.clock()-started
+			evidence.CharacterDelta = (discovery.Root.Position-beforePosition).Magnitude
+			self.Failures["DISCOVER:" .. node.Id] = nil
+			self:EndIslandContact()
+			self.Reader:Refresh()
+			self.Log("ISLAND][VERIFIED", string.format("%s | LocalData.AreasUnlocked: absent -> present | seconds=%.2f | characterDelta=%.2f | saved persistence requires rejoin test", node.Name, evidence.Seconds, evidence.CharacterDelta))
+			return true, "Correct current LocalData discovery acknowledged; saved persistence unverified", evidence
+		end
+		local allowed, blocker = self:Guard()
+		if not allowed then return false, blocker, evidence end
+		local actualRoot = self.Tracker:Root()
+		if actualRoot ~= discovery.Root or not discovery.Hitbox:IsDescendantOf(workspace) then return false, "Character or discovery hitbox changed during acknowledgement", evidence end
+		task.wait(0.1)
+	end
+	return false, token:CheckCancelled() and "Cancelled; an already-issued contact cannot be recalled" or "Discovery unconfirmed: no correct LocalData.AreasUnlocked acknowledgement; contact invocation is not proof", evidence
 end
 
 function GameMechanics:WorldGate(name)

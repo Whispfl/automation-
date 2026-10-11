@@ -59,10 +59,17 @@ local function validate(config)
 	end
 	assert(config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS >= 0.5, "Native blowing cooldown must be at least 0.5 seconds")
 	assert(config.UPGRADE_SETTINGS.MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION <= 1, "Goal reserve balance fraction must be in [0, 1]")
-	for _, key in ipairs({ "MAXIMUM_SESSION_WORLD_UNLOCKS", "MAXIMUM_UNLOCK_ATTEMPTS", "MAXIMUM_TRAVEL_ATTEMPTS" }) do
+	for _, key in ipairs({ "MAXIMUM_SESSION_WORLD_UNLOCKS", "MAXIMUM_UNLOCK_ATTEMPTS", "MAXIMUM_TRAVEL_ATTEMPTS", "MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS" }) do
 		local value = config.WORLD_SETTINGS[key]
 		assert(value >= 1 and value % 1 == 0, key .. " must be a positive integer")
 	end
+	assert(config.WORLD_SETTINGS.ISLAND_DISCOVERY_CONTACT_SECONDS >= 0.05 and config.WORLD_SETTINGS.ISLAND_DISCOVERY_CONTACT_SECONDS <= 0.5,
+		"Discovery contact duration must be in [0.05,0.5] seconds")
+	assert(config.WORLD_SETTINGS.ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS >= 1
+		and config.WORLD_SETTINGS.ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS <= 30
+		and config.WORLD_SETTINGS.ISLAND_DISCOVERY_INTERVAL_SECONDS >= 10
+		and config.WORLD_SETTINGS.ISLAND_DISCOVERY_RETRY_COOLDOWN_SECONDS >= 10,
+		"Discovery confirmation must be in [1,30] seconds; attempt interval/retry at least ten seconds")
 	assert(config.WORLD_SETTINGS.UNLOCK_CONFIRMATION_TIMEOUT_SECONDS >= 1 and config.WORLD_SETTINGS.UNLOCK_RETRY_COOLDOWN_SECONDS >= 10,
 		"World unlock confirmation must be at least one second and retry at least ten seconds")
 	assert(config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS >= 0.4

@@ -36,6 +36,7 @@ local function event()
 end
 local Instance = { new = function(kind) assert(kind == "BindableEvent", "Offline tests permit only events") return event() end }
 local workspace = { FindFirstChild = function() return nil end }
+local firetouchinterest -- Synthetic runtime capability, assigned only in discovery fixtures; never ships.
 local Enum = { PathStatus = { Success = "Success" }, PathWaypointAction = { Jump = "Jump" } }
 -- Minimal offline vector arithmetic for coverage-scoring fixtures, not Roblox geometry verification.
 local vectorMeta = {}

@@ -44,6 +44,12 @@ return {
 	},
 	WORLD_SETTINGS = {
 		ENABLE_WORLD_PROGRESSION = false, --// Opt into Phase 3 native graph planning; existing Phase 2 configurations retain their behavior.
+		AUTO_DISCOVER_ISLANDS = false, --// Opt into the owner's stationary Overworld discovery experiment; capability and actual LocalData checks remain mandatory.
+		ISLAND_DISCOVERY_CONTACT_SECONDS = 0.1, --// Separate the reference runtime's contact begin/end calls; cancellation releases an existing contact only.
+		ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS = 10, --// Wait for the correct actual AreasUnlocked flag; contact invocation is never success.
+		ISLAND_DISCOVERY_INTERVAL_SECONDS = 10, --// Pace attempts globally, including acknowledged islands; one island owns the gameplay lease at a time.
+		ISLAND_DISCOVERY_RETRY_COOLDOWN_SECONDS = 30, --// Back off each unconfirmed island attempt across Pause/Resume/Stop.
+		MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS = 2, --// Bound simulated-contact attempts per island for this controller lifetime; already-discovered flags skip requests.
 		SELECTED_WORLDS = {}, --// Empty includes permanent native worlds; actual gate-origin dependencies are included automatically.
 		AUTO_FARM_UNLOCK_REQUIREMENTS = false, --// Authorize stationary farming only for a verified world-cost shortage with known gate prerequisites.
 		AUTO_TRAVEL_FOR_PROGRESSION = false, --// Authorize native portal travel to an already-discovered gate island, independently of farming travel.

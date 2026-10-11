@@ -72,15 +72,28 @@ function ProgressionGraph.Build(config, snapshot, definitions, observations)
 				DestinationPartObserved = sceneIsland and sceneIsland.DestinationPartObserved or false,
 				Facilities = sceneIsland and sceneIsland.Facilities or {},
 				State = discovered and "COMPLETE" or "BLOCKED",
-				Blocker = not discovered and (world.Unlocked and "Undiscovered island: native ascent/discovery route and required bubble/jump capability unverified; manual discovery required" or "Origin world is locked") or nil }
+				Blocker = not discovered and (world.Unlocked and (config.WORLD_SETTINGS.AUTO_DISCOVER_ISLANDS and name == "The Overworld"
+					and "Undiscovered island: runtime contact capability and actual account acknowledgement must be checked"
+					or "Undiscovered island: native ascent/discovery route and required bubble/jump capability unverified; manual discovery required") or "Origin world is locked") or nil }
 			table.insert(world.Islands, island) table.insert(graph.Islands, island)
 		end
 		table.sort(world.Islands, function(a, b) return (a.Height or math.huge) < (b.Height or math.huge) end)
 		table.insert(graph.Worlds, world)
 	end
 	table.sort(graph.Worlds, function(a, b) return a.Order == b.Order and a.Name < b.Name or a.Order < b.Order end)
-	-- Prefer independently attainable world actions over unsupported traversal branches.
+	-- Discovery experiment uses the native definition array order, never scene child iteration.
+	if config.WORLD_SETTINGS.AUTO_DISCOVER_ISLANDS then
+		for _, world in ipairs(graph.Worlds) do
+			if world.Name == "The Overworld" and world.Unlocked then
+				local ordered = table.clone(world.Islands)
+				table.sort(ordered, function(a, b) return a.Index < b.Index end)
+				for _, island in ipairs(ordered) do if not island.Discovered then graph.Next = island break end end
+			end
+		end
+	end
+	-- Preserve the existing world-action policy when no experiment discovery remains.
 	for _, state in ipairs({ "READY", "FUNDING" }) do
+		if graph.Next then break end
 		for _, world in ipairs(graph.Worlds) do if world.State == state then graph.Next = world break end end
 		if graph.Next then break end
 	end

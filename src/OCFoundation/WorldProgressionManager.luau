@@ -38,8 +38,16 @@ function WorldProgressionManager:Select(plan)
 	local name = goal.Node and goal.Node.Name
 	local gate, blocker
 	if name and goal.Node.Kind == "WORLD" and goal.Node.State == "READY" then gate, blocker = mechanics:WorldGate(name) end
+	local discovery
+	if goal.Node and goal.Node.Kind == "ISLAND" and controller.Config.WORLD_SETTINGS.AUTO_DISCOVER_ISLANDS then
+		discovery, blocker = mechanics:IslandDiscovery(goal.Node)
+		if controller.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then discovery, blocker = nil, "Isolated pickup test blocks island discovery" end
+	end
 	local permitted, guardReason = mechanics:Guard(gate and gate.InRange and "World " .. tostring(gate.Order) or nil)
 	local decision = controller.Brain:PlanProgression(controller.Reader:GetSnapshot(), plan, {
+		Discovery = discovery, DiscoveryAttempts = goal.Node and mechanics.IslandDiscoveryAttempts[goal.Node.Id] or 0,
+		DiscoveryBackoff = (goal.Node and not mechanics:Available("DISCOVER:" .. goal.Node.Id) or false)
+			or os.clock()-mechanics.LastDiscoveryAt < controller.Config.WORLD_SETTINGS.ISLAND_DISCOVERY_INTERVAL_SECONDS,
 		Gate = gate, Blocker = blocker or guardReason, CanInteract = permitted,
 		SessionRequests = mechanics.SessionUnlockRequests or 0, UnlockAttempts = name and (mechanics.UnlockAttempts or {})[name] or 0,
 		UnlockBackoff = name and not mechanics:Available("UNLOCK:" .. name) or false,
@@ -62,6 +70,8 @@ function WorldProgressionManager:Definition(decision, generation)
 	local controller = self.Controller
 	return { Id = "OC_GAMEPLAY", Owner = "WORLD_PROGRESSION", Priority = 100, Generation = generation,
 		TimeoutSeconds = math.max(controller.Config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS,
+			decision.Kind == "DISCOVER_ISLAND" and (controller.Config.WORLD_SETTINGS.ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS
+				+ controller.Config.WORLD_SETTINGS.ISLAND_DISCOVERY_CONTACT_SECONDS+1) or 0,
 			controller.Config.WORLD_SETTINGS.UNLOCK_CONFIRMATION_TIMEOUT_SECONDS) + 2,
 		CanRun = function() return controller.State == "RUNNING" and controller.Generation == generation
 			and controller.Plan and controller.Plan.Objective.Id == decision.GoalId end,
@@ -71,7 +81,11 @@ function WorldProgressionManager:Definition(decision, generation)
 			controller.Farming:Halt(true) -- Release Phase 2 measurement/observer ownership, retaining native ID deduplication.
 			local ok, reason, evidence
 			if decision.Kind == "UNLOCK_WORLD" then ok, reason, evidence = self.Mechanics:UnlockWorld(decision.Node.Name, token)
-			else
+			elseif decision.Kind == "DISCOVER_ISLAND" then
+				local succeeded, output = xpcall(function() return table.pack(self.Mechanics:DiscoverIsland(decision.Node, token)) end, debug.traceback)
+				self.Mechanics:EndIslandContact()
+				if succeeded then ok, reason, evidence = table.unpack(output, 1, output.n) else ok, reason = false, tostring(output) end
+			elseif decision.Kind == "TRAVEL_GATE_ISLAND" then
 				local name = decision.Node.Name
 				local requestsBefore = self.Mechanics.ProgressionTravelRequests or 0
 				-- Install backoff before dispatch so Pause/Stop cannot erase an uncertain travel attempt.
@@ -86,6 +100,7 @@ function WorldProgressionManager:Definition(decision, generation)
 end
 
 function WorldProgressionManager:Halt()
+	self.Mechanics:EndIslandContact() -- Release an existing simulated contact; no new attempt.
 	self.Decision = nil -- Cancellation belongs to TaskScheduler. Request/backoff ledgers deliberately survive controls.
 end
 
@@ -95,7 +110,8 @@ end
 
 function WorldProgressionManager:GetStatus()
 	return { Decision = self.Decision, SessionUnlockRequests = self.Mechanics.SessionUnlockRequests or 0,
-		UnlockAttempts = table.clone(self.Mechanics.UnlockAttempts or {}), TravelFailures = table.clone(self.TravelFailures) }
+		UnlockAttempts = table.clone(self.Mechanics.UnlockAttempts or {}), TravelFailures = table.clone(self.TravelFailures),
+		IslandDiscoveryAttempts = table.clone(self.Mechanics.IslandDiscoveryAttempts), DiscoveryCapability = self.Mechanics:IslandDiscoveryCapability() }
 end
 
 return WorldProgressionManager

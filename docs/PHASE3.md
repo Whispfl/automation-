@@ -69,20 +69,97 @@ embedding this list as a fake universal progression chain.
 
 ## Specific unsupported portions
 
-**Fresh-account automatic ascent is not implemented.** Client source confirms that
-discovery gates island portals, and that normal physics depend on bubbles. It does
-not establish a safe OC ascent route, a required bubble threshold or a native island
-discovery command. A fresh account reports its earliest undiscovered island and the
-unverified traversal requirement. It does not assume access to The Void/Zen, invent
-a bubble objective, farm at the main world or bypass discovery. Manual native
-discovery followed by a fresh account snapshot advances that graph branch.
+**Automatic ascent is not implemented.** The owner redirected work to the stationary
+hitbox experiment below before climbing was published. No walking/jumping, physics
+modification or automatic climbing fallback ships. Bubble capacity is not asserted
+to be a prerequisite of simulated contact; server discovery rules remain unavailable.
 
 **Gate approach is not automated.** Portal travel may land outside the native
 Activation.Root range. OC reports the exact blocker and waits for the owner to use
 normal game movement into the gate activation area. No pickup walking, pathfinding,
 character repositioning or jump automation is present. Future movement/hatching
 coordination is not implemented. Native portal travel and gate unlocking are the
-independently supported Phase 3 actions in this candidate.
+independently supported native Phase 3 actions in this candidate; the runtime
+contact feature is explicitly experimental, not a verified native discovery API.
+
+## Stationary island discovery experiment
+
+Read-only inspection confirmed all five actual Overworld structures expose an
+anchored, noncolliding, touch-enabled `Island.UnlockHitbox` Part (512 x 30 x 512).
+The inspected Y centers are Floating Island 404.565, Outer Space 2642.522,
+Twilight 6844.028, The Void 10123.126 and Zen 15954.402. Code resolves each actual
+Part; it does not hardcode these positions or move the character there.
+
+`Shared.Data.Worlds` gives native array order **Floating Island -> Outer Space ->
+Twilight -> The Void -> Zen**. The discovery experiment selects the first missing
+actual account flag in that order, even if scene child order/heights differ or
+another world is affordable. It does not assert that this order is a server rule.
+When those discoveries finish, the existing resource/world policy takes over.
+Pickup farming destinations remain only The Void and Zen.
+
+The saved workspace's `ServerScriptService` has no exposed discovery handler;
+script searches found no client UnlockHitbox handler or native discovery command.
+`Client.Framework.Services.LocalData:107-157` receives PlayerDataLoaded and
+PlayerDataChanged, replacing received fields and publishing change events.
+`Client.Gui.HUD:1678-1700` renders discovered-island notifications from AreasUnlocked;
+`ClientScript:1614-1636` updates portal unlocks from those same flags. **Neither the
+server's contact validation nor its durable save operation can be established by
+this client inspection.** A touch-enabled Part alone is not a verified contract.
+
+The owner's reference calls `firetouchinterest(root, hitbox, 0)`, waits 0.1 seconds,
+then calls phase 1. This is a runtime-specific facility, not normal Studio Luau.
+No such global was found in inspected game scripts. We did not execute code in
+Studio or the owner's test runtime. The adapter checks the actual global's type
+at execution and exposes `WorldProgression.DiscoveryCapability` in GetStatus.
+Availability means callable, not that its implementation replicates a contact or
+that the game will accept it. Missing capability produces explicit WAIT.
+
+Only `GameMechanics` invokes this optional facility. WorldProgressionManager leases
+one Brain-selected island through `OC_GAMEPLAY`; no second loop or scheduler exists.
+It requires actual origin-world access, actual Overworld location, a live root,
+the exact native definition/model/hitbox and normal interaction guards. It skips
+received discovery flags, rechecks identities before dispatch and never edits
+LocalData, a hitbox, the character or a portal. Contact calls are not purchases or
+world unlock commands. Failed calls are unconfirmed.
+
+Each attempt has one begin and one cleanup end, at least ten seconds between begins
+globally, thirty-second per-island retry backoff, and at most two attempts per island
+per controller lifetime. A ten-second confirmation window rereads real LocalData.
+Only the **correct island** changing from absent to present acknowledges discovery.
+Other island flags, visuals, balances and normally returning contact calls do not.
+Pause/Stop cancel waiting and prevent another begin; an already-started contact gets
+one cleanup end. Attempts/backoff survive controls. A late received discovery is
+skipped on Resume. Cleanup failures are reported, without retaining hidden objects.
+
+Relevant settings under WORLD_SETTINGS:
+
+| Setting | Default / published discovery test | Meaning |
+| --- | --- | --- |
+| AUTO_DISCOVER_ISLANDS | false / true | Explicit experimental discovery opt-in; no automatic ascent fallback |
+| ISLAND_DISCOVERY_CONTACT_SECONDS | 0.1 | Reference phase separation, validated within 0.05–0.5 seconds |
+| ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS | 10 | Bounded actual correct-flag wait, validated within 1–30 seconds |
+| ISLAND_DISCOVERY_INTERVAL_SECONDS | 10 | Global attempt pacing; minimum ten seconds |
+| ISLAND_DISCOVERY_RETRY_COOLDOWN_SECONDS | 30 | Per-island uncertain-attempt backoff; minimum ten seconds |
+| MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS | 2 | Positive integer lifetime per-island request limit |
+
+Live checks for this discovery delivery:
+
+1. Start the published Progression example while your character is in The Overworld.
+   No physical climb, minimum bubble amount or real balance is invented.
+2. Expect `WORLD][DECISION] DISCOVER_ISLAND` and `ISLAND][ATTEMPT] The Overworld/Floating Island`.
+   Missing runtime capability, game UI/interaction blockers or absent hitboxes yield WAIT.
+3. Require `ISLAND][VERIFIED] Floating Island | LocalData.AreasUnlocked: absent -> present`.
+   This confirms the current received account flag, **not durable save persistence**.
+   The line also reports characterDelta and explicitly requires a rejoin test.
+4. Subsequent goals should follow native order, skipping any already discovered islands.
+   `Discovery unconfirmed` is a failed/unconfirmed attempt, followed by bounded backoff.
+5. Pause/Resume/Stop during a pending attempt. No additional begin should occur while
+   paused/stopped. A cleanup end may finish an existing contact. On Resume the next
+   task uses current account flags, not a fabricated success record.
+6. Stop OC, rejoin on the same account, then reload it and inspect actual AreasUnlocked.
+   Retained discoveries should be skipped. If flags vanish, report failed persistence;
+   this implementation cannot force a save. Send ATTEMPT, VERIFIED, RESULT, CONTROL
+   and post-rejoin account lines. Phase 3 remains pending owner verification.
 
 `Reached` is a current proximity observation when portal geometry and character are
 available. `Discovered` and `NativePortalUnlocked` use the native AreasUnlocked flag;
@@ -95,19 +172,25 @@ island-zone arrival geometry. Historical reach and server-only island states rem
 ## One initial configuration
 
 Use [examples/Progression.luau](../examples/Progression.luau). It contains the full
-editable Config and direct unauthenticated bundle loader. World spending and
+editable Config and direct unauthenticated bundle loader. Stationary discovery is
+enabled as the explicitly requested experiment. World spending and
 progression portal travel are OFF, maximum world spending is 0, bubbles/selling/
-upgrades/equipment changes are OFF. Stationary farming is permitted only for actual
-verified shortages; set `AUTO_FARM_UNLOCK_REQUIREMENTS=false` for a pure planning run.
+upgrades/equipment changes are OFF. AUTO_FARM_UNLOCK_REQUIREMENTS, AUTO_RESOURCE_FARM
+and AUTO_TRAVEL_BEST_ISLAND are OFF to isolate this first stationary discovery test.
+After live discovery verification, enabling those existing three controls restores
+the preserved actual-shortage stationary farming and native island travel policy.
 Farming destinations remain only The Void and Zen in The Overworld.
 
 Developed account: completed flags are skipped; its first unfinished attainable
 world becomes the objective. If affordable, OC waits with spending disabled; if its
-known cost exceeds the actual balance, the enabled shortage policy can farm. With no
+known cost exceeds the actual balance, the existing shortage policy can farm when
+the three farming/travel controls are enabled. With no
 remaining progression/resource requirement it waits. It never spends on startup
-under this configuration. Fresh/partial account: unsupported discovery prerequisites
-are reported, independently attainable world actions remain eligible, and native
-access flags prevent invalid travel/farming.
+under this configuration. Fresh/partial account: the first missing Overworld island
+is tested in native order if runtime capability and live guards permit it. There is
+no movement fallback. After those discoveries, the isolated example waits on any
+resource/world requirement without moving, collecting or spending. The unchanged
+stationary collector and native The Void/Zen travel remain separately configurable.
 
 For **one explicitly authorized live unlock**, edit the same Config before reloading:
 choose the intended `WORLD_SETTINGS.SELECTED_WORLDS`, set `AUTO_UNLOCK_WORLDS=true`
@@ -140,21 +223,25 @@ still skips every unlock actually confirmed by LocalData.
 
 `node scripts/build.mjs` and `node scripts/test.mjs` compile the source, actual bundled
 initializer and all examples, enforce command isolation/no navigation/no authentication,
-and run **157 deterministic regressions**: the existing 132 plus 25 Phase 3 cases.
+and run **175 deterministic regressions**: the existing 157 plus 18 stationary
+discovery cases.
 Fresh/partial/developed states, shortages/affordability, unknown prerequisites,
 unsupported ascent, native range/UI guards, failed travel/unlock, actual flag refresh,
 reserves, request limits, cancellation and 32-ID collector compatibility are covered.
-All profiles, clocks, geometry and server responses in these tests are synthetic.
+Runtime capability absence, native discovery order, wrong-island updates, contact
+errors, no-acknowledgement/backoff, controls, stale character identities, no movement
+and explicit unverified persistence are covered. All profiles, clocks, geometry and
+server responses in these tests are synthetic.
 `scripts/verify-public.mjs` compares public main and exact-commit bundle and both
 stationary/progression examples byte-for-byte after publishing.
 
-Changed files for this delivery:
+Files changed for the stationary discovery delivery:
 
-- `AGENTS.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/STATIONARY_TEST.md`, `docs/PHASE3.md`
-- `src/OC.luau`, `src/OCFoundation/OCConfig.luau`, `OCController.luau`, `OCBrain.luau`, `OCInterface.luau`
-- `src/OCFoundation/AccountStateReader.luau`, `GameKnowledge.luau`, `GameMechanics.luau`, `UpgradePolicy.luau`
-- New `src/OCFoundation/ProgressionGraph.luau`, `TravelPlanner.luau`, `WorldProgressionManager.luau`
-- `tests/progression.luau`, `examples/Progression.luau`, `scripts/test.mjs`, `scripts/verify-public.mjs`, `dist/OC.lua`
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/PHASE3.md`
+- `src/OCFoundation/OCConfig.luau`, `OCController.luau`, `GameKnowledge.luau`, `GameMechanics.luau`
+- `src/OCFoundation/ProgressionGraph.luau`, `TravelPlanner.luau`, `WorldProgressionManager.luau`
+- `tests/foundation.luau` (offline runtime capability slot), new `tests/discovery.luau`
+- `examples/Progression.luau`, `scripts/test.mjs`, `dist/OC.lua`
 
 `PickupTracker`, `StationaryExperiment`, `FarmingCoordinator`, `FarmingPolicy`,
 `TaskScheduler`, the existing Phase 2 examples and their regression fixtures are

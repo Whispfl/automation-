@@ -5,8 +5,11 @@ is explicitly authorized; its new actions await owner live verification. Phase 4
 is not authorized. Start with [examples/Progression.luau](examples/Progression.luau)
 and [Phase 3 evidence, controls and live checks](docs/PHASE3.md). Progression spending
 and progression travel default OFF; actual world-cost shortages may use the unchanged
-stationary collector when explicitly enabled. Fresh-account ascent is blocked until
-a supported discovery route is established; no fake discovery or physics bypass.
+stationary collector when explicitly enabled. The current Phase 3 example tests
+sequential Overworld discovery through genuine UnlockHitboxes using the runtime's
+optional `firetouchinterest`. Server acceptance and saved persistence remain unverified.
+No climbing, physics changes or movement fallback is added; correct LocalData flags
+are mandatory, and a live rejoin test must establish persistence.
 
 The existing Phase 2 configuration remains available below.
 Stationary pickup requests now use the Flame reference's genuine-ID approach in
