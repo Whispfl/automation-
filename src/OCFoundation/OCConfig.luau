@@ -42,6 +42,21 @@ return {
 		PEARL_RESERVE = 0, --// Exclude these pearls from affordability recommendations.
 		MAXIMUM_UPGRADE_BALANCE_FRACTION = 0.25, --// Mark purchases above this fraction of spendable funds as savings objectives.
 	},
+	WORLD_SETTINGS = {
+		ENABLE_WORLD_PROGRESSION = false, --// Opt into Phase 3 native graph planning; existing Phase 2 configurations retain their behavior.
+		SELECTED_WORLDS = {}, --// Empty includes permanent native worlds; actual gate-origin dependencies are included automatically.
+		AUTO_FARM_UNLOCK_REQUIREMENTS = false, --// Authorize stationary farming only for a verified world-cost shortage with known gate prerequisites.
+		AUTO_TRAVEL_FOR_PROGRESSION = false, --// Authorize native portal travel to an already-discovered gate island, independently of farming travel.
+		AUTO_UNLOCK_WORLDS = false, --// Explicitly authorize native world-gate spending; live access, currency and cost limits still apply.
+		ALLOWED_UNLOCK_CURRENCIES = { "Coins", "Gems" }, --// Permit only these nonpremium currencies for world unlocks.
+		MAXIMUM_WORLD_UNLOCK_COST = 0, --// Explicit spending ceiling per unlock; zero authorizes no positive-cost unlock.
+		MAXIMUM_SESSION_WORLD_UNLOCKS = 1, --// Bound newly requested unlocks for this controller lifetime, including uncertain outcomes.
+		MAXIMUM_UNLOCK_ATTEMPTS = 2, --// Bound requests per world across Pause/Resume/Stop; already-unlocked worlds are always skipped.
+		MAXIMUM_TRAVEL_ATTEMPTS = 2, --// Bound failed gate-island portal travel per world for this controller lifetime.
+		UNLOCK_CONFIRMATION_TIMEOUT_SECONDS = 8, --// Wait for actual LocalData WorldsUnlocked acknowledgement, never client gate animations.
+		UNLOCK_RETRY_COOLDOWN_SECONDS = 60, --// Back off failed or unconfirmed unlock requests; no immediate resend on Resume.
+		TRAVEL_STABILIZATION_SECONDS = 1, --// Require observed native portal arrival to remain stable before reevaluating the gate.
+	},
 	TASK_SETTINGS = {
 		ENABLE_TASK_SCHEDULER = true, --// Grant one foreground lease to analysis, navigation, farming, selling, or spending.
 		MAXIMUM_PENDING_TASKS = 8, --// Bound the scheduler queue; duplicate IDs replace pending work.

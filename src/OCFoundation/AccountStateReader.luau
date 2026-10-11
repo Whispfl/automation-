@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
+local ProgressionGraph = require(script.Parent.ProgressionGraph)
 local AccountStateReader = {}
 AccountStateReader.__index = AccountStateReader
 
@@ -145,7 +146,13 @@ function AccountStateReader:_catalog(snapshot)
 				if node.Parent == sceneWorlds then origin = node.Name end
 				node = node.Parent
 			end
-			gates[destination] = { RequiredIsland = area, OriginWorld = origin, Path = gate:GetFullName() }
+			if gates[destination] then gates[destination].Ambiguous = true
+			else
+				local activation = gate:FindFirstChild("Activation")
+				local root = activation and activation:FindFirstChild("Root")
+				gates[destination] = { RequiredIsland = area, OriginWorld = origin, Path = gate:GetFullName(),
+					ActivationObserved = root ~= nil and root:IsA("BasePart") }
+			end
 		end
 	end
 	if type(worlds) == "table" and sceneWorlds then
@@ -153,20 +160,45 @@ function AccountStateReader:_catalog(snapshot)
 			-- A retained seasonal definition is not proof that its event is active.
 			if type(definition) == "table" and not definition.Event and not definition.Removed and sceneWorlds:FindFirstChild(name) then
 				local gate = gates[name]
+				local fastTravel = sceneWorlds[name]:FindFirstChild("FastTravel")
+				local worldSpawn = fastTravel and fastTravel:FindFirstChild("Spawn")
 				table.insert(result.Worlds, {
 					Name = name, Order = definition.Order or 999,
 					Cost = copy(definition.UnlockCost), Gate = gate,
 					Unlocked = snapshot.UnlockedWorlds and snapshot.UnlockedWorlds[name] ~= nil,
 					Selected = allowed(self.Config.BRAIN_SETTINGS.SELECTED_WORLDS, name),
+					WorldTravelPath = name ~= "Seven Seas" and worldSpawn and worldSpawn:IsA("BasePart") and worldSpawn:GetFullName() or nil,
 				})
 				local islandRoot = sceneWorlds[name]:FindFirstChild("Islands")
 				for _, island in ipairs(definition.Islands or {}) do
 					local instance = islandRoot and islandRoot:FindFirstChild(island.Name)
 					if instance then
+						local islandModel = instance:FindFirstChild("Island")
+						local portal = islandModel and islandModel:FindFirstChild("Portal")
+						local spawn = portal and portal:FindFirstChild("Spawn")
+						local character = self.Player and self.Player.Character
+						local root = character and character:FindFirstChild("HumanoidRootPart")
+						local facilities = {}
+						if self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and islandModel then
+							for _, kind in ipairs({ "Eggs", "Chests", "Mastery" }) do
+								local object = islandModel:FindFirstChild(kind)
+								if object then facilities[kind] = { Path = object:GetFullName(), SceneChildren = #object:GetChildren(),
+									Evidence = "Scene container/model only; native feature execution deferred" } end
+							end
+							local station = islandModel:FindFirstChild("Sell")
+							local stationRoot = station and station:FindFirstChild("Root")
+							if stationRoot and stationRoot:IsA("BasePart") then facilities.Sell = { Path = station:GetFullName(),
+								Multiplier = station:GetAttribute("Multiplier") or 1, Currency = station:GetAttribute("Currency") or "Coins",
+								Evidence = "Native HUD.findBestSell / Activation attributes; no selling enabled" } end
+						end
 						table.insert(result.Islands, {
 							Name = island.Name, World = name,
 							Height = instance:GetAttribute("Height") or island.Height,
 							Unlocked = snapshot.UnlockedIslands and snapshot.UnlockedIslands[island.Name] ~= nil,
+							TravelPath = "Workspace.Worlds." .. name .. ".Islands." .. island.Name .. ".Island.Portal.Spawn", -- native WorldMap/WorldUtil supports server-only destinations
+							DestinationPartObserved = spawn ~= nil and spawn:IsA("BasePart"),
+							Reached = root and spawn and spawn:IsA("BasePart") and (root.Position - spawn.Position).Magnitude <= self.Config.ISLAND_SETTINGS.ARRIVAL_DISTANCE_STUDS or nil,
+							Facilities = facilities,
 						})
 					end
 				end
@@ -338,6 +370,9 @@ function AccountStateReader:Read()
 		if #snapshot.UnavailableFields > 0 then snapshot.Status = "PARTIAL_ACCOUNT_DATA" end
 	end
 	snapshot.AvailableProgression = settings.ENABLE_ACCOUNT_READER and self:_catalog(snapshot) or {}
+	if self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then
+		snapshot.ProgressionGraph = ProgressionGraph.Build(self.Config, snapshot, self:_dependency("Worlds"), snapshot.AvailableProgression)
+	end
 	table.sort(diagnostics)
 	return snapshot
 end
@@ -402,13 +437,14 @@ function AccountStateReader:Start()
 			Flavors = "Shared.Data.Flavors", Mastery = "Shared.Data.Mastery", StatsUtil = "Shared.Utils.Stats.StatsUtil" }) do
 			self:_load(name, path)
 		end
-		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM then
+		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then
 			if self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
 				and self.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY then
 				self:_load("Tutorial", "Client.Tutorial") self:_load("Chunker", "Shared.Utils.Chunker")
 			end
 			self:_load("GetPickupZones", "Shared.Utils.GetPickupZones", "function")
 			self:_load("Remote", "Shared.Framework.Network.Remote")
+			if self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then self:_load("WorldUtil", "Shared.Utils.WorldUtil") end
 			self:_load("QuestUtil", "Shared.Utils.Stats.QuestUtil")
 			self:_load("GuiFrame", "Client.Gui.GuiFrame")
 			self:_load("PhysicalItem", "Client.Effects.PhysicalItem")

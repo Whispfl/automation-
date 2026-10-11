@@ -5,9 +5,12 @@ Phase 2 bubbles, selling and island teleportation have owner-observed success.
 Prior movement-based pickups had owner verification. The owner's latest instruction
 removes movement collection; the owner now reports continuous stationary batches
 earning real Coins and Gems, with visual cleanup and native island travel confirmed
-at 2ac673d. Background combined farming is cancelled. Goal-driven routing, upgrades
-and overall Phase 2 approval remain pending. Phases 3–9 remain plans and have
-no new executors in this build.
+at 2ac673d. Background combined farming is cancelled. The owner subsequently approved
+Phase 2's agreed stationary farming scope and explicitly authorized Phase 3. The new
+native progression graph, travel policy and guarded world-unlock adapter share the
+existing Brain/scheduler lease. Their live verification remains pending; unsupported
+undiscovered-island traversal is a specific blocker. See [PHASE3.md](PHASE3.md).
+Phases 4–9 have no new executors; hybrid farming remains deferred to Phase 9.
 
 ## Sources and reusable layers
 
@@ -49,8 +52,9 @@ No verified resource need means idle. Read-only received native quest Tasks/Prog
 and QuestUtil:GetRequirement supply supported collection/bubble task requirements;
 catalogs and bubble fullness cannot invent those tasks. Bubble actions default off
 and, when explicitly enabled, require an unfinished matching task at dispatch.
-No background blowing, task acceptance/claims, unlock actions or independent loops
-are added. The retained CompareIncome evaluator exists for historical pure economics
+No background blowing, task acceptance/claims or independent loops are added.
+Phase 3 world unlocks have separate explicit controls and native account acknowledgement.
+The retained CompareIncome evaluator exists for historical pure economics
 regressions; the active Brain never calls it and executors reject combined tasks.
 
 `UpgradePolicy` is a pure, reusable catalog/economics evaluator called only by the
@@ -92,4 +96,5 @@ Studio remains unchanged and read-only. All sources and the generated bundle liv
 in ryanrooflead-source/OCscript. Central OCConfig naming and custom Config entry
 remain unchanged. Each fix rebuilds, compiles/tests, commits/pushes and verifies the
 public raw URL. The owner runs the loader and reports results; phase approval is
-explicit. Phase 3 cannot begin until Phase 2 is approved.
+explicit. Phase 2's agreed scope is now approved and Phase 3 is authorized. Phase 4
+cannot begin without the owner's explicit approval.

@@ -20,7 +20,7 @@ return function(customConfig)
 	local controller = OCController.new(config, player)
 	local ok, result = xpcall(function()
 		controller.Interface = OCInterface.new(controller, playerGui)
-		controller:Log("INIT", "Phase 2 candidate initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | user testing pending")
+		controller:Log("INIT", "Phase " .. tostring(controller:GetStatus().Phase) .. " initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | Phase 3 actions await owner live verification")
 		controller:Log("SCOPE", "Brain-coordinated unlocked island farming, native radius clusters, bubbles, selling and configured currency upgrades.")
 		controller:Log("FARM][BULK", "No genuine island-wide batch pickup interface found; native collection operates per ID within StatsUtil:GetPickupRange.")
 		if config.GENERAL_SETTINGS.AUTO_START then

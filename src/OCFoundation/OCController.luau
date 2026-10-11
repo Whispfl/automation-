@@ -5,6 +5,7 @@ local TaskScheduler = require(script.Parent.TaskScheduler)
 local AccountPresentation = require(script.Parent.AccountPresentation)
 local FarmingCoordinator = require(script.Parent.FarmingCoordinator)
 local GameKnowledge = require(script.Parent.GameKnowledge)
+local WorldProgressionManager = require(script.Parent.WorldProgressionManager)
 
 local OCController = {}
 OCController.__index = OCController
@@ -12,7 +13,7 @@ OCController.__index = OCController
 local function validate(config)
 	for _, name in ipairs({ "GENERAL_SETTINGS", "ACCOUNT_SETTINGS", "BRAIN_SETTINGS", "RESOURCE_SETTINGS",
 		"TASK_SETTINGS", "BUBBLE_SETTINGS", "FALL_EVENT_SETTINGS", "PET_SETTINGS", "STATUS_UI_SETTINGS", "DIAGNOSTIC_SETTINGS",
-		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS" }) do
+		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS", "WORLD_SETTINGS" }) do
 		assert(type(config[name]) == "table", "Missing configuration category: " .. name)
 	end
 	for category, entries in pairs(config) do
@@ -58,6 +59,15 @@ local function validate(config)
 	end
 	assert(config.BUBBLE_SETTINGS.BLOW_COOLDOWN_SECONDS >= 0.5, "Native blowing cooldown must be at least 0.5 seconds")
 	assert(config.UPGRADE_SETTINGS.MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION <= 1, "Goal reserve balance fraction must be in [0, 1]")
+	for _, key in ipairs({ "MAXIMUM_SESSION_WORLD_UNLOCKS", "MAXIMUM_UNLOCK_ATTEMPTS", "MAXIMUM_TRAVEL_ATTEMPTS" }) do
+		local value = config.WORLD_SETTINGS[key]
+		assert(value >= 1 and value % 1 == 0, key .. " must be a positive integer")
+	end
+	assert(config.WORLD_SETTINGS.UNLOCK_CONFIRMATION_TIMEOUT_SECONDS >= 1 and config.WORLD_SETTINGS.UNLOCK_RETRY_COOLDOWN_SECONDS >= 10,
+		"World unlock confirmation must be at least one second and retry at least ten seconds")
+	assert(config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS >= 0.4
+		and config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS < config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS,
+		"Progression travel stabilization must fit inside the native travel confirmation window")
 	assert(config.PICKUP_SETTINGS.MAXIMUM_PATH_RECOMPUTES % 1 == 0 and config.PICKUP_SETTINGS.MAXIMUM_PATH_RECOMPUTES <= 3, "Path recomputes must be an integer in [0, 3]")
 	assert(config.PICKUP_SETTINGS.WAYPOINT_STALL_SECONDS >= 1 and config.PICKUP_SETTINGS.MOVE_REISSUE_SECONDS >= 1, "Movement stall and reissue intervals must be at least one second")
 	assert(config.PICKUP_SETTINGS.MINIMUM_WAYPOINT_PROGRESS_STUDS > 0, "Waypoint progress threshold must be positive")
@@ -94,6 +104,7 @@ function OCController.new(config, player)
 	self.Connections = {}
 	self.Snapshot = self.Reader:GetSnapshot()
 	self.Farming = FarmingCoordinator.new(self, player)
+	self.WorldProgression = WorldProgressionManager.new(self)
 	table.insert(self.Connections, self.Reader.Changed.Event:Connect(function(snapshot)
 		self.Snapshot = snapshot
 		self:_diagnoseSnapshot(snapshot)
@@ -105,7 +116,8 @@ function OCController.new(config, player)
 		if self.Destroyed or self.State ~= "RUNNING" then return end
 		if id == "OC_GAMEPLAY" then
 			if definition and definition.Generation == self.Generation then
-				self.Farming:Completed(status, result, reason)
+				if definition.Owner == "WORLD_PROGRESSION" then self.WorldProgression:Completed(status, result, reason)
+				else self.Farming:Completed(status, result, reason) end
 				self.Reader:Refresh()
 				self:_requestPlan(true)
 			end
@@ -124,8 +136,15 @@ function OCController.new(config, player)
 				self:Log("PROGRESSION", result.Progression .. " | " .. result.ProgressionEvidence)
 				if #goal.Prerequisites > 0 then self:Log("PREREQUISITES", table.concat(goal.Prerequisites, "; ")) end
 			end
-			local decision = self.Farming:Select(result)
-			local taskDefinition = self.Farming:Definition(decision, self.Generation)
+			local owns, decision = self.WorldProgression:Select(result)
+			local taskDefinition
+			if owns then
+				self.Farming:Halt(true)
+				taskDefinition = self.WorldProgression:Definition(decision, self.Generation)
+			else
+				decision = self.Farming:Select(result)
+				taskDefinition = self.Farming:Definition(decision, self.Generation)
+			end
 			if taskDefinition then
 				local accepted, errorMessage = self.Scheduler:Submit(taskDefinition)
 				if not accepted then self.Error = errorMessage self:Log("FARM][ERROR", errorMessage) end
@@ -205,7 +224,8 @@ end
 
 function OCController:GetStatus()
 	return { State = self.State, Snapshot = self.Reader:GetSnapshot(), Plan = self.Plan,
-		Scheduler = self.Scheduler:GetStatus(), Farming = self.Farming:GetStatus(), Error = self.Error, Phase = 2 }
+		Scheduler = self.Scheduler:GetStatus(), Farming = self.Farming:GetStatus(), WorldProgression = self.WorldProgression:GetStatus(),
+		Error = self.Error, Phase = self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and 3 or 2 }
 end
 
 function OCController:_notify()
@@ -256,7 +276,7 @@ function OCController:Start()
 	self.Scheduler:Resume()
 	self:_requestPlan(true)
 	self:_notify()
-	self:Log("CONTROL", "START | account analysis and Brain-selected Phase 2 tasks enabled by Config")
+	self:Log("CONTROL", "START | account analysis and Brain-selected tasks enabled by Config | phase=" .. tostring(self:GetStatus().Phase))
 	return true
 end
 
@@ -267,6 +287,7 @@ function OCController:Pause()
 	self:_cancelReplan()
 	self.Scheduler:Pause()
 	self.Farming:Halt(true)
+	self.WorldProgression:Halt()
 	self:_notify()
 	self:Log("CONTROL", "PAUSE | recommendations paused; read-only account updates remain visible")
 	return true
@@ -291,6 +312,7 @@ function OCController:Stop()
 	self:_cancelReplan()
 	self.Scheduler:Stop()
 	self.Farming:Halt()
+	self.WorldProgression:Halt()
 	self.Plan = nil
 	self.Error = nil
 	self.Brain:Reset()

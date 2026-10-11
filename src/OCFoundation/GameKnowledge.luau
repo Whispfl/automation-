@@ -22,7 +22,7 @@ local pickupContract = table.freeze({
 	RenderedClass = "Model",
 	RangeMethod = "StatsUtil:GetPickupRange(profile)",
 	CollectionOwner = "Native radius collector plus scheduler-owned stationary ID batches; per-ID server acceptance unknown",
-	OwnerEvidence = "Owner confirms continuous stationary collection, visual cleanup and native island travel at 2ac673d; goal-driven policy awaits live results; individual request acceptance is not established",
+	OwnerEvidence = "Owner approved Phase 2 stationary collection, visual cleanup, native travel and goal-driven routing; individual request acceptance is not established",
 	CleanupEvidence = "ClientScript:1243-1279 destroys Models and calls native Chunker.Remove; OC removes the native chunk and matching registry entry only after dispatch",
 	IslandWideBatchFound = false,
 	Evidence = "CLIENT_SOURCE_INSPECTED; execution requires owner verification",
@@ -43,6 +43,17 @@ end
 
 function GameKnowledge:PickupContract() return pickupContract end
 
+function GameKnowledge:ProgressionContract()
+	return { Definitions = "ReplicatedStorage.Shared.Data.Worlds", Account = "LocalData.AreasUnlocked / WorldsUnlocked",
+		WorldGate = "ClientScript:2138-2326; tagged WorldGate.World; UnlockCost; native command UnlockWorld with world identifier",
+		Activation = "Client.Activation:357-360 horizontal <= Root.Size.Y/2; vertical <= 10",
+		IslandTravel = "Client.Gui.Frames.WorldMap:168-198; Shared.Utils.WorldUtil.toIslandLocation; discovered islands only",
+		Traversal = "Client.Effects.Physics uses actual Bubble.Amount and Bubble Gravity; no verified minimum or safe undiscovered-island route",
+		WorldTravel = "Native FastTravel.Spawn; Seven Seas has a separate fishing-area contract, deferred",
+		UnlockVerification = "Actual WorldsUnlocked absent -> present; balances logged separately; invocation/visuals not proof",
+		ServerValidation = "UNAVAILABLE", LivePhase3Verification = "OWNER_PENDING" }
+end
+
 function GameKnowledge:ActivePickups()
 	local tutorial = self:Get("Tutorial")
 	if type(tutorial) ~= "table" then
@@ -59,7 +70,7 @@ function GameKnowledge:GetStatus()
 		dependencies[name] = { Status = entry.Status, Source = "ReplicatedStorage." .. entry.Path, Error = entry.Error }
 	end
 	return { Dependencies = dependencies, PickupAssetsAvailable = self:Assets("Pickups") ~= nil,
-		Pickup = table.clone(pickupContract), ServerOnlyRules = "UNAVAILABLE" }
+		Pickup = table.clone(pickupContract), Progression = self:ProgressionContract(), ServerOnlyRules = "UNAVAILABLE" }
 end
 
 function GameKnowledge:ReleaseChunkerObserver()

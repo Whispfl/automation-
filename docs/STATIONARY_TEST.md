@@ -1,6 +1,7 @@
-# Continuous stationary pickup farming — Phase 2 candidate
+# Continuous stationary pickup farming — approved Phase 2 baseline
 
-Phase 2 remains unapproved. Phase 3 is not implemented. Studio remains read-only;
+Phase 2's agreed scope is owner-approved. Phase 3 progression is now separately
+authorized; its new live checks are in [PHASE3.md](PHASE3.md). Studio remains read-only;
 the owner performs live gameplay tests.
 
 ## Collection
@@ -162,7 +163,8 @@ unlocks or unrelated Phase 3 actions are added. Unsupported requirements stay un
 Background blowing is cancelled, including old combined overrides. The collector's
 32-ID batches, cleanup, LocalData credit, manual recovery and controls are preserved
 from owner-confirmed 2ac673d. Goal-driven routing requires the next live results.
-Pickup walking/pathfinding and movement fallback remain absent. Phase 2 stays unapproved.
+Pickup walking/pathfinding and movement fallback remain absent. Phase 2's agreed scope
+is owner-approved; Phase 3 action verification and Phase 4 authorization remain pending.
 
 Build/compiler checks, offline regressions and public byte comparison verify the
 implementation and publication. They are not live gameplay verification.

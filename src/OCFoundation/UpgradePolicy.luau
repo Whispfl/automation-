@@ -54,6 +54,8 @@ function UpgradePolicy.Evaluate(config, snapshot, plan, context, currency, mode,
 					end
 					row.GoalReserve = math.min(row.GoalReserve, math.max(0, (row.Balance or 0) - row.Reserve) * settings.MAXIMUM_GOAL_RESERVE_BALANCE_FRACTION)
 				end
+				local major = plan.MajorUnlockReservation
+				if major and major.Currency == cost.Currency then row.GoalReserve = math.max(row.GoalReserve, major.Amount or 0) end
 				row.Spendable = math.max(0, (row.Balance or 0) - row.Reserve - row.GoalReserve)
 				row.Budget = row.Spendable * config.RESOURCE_SETTINGS.MAXIMUM_UPGRADE_BALANCE_FRACTION
 				if row.Balance == nil then reject("Actual currency balance unavailable") end

@@ -108,7 +108,9 @@ function OCInterface:Render(status)
 	local farming = status.Farming or {}
 	local decision = farming.Decision or {}
 	self.Labels.Farming.Visible = settings.SHOW_FARMING
-	self.Labels.Farming.Text = "FARMING: " .. tostring(farming.Activity or decision.Mode or decision.Kind or "Waiting")
+	local world = status.WorldProgression and status.WorldProgression.Decision
+	self.Labels.Farming.Text = "ACTIVITY: " .. tostring(world and world.Kind or farming.Activity or decision.Mode or decision.Kind or "Waiting")
+		.. (world and "\nProgression: " .. tostring(world.Reason) or "")
 		.. "\nArea: " .. tostring(farming.Area or "unavailable") .. " | target: " .. tostring(decision.Currency or "unavailable")
 		.. "\n" .. tostring(decision.Reason or "Observing accessible game mechanics")
 		.. string.format("\nPickups: %d eligible / %d visible; %d unidentified | radius: %s", farming.EligiblePickups or 0, farming.VisiblePickups or 0,

@@ -2,6 +2,8 @@
 -- Pure recommendation engine. It never invokes remotes, purchases, or movement.
 local OCBrain = {}
 local FarmingPolicy = require(script.Parent.FarmingPolicy)
+local ProgressionGraph = require(script.Parent.ProgressionGraph)
+local TravelPlanner = require(script.Parent.TravelPlanner)
 OCBrain.__index = OCBrain
 
 local function countEntries(map)
@@ -24,6 +26,10 @@ function OCBrain:Reset()
 	self.Previous = nil
 	self.SelectedAt = 0
 	self.FarmingMemory = { Mode = nil, StartedAt = 0, LastTest = {} }
+end
+
+function OCBrain:PlanProgression(snapshot, plan, context)
+	return TravelPlanner.Decide(self.Config, snapshot, plan, context)
 end
 
 function OCBrain:PlanFarming(snapshot, plan, context)
@@ -83,6 +89,14 @@ function OCBrain:Plan(snapshot, token)
 		local bubble = snapshot.Bubble or {}
 		local progression = snapshot.AvailableProgression or {}
 		local balances = snapshot.Balances or {}
+		if config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then
+			local graph = snapshot.ProgressionGraph or { Blocker = "Native progression graph unavailable" }
+			local goal = ProgressionGraph.Goal(config, graph)
+			if goal then
+				add(goal.Id, goal.Title, goal.Reason, 900, "WORLD_UNLOCKS", goal.State == "BLOCKED" and { goal.Reason } or {},
+					{ Progression = goal, Cost = goal.Cost })
+			end
+		end
 		local function spendable(currency)
 			if balances[currency] == nil then return nil end
 			return math.max(0, balances[currency] - reserveFor(config, currency))
@@ -148,7 +162,7 @@ function OCBrain:Plan(snapshot, token)
 				end
 			end
 		end
-		if config.BRAIN_SETTINGS.ENABLE_WORLD_RECOMMENDATIONS and snapshot.UnlockedWorlds and snapshot.UnlockedIslands then
+		if not config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and config.BRAIN_SETTINGS.ENABLE_WORLD_RECOMMENDATIONS and snapshot.UnlockedWorlds and snapshot.UnlockedIslands then
 			for _, world in ipairs(progression.Worlds or {}) do
 				if not world.Unlocked and world.Selected and world.Gate then
 					local gate = world.Gate
@@ -222,10 +236,13 @@ function OCBrain:Plan(snapshot, token)
 	for _, candidate in ipairs(candidates) do
 		if candidate.Id ~= selected.Id then nextObjective = candidate break end
 	end
+	local major = snapshot.ProgressionGraph and snapshot.ProgressionGraph.Next
+	local reservation = major and major.Kind == "WORLD" and (major.State == "READY" or major.State == "FUNDING") and major.Cost or nil
 	return { Progression = stage, ProgressionEvidence = evidence, Objective = selected,
+		Graph = snapshot.ProgressionGraph, MajorUnlockReservation = reservation,
 		NextObjective = nextObjective,
 		Candidates = candidates, SnapshotRevision = snapshot.Revision,
-		Reservations = selected.Metadata.Cost and { selected.Metadata.Cost } or {},
+		Reservations = reservation and { reservation } or (selected.Metadata.Cost and { selected.Metadata.Cost } or {}),
 		ReservationPolicy = "Farming policy and native upgrade adapter enforce spending reserves before currency purchases." }
 end
 

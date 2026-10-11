@@ -1,6 +1,14 @@
-# OCscript — Phase 2 stationary pickup farming
+# OCscript — approved stationary farming and Phase 3 progression candidate
 
-Phase 1 remains owner-approved. Phase 2 remains unapproved; Phase 3 has not started.
+Phase 1 and Phase 2's agreed stationary farming scope are owner-approved. Phase 3
+is explicitly authorized; its new actions await owner live verification. Phase 4
+is not authorized. Start with [examples/Progression.luau](examples/Progression.luau)
+and [Phase 3 evidence, controls and live checks](docs/PHASE3.md). Progression spending
+and progression travel default OFF; actual world-cost shortages may use the unchanged
+stationary collector when explicitly enabled. Fresh-account ascent is blocked until
+a supported discovery route is established; no fake discovery or physics bypass.
+
+The existing Phase 2 configuration remains available below.
 Stationary pickup requests now use the Flame reference's genuine-ID approach in
 the existing Brain/scheduler. Only its pickup mechanism is used.
 
@@ -57,7 +65,7 @@ processing/window times, visuals cleaned and matching-credit or inconclusive out
 increases are required for observed credit; invocation and disappearance never
 establish collection success. Native collection and other rewards can contribute.
 The owner confirms continuous stationary collection, cleanup and native island travel
-at commit 2ac673d. The new goal policy requires the owner's live test. Each batch
+at commit 2ac673d; the owner subsequently approved the goal-driven Phase 2 scope. Each batch
 still verifies balances; individual server acceptance remains
 unknown and the implementation does not assume all requests succeed.
 
