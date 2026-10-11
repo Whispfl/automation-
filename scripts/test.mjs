@@ -126,8 +126,8 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
       'ENABLE_BACKGROUND_PICKUPS', 'BULK_COLLECT_PICKUPS']) assert(configText.includes(key + ' = false'));
     assert(configText.includes('PRESERVE_PROGRESSION_RESERVE = true'));
     assert(contents.includes('/phase4-hatch-' + generated.buildId + '/dist/OC.lua'), 'Hatch example must pin this tested bundle release');
-    if (filename === 'EggAnalysis.luau') assert(configText.includes('AUTO_HATCH = false') && configText.includes('MAXIMUM_EGG_COST = 0') && configText.includes('MAXIMUM_SESSION_COST = 0'));
-    else assert(configText.includes('HATCH_ONE_EGG_ONCE = true') && configText.includes('MAXIMUM_SESSION_HATCHES = 1') && configText.includes('MAXIMUM_EGG_COST = 75000') && configText.includes('MAXIMUM_SESSION_COST = 75000'));
+    assert(configText.includes('AUTO_HATCH = false') && configText.includes('HATCH_ONE_EGG_ONCE = false') && configText.includes('MAXIMUM_EGG_COST = 0') && configText.includes('MAXIMUM_SESSION_COST = 0'));
+    assert(configText.includes('SELECTED_EGGS = {}') && configText.includes('SELECTED_WORLDS = {}'), 'Analysis must not select a fixed egg or assume a world unlock');
   }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;
   await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);

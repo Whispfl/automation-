@@ -5,12 +5,14 @@ or coding, read the complete [master roadmap](https://app.notion.com/p/3f53d7e92
 [Phase 3](https://app.notion.com/p/3f53d7e9278d816c8494da53650aaa10),
 [Phase 4](https://app.notion.com/p/3f53d7e9278d81a796a9d3c505076363), and latest
 owner notes. The new explicit development authorization supersedes older deferral
-notes. The default analysis test authorizes no actions; the separately selected active test explicitly authorizes one bounded hatch only. Later phases remain excluded.
+notes. Current owner direction authorizes development and an analysis-only live test.
+Hatch spending and equipment require separate explicit owner authorization after
+the actual account recommendation is reviewed. Later phases remain excluded.
 No Notion checkboxes or completion claims were changed.
 
 Current validation: `node scripts/build.mjs` and `node scripts/test.mjs` pass
-**311 offline regressions** (227 baseline + 54 existing Phase 4 + 30 new hatch/egg
-cases), official Luau compilation, existing and new complete Configs, and the
+**321 offline regressions** (227 baseline + 54 existing Phase 4 + 30 hatch/egg
+cases + 10 dynamic analysis cases), official Luau compilation, existing and new complete Configs, and the
 single-bundle initializer. Public bytes and matching release tag are verified after
 publication; offline fixtures are not live hatch verification.
 
@@ -53,18 +55,38 @@ content is represented as read. No Notion checkboxes or completion status change
 - Coverage reports loaded original model count, pool-analysis count/cap, retained
   native definition count and missing selected eggs. It never claims a full live
   catalog scan, active event availability or ownership from catalog/assets alone.
+- No egg is preselected in the delivered analysis or inactive hatch template.
+  The recommendation ranks useful affordable eligible native projections from
+  the current account and loaded original Workspace models. A separate Coins
+  availability list covers all loaded original models even when the team/pool
+  projection cap is reached. Prices come from current native GetEggCost; missing
+  native prices remain UNKNOWN, without substituting catalog costs. Retained
+  permanent Coins definitions without loaded models are identified separately
+  with availability unverified. This is the best evaluated cost efficiency in
+  the loaded subset, not a guarantee across every egg in the game.
+- EGG_PLAN explicitly reads **Minigame Paradise** from received
+  LocalData.WorldsUnlocked: UNLOCKED when the entry exists, LOCKED when a known
+  map lacks it, UNKNOWN when the map/account is unavailable. It preserves and
+  displays the received entry value. Native access checks presence, not a guessed
+  account unlock (ClientScript:2140, WorldMap:99); saved persistence remains open.
+- A read-only one-hatch proposal names the recommended egg/world/island and
+  actual model path/root coordinates, distance and native range. Required
+  egg/session budgets equal one current native price; protected reserve and
+  minimum required balance are shown separately. This proposal never changes
+  Config, enables spending, travels or owns location. The owner approaches
+  manually; account, loaded models, price and proximity refresh on the existing
+  analysis interval. No recommendation is produced when evidence/access/funding
+  or useful incremental benefit cannot establish one.
 - `HATCH_ONE_EGG_ONCE` validates one selected Coins egg, one request/count and
   positive explicit ceilings, protected progression reserves and every competing
   action OFF. The default `EggAnalysis.luau` has zero budgets/AUTO_HATCH=false.
-  The separate `HatchOnceTest.luau` uses **Crystal Egg**, native base cost
-  **75,000 Coins** (Shared.Data.Eggs:55-56), with egg/session ceilings **75,000**.
-  Its native Unicorn/Flying Pig Coins stats are **135/310** (Pets:43-44), compared
-  with Red Golem's base **58** (Pets:71). These provide possible useful base outcomes
-  against the previously received lineup, not a live investment recommendation.
-  The real main's current XP/variants/enchants/team/modifiers, loaded access, funds
-  and world reserve must pass fresh analysis before any dispatch. The saved Studio
-  scene does not establish the main's current egg availability. No cheaper
-  mechanics-only fallback or automatic release of reserves is authorized.
+  `HatchOnceTest.luau` is now an **inactive template**, also zero budgets,
+  AUTO_HATCH=false and empty selection. It supersedes the prior fixed-egg example;
+  no active hatch Config is delivered under the current owner direction. After
+  separate explicit authorization, the runtime still must confirm real XP,
+  variants, enchants, team/modifiers, loaded access, price, funds and world reserve.
+  The saved Studio scene does not establish the main's current egg availability.
+  No cheaper mechanics-only fallback or automatic reserve release is authorized.
 - Manual approach only: native unopened ProximityPrompt range **6.5 studs**
   (ClientScript:569,616); native already-opened egg range **16** (879). No travel,
   force-load, restriction bypass or pickup walking. Leaving range pauses dispatch;
@@ -98,17 +120,19 @@ content is represented as read. No Notion checkboxes or completion status change
   Pause/Resume retain pending evidence, deadlines and cost. Stop ends authorization,
   including before dispatch, but cannot recall an already sent request.
 
-Run default analysis first near the intended egg. Inspect EGG_PLAN's actual current
-score, recommendation, loaded coverage, useful outcomes and every funding/access
-blocker. If no useful affordable candidate exists in that evaluated set, do not
-run a hatch merely for activity. If Crystal is not useful/eligible or another egg
-is recommended, report the plan before selecting a different test. The active
-Config will refuse blocked Crystal requests and has no fallback. Its 120-second
-wall-clock window starts when an eligible hatch task claims location, including
-manual approach and pauses. It requests one egg, waits up to 20 seconds for both
-received confirmations, reports usefulness and ends. Equipment/collection are
-later separately enabled integration tests; neither is enabled now. Re-running
-an active loader creates a new budget and must not be used as an uncertain retry.
+Run the analysis loader first. Inspect EGG_PLAN's actual current score, Minigame
+Paradise status, available affordable Coins eggs, recommendation, native price,
+required budget and where to stand. Manually approach the recommendation and
+review its refreshed proximity/access/funding facts. Send the report for review;
+hatching and spending remain OFF until the owner explicitly authorizes that test.
+If no useful affordable candidate exists in the evaluated set, report that result
+without a cheap fallback. A later authorized single-hatch Config uses the received
+egg name and native price, and rechecks both before dispatch. Its 120-second
+wall-clock window includes manual approach and pauses after location claim. It
+requests one egg, waits up to 20 seconds for both received confirmations, reports
+usefulness and ends. Equipment/collection are later separately enabled integration
+tests; neither is enabled now. Reloading an active controller creates a new budget
+and must not be used as an uncertain retry.
 
 Pinned configs and bundle use the same `phase4-hatch-<build>` tag pointing to the
 tested commit; both can be loaded without auth. `scripts/test.mjs` checks that new

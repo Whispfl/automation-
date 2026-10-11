@@ -1,10 +1,7 @@
--- Separately authorized one-hatch test. Running this spends up to 75,000 Coins once.
--- Target: native Crystal Egg; base cost 75,000 Coins. Runtime must confirm access,
--- native loaded model, useful base-pet estimate, funds, protected reserve and space.
--- Conditional candidate, not proof it is the best egg for the current main account.
--- Approach manually first; unopened native range 6.5 studs, opened range 16.
--- Native auto-hatch must be OFF. Empty native auto-delete settings yourself; OC does not change them.
--- If blocked/unhelpful, this does not fall back to another egg or cheap test.
+-- Inactive single-hatch template: current owner authorization is analysis ONLY.
+-- No egg is selected and no spending is enabled. Read EGG_PLAN in EggAnalysis first.
+-- Future action configuration requires explicit owner authorization for the received
+-- recommendation/native price, one request, protected reserves and manual approach.
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
 	ACCOUNT_SETTINGS = { ENABLE_ACCOUNT_READER = true, READ_PET_INVENTORY = true, READ_UNLOCKS = true },
@@ -12,7 +9,7 @@ local Config = {
 		ENABLE_PET_INTELLIGENCE = true,
 		OBJECTIVE_CURRENCY = "Coins", -- Current Coins team; isolated one-hatch mode requires this role.
 		SELECTED_PETS = {}, PROTECTED_PET_IDS = {}, FAVORITE_PET_IDS = {}, VALUABLE_PET_IDS = {},
-		AUTO_HATCH = true, AUTO_EQUIP = false,
+		AUTO_HATCH = false, AUTO_EQUIP = false,
 		EQUIP_OWNED_TEAM_ONCE = false, LOG_TEAM_DETAILS = false,
 		MAXIMUM_SESSION_EQUIP_COMMANDS = 16, MAXIMUM_TEAM_EVALUATIONS = 1000,
 		MAXIMUM_EQUIP_ATTEMPT_SECONDS = 120, MINIMUM_EQUIP_COMMAND_INTERVAL_SECONDS = 1,
@@ -21,16 +18,16 @@ local Config = {
 	},
 	RESOURCE_SETTINGS = { COIN_RESERVE = 0, GEM_RESERVE = 0, TICKET_RESERVE = 0, PEARL_RESERVE = 0 },
 	HATCH_SETTINGS = {
-		SELECTED_EGGS = { "Crystal Egg" }, ALLOWED_CURRENCIES = { "Coins" },
-		MAXIMUM_EGG_COST = 75000, MAXIMUM_SESSION_COST = 75000,
+		SELECTED_EGGS = {}, ALLOWED_CURRENCIES = { "Coins" },
+		MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0,
 		MAXIMUM_SESSION_HATCHES = 1, MAXIMUM_BATCH_HATCHES = 1, MAXIMUM_SESSION_SECONDS = 120,
 		MINIMUM_REQUEST_INTERVAL_SECONDS = 5, CONFIRMATION_TIMEOUT_SECONDS = 20,
 		PRESERVE_PROGRESSION_RESERVE = true, ENABLE_BACKGROUND_PICKUPS = false, MAXIMUM_EGGS_ANALYZED = 40,
-		HATCH_ONE_EGG_ONCE = true, MAXIMUM_PLAN_CANDIDATES = 3, LOG_EGG_DETAILS = false,
+		HATCH_ONE_EGG_ONCE = false, MAXIMUM_PLAN_CANDIDATES = 3, LOG_EGG_DETAILS = false,
 	},
 	WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false,
 		AUTO_FARM_UNLOCK_REQUIREMENTS = false, AUTO_UNLOCK_WORLDS = false, AUTO_TRAVEL_FOR_PROGRESSION = false },
-	BRAIN_SETTINGS = { ENABLE_MASTERY_RECOMMENDATIONS = false, SELECTED_WORLDS = { "The Overworld" } },
+	BRAIN_SETTINGS = { ENABLE_MASTERY_RECOMMENDATIONS = false, SELECTED_WORLDS = {} },
 	FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false },
 	ISLAND_SETTINGS = { SELECTED_ISLANDS = { "The Void", "Zen" }, AUTO_SELECT_BEST_ISLAND = false,
 		AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
@@ -46,8 +43,7 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/phase4-hatch-d068765b64fd/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/phase4-hatch-08074c7b88c3/dist/OC.lua"))()(Config)
 -- Controls: OC:Pause(), OC:Resume(), OC:Stop(). Full outcomes: OC:GetStatus().Pets.Analysis
 -- OC:PrintPetTeam() retains the verified owned-team detail.
--- Stop ends authorization. An already sent request cannot be recalled.
--- Do not repeat this loader to retry an uncertain result: reload creates a NEW budget.
+-- Actions remain OFF until separately authorized. The analysis never edits Config.

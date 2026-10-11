@@ -1,6 +1,6 @@
 -- Default Phase 4 egg analysis. All gameplay actions OFF; budgets are zero.
--- Crystal Egg is an inspected 75,000-Coins definition, not assumed live availability.
--- Approach manually to load candidates. Final account eligibility/selection is read live.
+-- No preselected egg or assumed unlocks. Read EGG_PLAN, then approach manually.
+-- Recommendation/budget proposal uses actual account/native loaded models and stays OFF.
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
 	ACCOUNT_SETTINGS = { ENABLE_ACCOUNT_READER = true, READ_PET_INVENTORY = true, READ_UNLOCKS = true },
@@ -17,7 +17,7 @@ local Config = {
 	},
 	RESOURCE_SETTINGS = { COIN_RESERVE = 0, GEM_RESERVE = 0, TICKET_RESERVE = 0, PEARL_RESERVE = 0 },
 	HATCH_SETTINGS = {
-		SELECTED_EGGS = { "Crystal Egg" }, ALLOWED_CURRENCIES = { "Coins" },
+		SELECTED_EGGS = {}, ALLOWED_CURRENCIES = { "Coins" },
 		MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0,
 		MAXIMUM_SESSION_HATCHES = 1, MAXIMUM_BATCH_HATCHES = 1, MAXIMUM_SESSION_SECONDS = 120,
 		MINIMUM_REQUEST_INTERVAL_SECONDS = 5, CONFIRMATION_TIMEOUT_SECONDS = 20,
@@ -26,7 +26,7 @@ local Config = {
 	},
 	WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false,
 		AUTO_FARM_UNLOCK_REQUIREMENTS = false, AUTO_UNLOCK_WORLDS = false, AUTO_TRAVEL_FOR_PROGRESSION = false },
-	BRAIN_SETTINGS = { ENABLE_MASTERY_RECOMMENDATIONS = false, SELECTED_WORLDS = { "The Overworld" } },
+	BRAIN_SETTINGS = { ENABLE_MASTERY_RECOMMENDATIONS = false, SELECTED_WORLDS = {} },
 	FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false },
 	ISLAND_SETTINGS = { SELECTED_ISLANDS = { "The Void", "Zen" }, AUTO_SELECT_BEST_ISLAND = false,
 		AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
@@ -42,6 +42,6 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/phase4-hatch-d068765b64fd/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/phase4-hatch-08074c7b88c3/dist/OC.lua"))()(Config)
 -- Controls: OC:Pause(), OC:Resume(), OC:Stop(). Full outcomes: OC:GetStatus().Pets.Analysis
 -- OC:PrintPetTeam() retains the verified owned-team detail.

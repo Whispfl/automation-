@@ -89,10 +89,12 @@ end
 function GameKnowledge:PetContext(snapshot, plan, tracker)
 	local raw = self.Reader:GetLiveProfile()
 	local currency = PetPolicy.Currency(self.Reader.Config, plan)
-	local context = { Currency = currency, Eggs = {}, Pets = self:Get("Pets") }
+	local context = { Currency = currency, Eggs = {}, EggAvailability = {}, Pets = self:Get("Pets"),
+		MinigameParadise = PetPolicy.WorldAccess(nil, "Minigame Paradise") }
 	if not raw or not snapshot.Ready then context.Error = "Current LocalData unavailable" return context end
 	-- Helpers receive a detached account. Their weak caches cannot mutate live inventory.
 	local profile = detached(raw)
+	context.MinigameParadise = PetPolicy.WorldAccess(profile, "Minigame Paradise")
 	context.AccountFacts = profile -- Final equipment dispatch compares received facts again after any yielding guards.
 	context.Inventory, context.Error = PetPolicy.Inventory(profile)
 	local stats, util, pools = self:Get("StatsUtil"), self:Get("PetUtil"), self:Get("GetEggPool")
@@ -159,7 +161,7 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 	end
 	local definitions = self:Get("Eggs") or {}
 	local coverage = { Definitions = 0, PermanentDefinitions = 0, LoadedModels = 0, Evaluated = 0, Limit = self.Reader.Config.HATCH_SETTINGS.MAXIMUM_EGGS_ANALYZED,
-		Scope = "Loaded native models only; retained definitions/assets do not establish live availability", MissingSelected = {} }
+		Scope = "Loaded native models only; retained definitions/assets do not establish live availability", MissingSelected = {}, UnloadedCoinsDefinitions = {} }
 	context.EggCoverage = coverage
 	for name, def in pairs(definitions) do
 		coverage.Definitions += 1
@@ -193,7 +195,10 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 		local range = opened and 16 or 6.5
 		local access = not world and "UNKNOWN_ACCESS" or (def.Event or def.ProductId or def.IsAdminEgg or model.Name == "Infinity Egg") and "UNSUPPORTED"
 			or accessible and "ACCESSIBLE" or "LOCKED_OR_UNKNOWN_UNLOCK"
+		local ok, path = pcall(function() return model:GetFullName() end)
 		byName[model.Name] = { Name = model.Name, Model = model, World = world, Island = island, Distance = distance, Range = range,
+			ModelPath = ok and path or nil, Position = part.Position,
+			DefinitionCurrency = def.Cost and def.Cost.Type == "Currency" and def.Cost.Currency or nil,
 			AccessStatus = access, Loaded = true, Accessible = accessible == true, InRange = accessible and world == currentWorld and distance ~= nil and distance <= range,
 			Cost = native(stats, "GetEggCost", self.Reader.Player, profile, model.Name), Pool = pool, Luck = luck,
 			Duration = native(stats, "GetHatchDuration", profile), Opened = opened, Unlocked = model:GetAttribute("Unlocked"),
@@ -201,6 +206,14 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 	end
 	local names = {} for name in pairs(byName) do table.insert(names, name) end table.sort(names)
 	coverage.LoadedModels = #names
+	-- Availability/funding covers every loaded original model, even when the
+	-- more expensive native team projections reach their configured cap.
+	for _, name in ipairs(names) do table.insert(context.EggAvailability, byName[name]) end
+	for name, def in pairs(definitions) do
+		if not byName[name] and def.World and not def.Event and not def.ProductId and not def.IsAdminEgg and name ~= "Infinity Egg"
+			and def.Cost and def.Cost.Type == "Currency" and def.Cost.Currency == "Coins" then table.insert(coverage.UnloadedCoinsDefinitions, name) end
+	end
+	table.sort(coverage.UnloadedCoinsDefinitions)
 	-- Explicit selection is never lost behind the projection cap.
 	table.sort(names, function(a, b)
 		local x, y = table.find(self.Reader.Config.HATCH_SETTINGS.SELECTED_EGGS, a) ~= nil, table.find(self.Reader.Config.HATCH_SETTINGS.SELECTED_EGGS, b) ~= nil

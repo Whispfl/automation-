@@ -17,16 +17,18 @@ verifies the real inventory/counter result, including stacks, variants and nativ
 usefulness. A non-improving pet can verify a hatch without being a useful upgrade.
 
 Start with [examples/EggAnalysis.luau](examples/EggAnalysis.luau): analysis ON,
-all actions OFF and zero spending budgets. The separately authorized
-[examples/HatchOnceTest.luau](examples/HatchOnceTest.luau) permits **one Crystal Egg,
-once, at most 75,000 Coins**, only if fresh runtime checks establish a useful,
-accessible, loaded and affordable candidate after reserves. This is an inspected
-native definition, not an assertion of the main account's live eligibility or
-best investment. Approach manually and read the analysis first; if another egg is
-recommended, review that plan before selecting a different spending test. No egg
-fallback or reserve release occurs. Both new examples pin the tested bundle release.
+all actions OFF, zero spending budgets and no preselected egg or assumed unlocks.
+EGG_PLAN reports actual Minigame Paradise access from LocalData, loaded available
+affordable Coins eggs, the best evaluated eligible recommendation, where to stand,
+current native price and required one-hatch budget with progression reserves.
+Manually approach the recommendation; native models/proximity and account facts
+refresh through the existing analysis interval. Unknown evidence remains UNKNOWN.
+Hatching stays OFF until the owner explicitly authorizes a spending test after
+reviewing the actual report. [examples/HatchOnceTest.luau](examples/HatchOnceTest.luau)
+is an inactive template, with no selected egg and zero budgets. It supersedes the
+earlier fixed-egg example. Both new examples pin the matching tested bundle release.
 
-The first hatch keeps equipment, pickups, farming, travel, bubbles, selling and
+The analysis and eventual separately authorized first hatch keep equipment, pickups, farming, travel, bubbles, selling and
 purchases OFF. Native auto-hatch must be inactive and native auto-delete empty;
 OC does not change these settings. Pause preserves evidence and budgets; Stop
 permanently ends this controller's one-hatch authorization. An uncertain result

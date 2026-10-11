@@ -962,5 +962,123 @@ test("Partial matching inventory without hatch counter cannot become a best veri
 	end)
 end)
 
+local function eggAnalysisFixture()
+	return fixture({ PET_SETTINGS = { AUTO_HATCH = false, AUTO_EQUIP = false },
+		HATCH_SETTINGS = { SELECTED_EGGS = {}, MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0 } })
+end
+
+test("Dynamic analysis recommends a received native egg without selecting or enabling actions", function()
+	simulated(function()
+		local s = eggAnalysisFixture()
+		s.Egg.Name = "Account Scene Egg"
+		s.Dependencies.Eggs[s.Egg.Name], s.Dependencies.Eggs["Test Egg"] = s.Dependencies.Eggs["Test Egg"], nil
+		s.Egg.GetFullName = function() return "Workspace.Rendered.Chunker.Account Scene Egg" end
+		local snap, ctx = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, snap, ctx)
+		assert(r.RecommendedEgg.Name == s.Egg.Name and r.HatchTestPlan.EggName == s.Egg.Name)
+		assert(r.HatchTestPlan.ModelPath == s.Egg:GetFullName() and r.HatchTestPlan.Position == s.EggPart.Position)
+		assert(r.HatchTestPlan.NativePrice == 10 and r.HatchTestPlan.RequiredEggBudget == 10 and r.HatchTestPlan.RequiredSessionBudget == 10)
+		assert(r.HatchTestPlan.RequiredBalance == 160 and r.HatchTestPlan.SpendingPermission:find("OFF"))
+		assert(#s.Controller.Config.HATCH_SETTINGS.SELECTED_EGGS == 0 and not s:Dispatch() and #s.Commands == 0)
+		assert(Policy.EggPlanText(s.Controller.Config, r, false):find("stand beside Account Scene Egg")) s:Close()
+	end)
+end)
+
+test("Minigame Paradise status distinguishes received unlocked locked and missing map", function()
+	simulated(function()
+		local s = eggAnalysisFixture()
+		local function report() local a, b = s.Manager:Fresh() return Policy.Analyze(s.Controller.Config, a, b) end
+		assert(report().MinigameParadise.Status == "LOCKED" and not report().MinigameParadise.EntryPresent)
+		s.Profile.WorldsUnlocked["Minigame Paradise"] = true
+		assert(report().MinigameParadise.Status == "UNLOCKED" and report().MinigameParadise.RawValue == true)
+		s.Profile.WorldsUnlocked = nil assert(report().MinigameParadise.Status == "UNKNOWN" and not report().RecommendedEgg) s:Close()
+	end)
+end)
+
+test("Native presence-based world access preserves false and nonboolean received evidence", function()
+	for _, entry in ipairs({ false, 0, "received" }) do
+		local r = Policy.WorldAccess({ WorldsUnlocked = { ["Minigame Paradise"] = entry } }, "Minigame Paradise")
+		assert(r.Status == "UNLOCKED" and r.EntryPresent and r.RawValue == entry)
+	end
+	assert(Policy.WorldAccess(nil, "Minigame Paradise").Status == "UNKNOWN")
+end)
+
+test("One-hatch proposal follows native account price changes rather than catalog base cost", function()
+	simulated(function()
+		local s = eggAnalysisFixture()
+		local function report() local a, b = s.Manager:Fresh() return Policy.Analyze(s.Controller.Config, a, b) end
+		assert(report().HatchTestPlan.NativePrice == 10)
+		s.Cost = 7 local r = report()
+		assert(r.HatchTestPlan.NativePrice == 7 and r.HatchTestPlan.RequiredSessionBudget == 7 and r.HatchTestPlan.RequiredBalance == 157)
+		s.Cost = 9900 r = report() assert(not r.RecommendedEgg and not r.HatchTestPlan and r.CoinsAvailability[1].FundingStatus == "PROTECTED_RESERVE")
+		assert(s.Controller.Config.HATCH_SETTINGS.MAXIMUM_SESSION_COST == 0 and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Dynamic egg ranking follows native efficiency and current received team", function()
+	simulated(function()
+		local s = eggAnalysisFixture() local other = table.clone(s.Egg) other.Name = "Better Scene Egg"
+		s.Dependencies.Eggs[other.Name] = table.clone(s.Dependencies.Eggs["Test Egg"])
+		s.Controller.Knowledge.EggModels = function() return { s.Egg, other } end
+		s.Dependencies.StatsUtil.GetEggCost = function(_, _, _, name) return { Type = "Currency", Currency = "Coins", Amount = name == other.Name and 5 or s.Cost } end
+		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(r.RecommendedEgg.Name == other.Name and #r.CoinsAvailability == 2)
+		s.Profile.Teams[1].Pets = { "strong", "strong" } s.Ranks.Strong = 20
+		a, b = s.Manager:Fresh() r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(not r.RecommendedEgg and not r.HatchTestPlan and #r.CoinsAvailability == 2 and r.CoinsAvailability[1].Affordable)
+		s:Close()
+	end)
+end)
+
+test("Loaded availability remains complete when expensive pool projections reach cap", function()
+	simulated(function()
+		local s = eggAnalysisFixture() s.Controller.Config.HATCH_SETTINGS.MAXIMUM_EGGS_ANALYZED = 1
+		local other = table.clone(s.Egg) other.Name = "Other Scene Egg"
+		s.Dependencies.Eggs[other.Name] = table.clone(s.Dependencies.Eggs["Test Egg"])
+		s.Controller.Knowledge.EggModels = function() return { s.Egg, other } end
+		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(#r.Eggs == 1 and #r.CoinsAvailability == 2 and r.Coverage.LimitReached and r.Coverage.LoadedModels == 2)
+		assert(Policy.EggPlanText(s.Controller.Config, r, false):find("Test Egg %(10 Coins")) s:Close()
+	end)
+end)
+
+test("Unknown native Coins price is reported without substituted definition price or budget", function()
+	simulated(function()
+		local s = eggAnalysisFixture() s.Dependencies.StatsUtil.GetEggCost = function() return nil end
+		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(#r.CoinsAvailability == 1 and r.CoinsAvailability[1].FundingStatus == "UNKNOWN_NATIVE_COST")
+		assert(not r.HatchTestPlan and not r.RecommendedEgg and Policy.EggPlanText(s.Controller.Config, r, false):find("Test Egg %(UNKNOWN Coins")) s:Close()
+	end)
+end)
+
+test("Retained Coins definitions never establish loaded egg availability or recommendation", function()
+	simulated(function()
+		local s = eggAnalysisFixture() s.Controller.Knowledge.EggModels = function() return {} end
+		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(#r.CoinsAvailability == 0 and #r.Eggs == 0 and not r.RecommendedEgg and not r.HatchTestPlan)
+		assert(r.Coverage.UnloadedCoinsDefinitions[1] == "Test Egg")
+		assert(Policy.EggPlanText(s.Controller.Config, r, false):find("availability unverified")) s:Close()
+	end)
+end)
+
+test("Fresh locked world excludes its loaded Coins egg without claiming account access", function()
+	simulated(function()
+		local s = eggAnalysisFixture() s.Dependencies.Eggs["Test Egg"].World = "Minigame Paradise"
+		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(r.MinigameParadise.Status == "LOCKED" and not r.RecommendedEgg and not r.CoinsAvailability[1].Eligible)
+		assert(r.CoinsAvailability[1].AccessStatus == "LOCKED_OR_UNKNOWN_UNLOCK") s:Close()
+	end)
+end)
+
+test("Manual analysis movement refreshes proximity while never claiming hatch location", function()
+	simulated(function()
+		local s = eggAnalysisFixture() local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(r.HatchTestPlan.InRange and r.HatchTestPlan.Distance == 2)
+		s.Root.Position += Vector3.new(100,0,0) a, b = s.Manager:Fresh() r = Policy.Analyze(s.Controller.Config, a, b)
+		assert(not r.HatchTestPlan.InRange and r.HatchTestPlan.Distance == 98)
+		s.Manager:Select({}) assert(not s.Manager.Hatch.Location and #s.Teleports == 0 and #s.Commands == 0)
+		assert(Policy.EggPlanText(s.Controller.Config, r, false):find("distance=98.0 studs")) s:Close()
+	end)
+end)
+
 print("[OC TEST] Phase 4 regressions passed: " .. tostring(tests - before) .. "; total=" .. tostring(tests) .. "; native action/gameplay verification remains owner-pending")
 end

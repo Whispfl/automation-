@@ -226,17 +226,22 @@ function PetPolicy.HatchIsolation(config)
 	return nil
 end
 
-function PetPolicy.Egg(config, snapshot, context, team, egg)
+function PetPolicy.WorldAccess(profile, world)
+	local map = type(profile) == "table" and profile.WorldsUnlocked
+	local known = type(map) == "table"
+	local present = known and map[world] ~= nil
+	local rawValue
+	if known then rawValue = map[world] end
+	return { Name = world, Status = not known and "UNKNOWN" or present and "UNLOCKED" or "LOCKED",
+		MapKnown = known, EntryPresent = present == true, RawValue = rawValue,
+		Evidence = "Received LocalData.WorldsUnlocked; native gate/map access checks entry presence (ClientScript:2140, WorldMap:99); rejoin persistence unverified" }
+end
+
+function PetPolicy.FundEgg(config, snapshot, r)
 	local h = config.HATCH_SETTINGS
-	local r = { Name = egg.Name, Status = "UNKNOWN", Eligible = egg.Accessible == true, InRange = egg.InRange == true,
-		Loaded = egg.Loaded, AccessStatus = egg.AccessStatus or "UNKNOWN_ACCESS", World = egg.World, Island = egg.Island,
-		Distance = egg.Distance, Range = egg.Range, Cost = egg.Cost, Reason = egg.Reason, ProbabilityEvidence = "CLIENT_UI_POOL_ESTIMATE",
-		EffectiveServerOdds = "UNKNOWN", VariantOdds = "UNKNOWN", PityGuarantee = "UNKNOWN", TotalTimeSeconds = "UNKNOWN",
-		TravelTimeSeconds = "UNKNOWN", VerificationTimeSeconds = "UNKNOWN", StorageUnit = context.StorageUnit,
-		DurationSeconds = egg.Duration, NativeBatchCapacity = context.MaxHatches, Outcomes = {},
-		SpendingStatus = not config.PET_SETTINGS.AUTO_HATCH and "DISABLED_AUTO_HATCH" or (h.MAXIMUM_EGG_COST <= 0 or h.MAXIMUM_SESSION_COST <= 0) and "DISABLED_ZERO_BUDGET"
-			or not table.find(h.SELECTED_EGGS, egg.Name) and "NOT_SELECTED" or "AUTHORIZED_CONFIG" }
-	local cost = egg.Cost
+	r.SpendingStatus = not config.PET_SETTINGS.AUTO_HATCH and "DISABLED_AUTO_HATCH" or (h.MAXIMUM_EGG_COST <= 0 or h.MAXIMUM_SESSION_COST <= 0) and "DISABLED_ZERO_BUDGET"
+		or not table.find(h.SELECTED_EGGS, r.Name) and "NOT_SELECTED" or "AUTHORIZED_CONFIG"
+	local cost = r.Cost
 	if cost and cost.Type == "Currency" and PetPolicy.Finite(cost.Amount) and cost.Amount > 0 then
 		r.Balance = snapshot.Balances and snapshot.Balances[cost.Currency]
 		r.Reserve, r.ReserveReason = PetPolicy.Reserve(config, snapshot, cost.Currency)
@@ -253,6 +258,20 @@ function PetPolicy.Egg(config, snapshot, context, team, egg)
 				or cost.Amount > h.MAXIMUM_EGG_COST and "EGG_COST_CEILING" or cost.Amount > h.MAXIMUM_SESSION_COST and "SESSION_COST_CEILING" or "AUTHORIZED_CONFIG"
 		end
 	else r.FundingStatus = "UNKNOWN_NATIVE_COST" end
+	return r
+end
+
+function PetPolicy.Egg(config, snapshot, context, team, egg)
+	local h = config.HATCH_SETTINGS
+	local r = { Name = egg.Name, Status = "UNKNOWN", Eligible = egg.Accessible == true, InRange = egg.InRange == true,
+		Loaded = egg.Loaded, AccessStatus = egg.AccessStatus or "UNKNOWN_ACCESS", World = egg.World, Island = egg.Island,
+		Distance = egg.Distance, Range = egg.Range, ModelPath = egg.ModelPath, Position = egg.Position,
+		Cost = egg.Cost, Reason = egg.Reason, ProbabilityEvidence = "CLIENT_UI_POOL_ESTIMATE",
+		EffectiveServerOdds = "UNKNOWN", VariantOdds = "UNKNOWN", PityGuarantee = "UNKNOWN", TotalTimeSeconds = "UNKNOWN",
+		TravelTimeSeconds = "UNKNOWN", VerificationTimeSeconds = "UNKNOWN", StorageUnit = context.StorageUnit,
+		DurationSeconds = egg.Duration, NativeBatchCapacity = context.MaxHatches, Outcomes = {} }
+	PetPolicy.FundEgg(config, snapshot, r)
+	local cost = egg.Cost
 	-- Funding/configuration/access are separate from the supported pool estimate.
 	-- Never substitute the hypothetical improved owned team for the actual team.
 	if egg.Loaded == false then r.Reason = egg.Reason return r end
@@ -300,7 +319,15 @@ function PetPolicy.EggBlocker(egg)
 end
 
 function PetPolicy.Analyze(config, snapshot, context)
-	local report = { Team = PetPolicy.Team(config, context), Eggs = {}, Currency = context.Currency, AccountRevision = snapshot.Revision, Coverage = context.EggCoverage }
+	local report = { Team = PetPolicy.Team(config, context), Eggs = {}, CoinsAvailability = {}, Currency = context.Currency,
+		AccountRevision = snapshot.Revision, Coverage = context.EggCoverage, MinigameParadise = context.MinigameParadise }
+	for _, egg in ipairs(context.EggAvailability or context.Eggs or {}) do
+		if egg.Cost and egg.Cost.Type == "Currency" and egg.Cost.Currency == "Coins" or egg.Cost == nil and egg.DefinitionCurrency == "Coins" then
+			table.insert(report.CoinsAvailability, PetPolicy.FundEgg(config, snapshot, { Name = egg.Name, Cost = egg.Cost,
+				Loaded = egg.Loaded, Eligible = egg.Accessible == true, AccessStatus = egg.AccessStatus or "UNKNOWN_ACCESS", World = egg.World, Island = egg.Island }))
+		end
+	end
+	table.sort(report.CoinsAvailability, function(a, b) return a.Name < b.Name end)
 	for _, egg in ipairs(context.Eggs or {}) do table.insert(report.Eggs, PetPolicy.Egg(config, snapshot, context, report.Team, egg)) end
 	table.sort(report.Eggs, function(a, b)
 		local ac, bc = a.Cost and a.Cost.Currency or "UNKNOWN", b.Cost and b.Cost.Currency or "UNKNOWN"
@@ -318,6 +345,15 @@ function PetPolicy.Analyze(config, snapshot, context)
 		if egg.Status == "ESTIMATE" and egg.Eligible and egg.Affordable and table.find(config.HATCH_SETTINGS.ALLOWED_CURRENCIES, egg.Cost.Currency)
 			and egg.ExpectedIncrement > 1e-6 then report.RecommendedEgg = egg break end
 	end
+	local egg = report.RecommendedEgg
+	if egg then
+		report.HatchTestPlan = { EggName = egg.Name, Currency = egg.Cost.Currency, NativePrice = egg.Cost.Amount,
+			RequiredEggBudget = egg.Cost.Amount, RequiredSessionBudget = egg.Cost.Amount, HatchCount = 1,
+			World = egg.World, Island = egg.Island, ModelPath = egg.ModelPath, Position = egg.Position, Distance = egg.Distance,
+			Range = egg.Range, InRange = egg.InRange, Reserve = egg.Reserve, RequiredBalance = egg.Reserve + egg.Cost.Amount,
+			SpendingPermission = config.PET_SETTINGS.AUTO_HATCH and "CONFIG_ENABLED; execution guards still required" or "OFF; owner authorization required",
+			PriceEvidence = "StatsUtil:GetEggCost(player, detached current LocalData, egg); native client price; rechecked before any authorized request; server acceptance unverified" }
+	end
 	report.Comparison = "Cost efficiency within native currency only; no invented conversion. Client base odds/XP=0 estimates; final server/variant/Secret/Infinity odds and pity UNKNOWN; total travel/verification time UNKNOWN"
 	return report
 end
@@ -328,6 +364,28 @@ function PetPolicy.EggPlanText(config, report, details)
 		tostring(report.Currency), tostring(report.Team.CurrentScore or "UNKNOWN"), tostring(coverage.LoadedModels or "UNKNOWN"), tostring(coverage.Evaluated or #report.Eggs),
 		tostring(coverage.Limit or h.MAXIMUM_EGGS_ANALYZED), tostring(coverage.Definitions or "UNKNOWN"), tostring(coverage.PermanentDefinitions or "UNKNOWN"),
 		tostring(config.PET_SETTINGS.AUTO_HATCH), tostring(h.MAXIMUM_EGG_COST), tostring(h.MAXIMUM_SESSION_COST), report.RecommendedEgg and report.RecommendedEgg.Name or "NONE within evaluated accessible affordable estimates") }
+	local world = report.MinigameParadise or {}
+	local entry = not world.MapKnown and "UNKNOWN" or not world.EntryPresent and "ABSENT" or tostring(world.RawValue)
+	table.insert(lines, "Minigame Paradise=" .. (world.Status or "UNKNOWN") .. " | LocalData.WorldsUnlocked entry=" .. entry .. "; native access uses entry presence; saved persistence unverified")
+	local available, blocked = {}, {}
+	for _, egg in ipairs(report.CoinsAvailability or {}) do
+		local text = string.format("%s (%s Coins; %s; %s)", egg.Name, tostring(egg.Cost and egg.Cost.Amount or "UNKNOWN"), egg.AccessStatus, egg.FundingStatus)
+		table.insert(egg.Loaded == true and egg.Eligible and egg.Affordable and available or blocked, text)
+	end
+	table.insert(lines, "Available affordable Coins eggs (loaded native models, after reserves): " .. (#available > 0 and table.concat(available, ", ") or "NONE confirmed"))
+	if #blocked > 0 then table.insert(lines, "Other loaded Coins candidates: " .. table.concat(blocked, ", ")) end
+	if coverage.UnloadedCoinsDefinitions and #coverage.UnloadedCoinsDefinitions > 0 then
+		table.insert(lines, "Coins definitions without a loaded native model (availability unverified): " .. table.concat(coverage.UnloadedCoinsDefinitions, ", "))
+	end
+	local testPlan = report.HatchTestPlan
+	if testPlan then
+		local position = testPlan.Position
+		local coordinates = position and string.format("%.1f,%.1f,%.1f", position.X, position.Y, position.Z) or "UNKNOWN"
+		table.insert(lines, string.format("One-hatch proposal: stand beside %s @ %s/%s | native model=%s; root=%s; distance=%s studs; native range=%s; in range=%s | native price=%s %s; required egg/session test budget=%s/%s %s; reserve=%s; required balance=%s | spending=%s; proposal does not modify Config",
+			testPlan.EggName, tostring(testPlan.World or "UNKNOWN"), tostring(testPlan.Island or "ground/unknown"), tostring(testPlan.ModelPath or "UNKNOWN"), coordinates,
+			PetPolicy.Finite(testPlan.Distance) and string.format("%.1f", testPlan.Distance) or "UNKNOWN", tostring(testPlan.Range or "UNKNOWN"), tostring(testPlan.InRange),
+			testPlan.NativePrice, testPlan.Currency, testPlan.RequiredEggBudget, testPlan.RequiredSessionBudget, testPlan.Currency, testPlan.Reserve, testPlan.RequiredBalance, testPlan.SpendingPermission))
+	end
 	local display, seen = {}, {}
 	-- Always explain the explicitly selected candidate, even when rejected/missing.
 	for _, name in ipairs(h.SELECTED_EGGS) do for _, egg in ipairs(report.Eggs) do if egg.Name == name and not seen[name] then table.insert(display, egg) seen[name] = true end end end
