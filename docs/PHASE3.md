@@ -7,6 +7,10 @@ confirmed all five Overworld discoveries through actual `LocalData.AreasUnlocked
 changes in build `78b2a278c20d`, approximately 41 seconds from a fresh zero-Coin
 account. The log then selected Minigame Paradise, native cost 1,000,000,000 Coins,
 with that full actual shortage; its isolated configuration correctly waited.
+The owner subsequently confirmed the integrated discovery-skip -> native Void travel ->
+stationary world-funding flow in build `fdda549304a0`, with actual gains of 1,300 Coins
+and 25 Gems. See [economic diagnostics and remaining completion gaps](PHASE3-ECONOMICS.md)
+for the latest delivery, native earning-power research and gate-travel correction.
 Discovery persistence after rejoining remains pending. Phase 4 remains
 blocked; future reward, egg, Mastery, event and hybrid executors are not implemented.
 
@@ -244,8 +248,10 @@ still skips every unlock actually confirmed by LocalData.
 
 `node scripts/build.mjs` and `node scripts/test.mjs` compile the source, actual bundled
 initializer and all examples, enforce command isolation/no navigation/no authentication,
-and run **186 deterministic regressions**: the existing 175 plus 11 integrated
-progression cases.
+and run **211 deterministic regressions**: the original 175, 11 integrated
+progression cases and 25 economic/gate cases. The latest cases cover conditional
+ETA, unknown/stale/wrong-currency samples, native recommendation eligibility,
+diagnostic throttling and stale gate-travel authorization/funds.
 Fresh/partial/developed states, shortages/affordability, unknown prerequisites,
 unsupported ascent, native range/UI guards, failed travel/unlock, actual flag refresh,
 reserves, request limits, cancellation and 32-ID collector compatibility are covered.
@@ -260,7 +266,7 @@ missing balances, Pause/Resume/Stop and billion-Coin purchase authorization/flag
 `scripts/verify-public.mjs` compares public main and exact-commit bundle and both
 stationary/progression examples byte-for-byte after publishing.
 
-Files changed for the integrated delivery:
+Files changed for the previous integrated delivery (`41664a1`, historical):
 
 - `README.md`, `docs/ARCHITECTURE.md`, `docs/PHASE3.md`
 - `src/OC.luau` (corrected obsolete radius/startup scope logs)
@@ -270,5 +276,7 @@ Files changed for the integrated delivery:
 
 `PickupTracker`, `GameMechanics`, `WorldProgressionManager`, `ProgressionGraph`,
 `FarmingPolicy`, `TaskScheduler`, the existing Phase 2 examples and their regression fixtures are
-unchanged. Studio received read-only calls only; no live account was modified or
+unchanged in that previous delivery. The current economic/gate delivery updates the
+Brain, manager, gate adapter/policy, evidence metadata and Config, retaining all
+collector and scheduler code. Studio received read-only calls only; no live account was modified or
 native command executed by these development tools.

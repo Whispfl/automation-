@@ -72,6 +72,8 @@ local function validate(config)
 		"Discovery confirmation must be in [1,30] seconds; attempt interval/retry at least ten seconds")
 	assert(config.WORLD_SETTINGS.UNLOCK_CONFIRMATION_TIMEOUT_SECONDS >= 1 and config.WORLD_SETTINGS.UNLOCK_RETRY_COOLDOWN_SECONDS >= 10,
 		"World unlock confirmation must be at least one second and retry at least ten seconds")
+	assert(config.WORLD_SETTINGS.FUNDING_HORIZON_HOURS > 0 and config.WORLD_SETTINGS.ECONOMIC_LOG_INTERVAL_SECONDS >= 5,
+		"Funding diagnostic horizon must be positive and economic log interval at least five seconds")
 	assert(config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS >= 0.4
 		and config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS < config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS,
 		"Progression travel stabilization must fit inside the native travel confirmation window")

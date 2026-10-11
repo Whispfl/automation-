@@ -521,8 +521,9 @@ function GameMechanics:WorldGate(name)
 	if not target or not target.Parent or not target:IsA("BasePart") then return nil, "Live gate Activation.Root unavailable" end
 	local root = self.Tracker:Root()
 	if not root then return nil, "Character unavailable" end
-	local inRange = ((root.Position - target.Position) * Vector3.new(1, 0, 1)).Magnitude <= target.Size.Y / 2
-		and math.abs(root.Position.Y - target.Position.Y) <= 10 -- Client.Activation:357-360
+	local horizontalDistance = ((root.Position - target.Position) * Vector3.new(1, 0, 1)).Magnitude
+	local verticalDifference, horizontalLimit = math.abs(root.Position.Y - target.Position.Y), target.Size.Y / 2
+	local inRange = horizontalDistance <= horizontalLimit and verticalDifference <= 10 -- Client.Activation:357-360
 	local originWorld = worlds and worlds:FindFirstChild(origin)
 	local islands = originWorld and originWorld:FindFirstChild("Islands")
 	local island = islands and area and islands:FindFirstChild(area)
@@ -552,7 +553,30 @@ function GameMechanics:WorldGate(name)
 	end
 	return { Name = name, Model = found, OriginWorld = origin, RequiredIsland = area, Root = target,
 		Spawn = spawn, DestinationPath = catalogIsland and expectedPath or nil, Zones = zones,
-		AtOriginIsland = atIsland or inRange, InRange = inRange, Cost = definition.UnlockCost, Order = definition.Order }
+		AtOriginIsland = atIsland or inRange, InRange = inRange, Cost = definition.UnlockCost, Order = definition.Order,
+		HorizontalDistance = horizontalDistance, VerticalDifference = verticalDifference, HorizontalLimit = horizontalLimit, VerticalLimit = 10 }
+end
+
+function GameMechanics:_gateTravelAuthorized(gate)
+	local settings, cost, raw = self.Config.WORLD_SETTINGS, gate.Cost, self.Reader:GetLiveProfile()
+	local active = self.ProgressionGoalProvider and self.ProgressionGoalProvider()
+	if not active or active.Name ~= gate.Name or active.Kind ~= "WORLD" then return false, "Active Brain world objective changed" end
+	if not settings.ENABLE_WORLD_PROGRESSION or not settings.AUTO_TRAVEL_FOR_PROGRESSION then return false, "Progression travel disabled" end
+	if not settings.AUTO_UNLOCK_WORLDS then return false, "World spending disabled; no gate travel" end
+	if (self.SessionUnlockRequests or 0) >= settings.MAXIMUM_SESSION_WORLD_UNLOCKS
+		or (self.UnlockAttempts or {})[gate.Name] and self.UnlockAttempts[gate.Name] >= settings.MAXIMUM_UNLOCK_ATTEMPTS
+		or not self:Available("UNLOCK:" .. gate.Name) then return false, "World request limit/backoff blocks gate travel" end
+	if type(cost) ~= "table" or cost.Type ~= "Currency" or cost.Currency == "Robux"
+		or not table.find(settings.ALLOWED_UNLOCK_CURRENCIES, cost.Currency) or type(cost.Amount) ~= "number"
+		or cost.Amount ~= cost.Amount or cost.Amount < 0 or cost.Amount == math.huge
+		or cost.Amount > settings.MAXIMUM_WORLD_UNLOCK_COST then return false, "Native gate cost/currency exceeds explicit authorization" end
+	local reserveKey = ({ Coins = "COIN_RESERVE", Gems = "GEM_RESERVE", Tickets = "TICKET_RESERVE", Pearls = "PEARL_RESERVE" })[cost.Currency]
+	local reserve = reserveKey and self.Config.RESOURCE_SETTINGS[reserveKey] or 0
+	local balance = raw and raw[cost.Currency]
+	if type(balance) ~= "number" or balance ~= balance or balance == math.huge or balance < cost.Amount + reserve then
+		return false, "Actual funds insufficient or unknown after reserve; no gate travel"
+	end
+	return true
 end
 
 function GameMechanics:TravelForProgression(name, token)
@@ -563,6 +587,8 @@ function GameMechanics:TravelForProgression(name, token)
 	if not active or active.Name ~= name or active.Kind ~= "WORLD" then return false, "Active Brain world objective changed" end
 	local gate, blocker = self:WorldGate(name)
 	if not gate then return false, blocker end
+	local authorized, authorizationReason = self:_gateTravelAuthorized(gate)
+	if not authorized then return false, authorizationReason end
 	if gate.AtOriginIsland then return true, "Already at gate island; no teleport", 0 end
 	if not gate.Spawn and (not gate.DestinationPath or #gate.Zones == 0) then return false, "Native portal arrival geometry unavailable; no unverified travel" end
 	local permitted, reason = self:Guard()
@@ -571,9 +597,14 @@ function GameMechanics:TravelForProgression(name, token)
 	if not self:Available("TRAVEL:" .. path) or os.clock() - self.LastTravelAt < self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS then return false, "Travel cooldown/backoff" end
 	local remote = self.Reader:_dependency("Remote")
 	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote unavailable" end
+	permitted, reason = self:Guard()
+	if not permitted then return false, reason end
 	if token:CheckCancelled() then return false, "Cancelled" end
 	local fresh = self:WorldGate(name)
 	if not fresh or fresh.Spawn ~= destination or fresh.DestinationPath ~= gate.DestinationPath then return false, "Gate access/destination changed" end
+	authorized, authorizationReason = self:_gateTravelAuthorized(fresh)
+	if not authorized then return false, authorizationReason end
+	if token:CheckCancelled() then return false, "Cancelled" end
 	local started, stable = os.clock(), nil
 	self.LastTravelAt = started
 	self.ProgressionTravelRequests = (self.ProgressionTravelRequests or 0) + 1

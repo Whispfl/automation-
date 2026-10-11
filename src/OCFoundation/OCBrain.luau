@@ -32,6 +32,87 @@ function OCBrain:PlanProgression(snapshot, plan, context)
 	return TravelPlanner.Decide(self.Config, snapshot, plan, context)
 end
 
+local function finite(value)
+	return type(value) == "number" and value == value and value >= 0 and value < math.huge
+end
+
+-- Read-only analysis of the selected world. No invented income, goals, spending or activity switches.
+function OCBrain:ProgressionEconomics(snapshot, plan, context)
+	local settings = self.Config.WORLD_SETTINGS
+	if not settings.ENABLE_WORLD_PROGRESSION or not settings.ENABLE_ECONOMIC_DIAGNOSTICS then return nil end
+	local goal = plan and plan.Objective and plan.Objective.Metadata and plan.Objective.Metadata.Progression
+	local node = snapshot.ProgressionGraph and snapshot.ProgressionGraph.Next
+	if not goal or not goal.Node or not node or node.Id ~= goal.Node.Id or node.Kind ~= "WORLD"
+		or (node.State ~= "FUNDING" and node.State ~= "READY") then return nil end
+	local cost = node.Cost
+	if type(cost) ~= "table" or type(cost.Currency) ~= "string" then return nil end
+	local balance = (snapshot.Balances or {})[cost.Currency]
+	if cost.Type ~= "Currency" or not finite(cost.Amount) or not finite(balance) then return nil end
+	local result = { GoalId = plan.Objective.Id, World = node.Name, Currency = cost.Currency, Cost = cost.Amount,
+		Balance = balance, Reserve = reserveFor(self.Config, cost.Currency), ObservedAt = context.Now,
+		Status = "UNMEASURED", HorizonHours = settings.FUNDING_HORIZON_HOURS, Recommendations = {} }
+	result.Deficit = math.max(0, result.Cost + result.Reserve - balance)
+	local area, rate = context.Current, context.Rate
+	local permitted = area and area.World == "The Overworld" and table.find({ "The Void", "Zen" }, area.Name)
+		and table.find(self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Name)
+		and snapshot.UnlockedWorlds and snapshot.UnlockedWorlds[area.World] ~= nil
+		and snapshot.UnlockedIslands and snapshot.UnlockedIslands[area.Name] ~= nil
+	if permitted then result.Island = area.Key end
+	local perMinute = rate and rate.PerMinute and rate.PerMinute[cost.Currency]
+	if permitted and rate and rate.Ready and finite(rate.Seconds) and rate.Seconds >= self.Config.FARMING_SETTINGS.MINIMUM_RATE_SAMPLE_SECONDS
+		and finite(rate.LastAt) and finite(context.Now) and rate.LastAt <= context.Now
+		and context.Now - rate.LastAt <= self.Config.FARMING_SETTINGS.RATE_WINDOW_SECONDS and finite(perMinute) then
+		result.PerMinute, result.SampleSeconds = perMinute, rate.Seconds
+		result.SampleAgeSeconds = context.Now - rate.LastAt
+	end
+	if result.Deficit == 0 then result.Status = "FUNDED"
+	elseif result.PerMinute and result.PerMinute > 0 then
+		local minutes = result.Deficit / result.PerMinute
+		if finite(minutes) then
+			result.ETAMinutes, result.ETAHours, result.ETADays = minutes, minutes / 60, minutes / 1440
+			result.Status = result.ETAHours > settings.FUNDING_HORIZON_HOURS and "BOTTLENECK" or "MEASURED"
+		end
+	elseif result.PerMinute == 0 then result.Status = "NO_OBSERVED_INCOME" end
+	local multiplier = area and area.Multipliers and area.Multipliers[cost.Currency]
+	if permitted and finite(multiplier) then result.NativePickupMultiplier = multiplier end
+	result.Assumption = "Short stationary LocalData balance sample extrapolated at unchanged earning rate; external credits may contribute; ETA is not guaranteed"
+	-- Native gum/flavor definitions change bubble storage/power, not the inspected pickup multiplier.
+	local suggestions = {}
+	for _, upgrade in ipairs((snapshot.AvailableProgression or {}).Upgrades or {}) do
+		local price = upgrade.Cost
+		local currentBase = upgrade.Kind == "Gum" and (snapshot.Bubble or {}).BaseCapacity or (snapshot.Bubble or {}).BaseOutput
+		if (upgrade.Kind == "Gum" or upgrade.Kind == "Flavors") and upgrade.AccessKnown and upgrade.Accessible
+			and upgrade.OwnershipKnown and not upgrade.Owned and price and price.Type == "Currency"
+			and price.Currency == cost.Currency and finite(price.Amount) and finite(upgrade.BaseStat)
+			and finite(currentBase) and upgrade.BaseStat > currentBase then
+			table.insert(suggestions, upgrade)
+		end
+	end
+	table.sort(suggestions, function(a, b) return a.Cost.Amount == b.Cost.Amount and a.Name < b.Name or a.Cost.Amount < b.Cost.Amount end)
+	local seen = {}
+	for _, upgrade in ipairs(suggestions) do
+		if not seen[upgrade.Kind] then
+			seen[upgrade.Kind] = true
+			table.insert(result.Recommendations, string.format("Accessible %s %s: native cost %.0f %s, base %s %.0f; bubble-only candidate, pickup ROI unverified; no purchase",
+				upgrade.Kind, upgrade.Name, upgrade.Cost.Amount, upgrade.Cost.Currency, upgrade.Kind == "Gum" and "storage" or "power", upgrade.BaseStat))
+		end
+	end
+	local bestSell
+	for _, island in ipairs(snapshot.ProgressionGraph.Islands or {}) do
+		local sell = island.Facilities and island.Facilities.Sell
+		if sell and sell.Currency == cost.Currency and finite(sell.Multiplier) and sell.Multiplier > 0
+			and island.Discovered and snapshot.UnlockedWorlds[island.World] ~= nil
+			and (not bestSell or sell.Multiplier > bestSell.Multiplier) then
+			bestSell = { Island = island.Id, Multiplier = sell.Multiplier, Path = sell.Path }
+		end
+	end
+	result.BestObservedIslandSell = bestSell
+	if bestSell then table.insert(result.Recommendations, string.format("Observed accessible sell station %s: native %.2fx %s; net bubble/sell yield and travel cost unmeasured; selling remains separately authorized", bestSell.Island, bestSell.Multiplier, cost.Currency)) end
+	result.EquippedPets = countEntries(snapshot.Inventory and snapshot.Inventory.EquippedIds)
+	table.insert(result.Recommendations, "StatsUtil.GetCurrencyMultiplier uses equipped-pet currency stats and native modifiers; pet/hatching analysis deferred to Phase 4; Mastery execution/ROI deferred to Phase 5. Missing Mastery levels remain unknown")
+	return result
+end
+
 function OCBrain:PlanFarming(snapshot, plan, context)
 	self.FarmingMemory = self.FarmingMemory or { Mode = nil, StartedAt = 0, LastTest = {} }
 	local scope = context.Current and context.Current.Key

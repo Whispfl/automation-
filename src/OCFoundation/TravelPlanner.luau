@@ -37,7 +37,12 @@ function TravelPlanner.Decide(config, snapshot, plan, context)
 	if not context.Gate then decision.Reason = context.Blocker or "Live native gate unavailable" return decision end
 	if not context.CanInteract then decision.Reason = context.Blocker or "Native interaction guard blocks progression" return decision end
 	if context.Gate.InRange then decision.Kind, decision.Reason = "UNLOCK_WORLD", "Actual funds available and native gate activation range observed"
-	elseif context.Gate.AtOriginIsland then decision.Reason = "At discovered gate island, outside native Activation.Root range; manual gate approach required; automatic walking is unsupported"
+	elseif context.Gate.AtOriginIsland then
+		local gate = context.Gate
+		decision.GateApproach = { Status = "MANUAL_REQUIRED", HorizontalDistance = gate.HorizontalDistance,
+			VerticalDifference = gate.VerticalDifference, HorizontalLimit = gate.HorizontalLimit, VerticalLimit = gate.VerticalLimit }
+		decision.Reason = string.format("At discovered gate island, outside native Activation.Root range; manual gate approach required; horizontal=%s/%s studs, vertical=%s/%s studs; automatic walking is unsupported",
+			tostring(gate.HorizontalDistance or "unknown"), tostring(gate.HorizontalLimit or "unknown"), tostring(gate.VerticalDifference or "unknown"), tostring(gate.VerticalLimit or "unknown"))
 	elseif not settings.AUTO_TRAVEL_FOR_PROGRESSION then decision.Reason = "World affordable; native gate-island travel requires AUTO_TRAVEL_FOR_PROGRESSION=true"
 	elseif context.TravelBackoff then decision.Reason = "Progression portal travel in retry backoff"
 	elseif context.TravelFailures >= settings.MAXIMUM_TRAVEL_ATTEMPTS then decision.Reason = "Progression travel failure limit reached; manual travel required"

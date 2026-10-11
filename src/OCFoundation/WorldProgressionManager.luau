@@ -21,9 +21,9 @@ end
 
 function WorldProgressionManager:Select(plan)
 	local controller, mechanics = self.Controller, self.Mechanics
-	if not controller.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then return false end
+	if not controller.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then self.Economics = nil return false end
 	if mechanics.PendingPickupCleanup or controller.Farming.ReturnKey then
-		self.Decision = nil return false -- Finish already-dispatched Phase 2 cleanup/saved sell-return through its existing scheduler path.
+		self.Decision, self.Economics = nil, nil return false -- Finish already-dispatched Phase 2 cleanup/saved sell-return through its existing scheduler path.
 	end
 	local goal = plan.Objective and plan.Objective.Metadata and plan.Objective.Metadata.Progression
 	if not goal then
@@ -32,9 +32,33 @@ function WorldProgressionManager:Select(plan)
 			controller:Log("WORLD][GRAPH", "Selected permanent world/island flags already complete; no unlock replay. Other game systems and Phase 3 live approval remain separate.")
 			self.ReportedComplete = true
 		end
-		self.Decision = nil return false
+		self.Decision, self.Economics = nil, nil return false
 	end
 	self.ReportedComplete = false
+	local now, current = os.clock(), controller.Farming.Tracker.Current
+	local snapshot = table.clone(controller.Reader:GetSnapshot())
+	-- Use the existing verified balance reader and approved sample ledger, not pickup face values.
+	snapshot.Balances = controller.Reader:ReadBalances()
+	self.Economics = controller.Brain:ProgressionEconomics(snapshot, plan, {
+		Now = now, Current = current,
+		Rate = current and controller.Farming:_pickupRates(current.Key, now).STATIONARY or nil,
+	})
+	local economics = self.Economics
+	if economics then
+		local signature = economics.GoalId .. ":" .. economics.Status .. ":" .. tostring(economics.Island)
+		if signature ~= self.LastEconomicSignature or now - (self.LastEconomicLogAt or -math.huge) >= controller.Config.WORLD_SETTINGS.ECONOMIC_LOG_INTERVAL_SECONDS then
+			self.LastEconomicSignature, self.LastEconomicLogAt = signature, now
+			controller:Log("WORLD][ECONOMY", string.format("%s | status=%s | cost=%.0f %s | balance=%.0f | reserve=%.0f | shortage=%.0f | island=%s | rate=%s/min | sample=%ss | age=%ss | ETA=%s | horizon=%.1fh (diagnostic only) | %s",
+				economics.World, economics.Status, economics.Cost, economics.Currency, economics.Balance, economics.Reserve, economics.Deficit,
+				tostring(economics.Island or "unmeasured"), economics.PerMinute and string.format("%.2f", economics.PerMinute) or "unknown",
+				economics.SampleSeconds and string.format("%.1f", economics.SampleSeconds) or "unknown", economics.SampleAgeSeconds and string.format("%.1f", economics.SampleAgeSeconds) or "unknown",
+				economics.ETADays and string.format("%.2f days / %.1f hours", economics.ETADays, economics.ETAHours) or (economics.Status == "FUNDED" and "funded" or "unknown"),
+				economics.HorizonHours, economics.Assumption))
+			if economics.Status == "BOTTLENECK" then
+				controller:Log("WORLD][BOTTLENECK", "Observed rate exceeds the configured funding horizon; earning-power review needed. Native pickup multiplier=" .. tostring(economics.NativePickupMultiplier or "unknown") .. " | equipped pets=" .. tostring(economics.EquippedPets or "unknown") .. " | " .. table.concat(economics.Recommendations, " | "))
+			end
+		end
+	end
 	local name = goal.Node and goal.Node.Name
 	local gate, blocker
 	if name and goal.Node.Kind == "WORLD" and goal.Node.State == "READY" then gate, blocker = mechanics:WorldGate(name) end
@@ -61,6 +85,7 @@ function WorldProgressionManager:Select(plan)
 	local description = decision.Kind .. " | " .. plan.Objective.Id .. " | " .. decision.Reason
 	if description ~= self.LastDescription then
 		self.LastDescription = description controller:Log("WORLD][DECISION", description)
+		if decision.GateApproach then controller:Log("WORLD][GATE_APPROACH", decision.Reason) end
 	end
 	return true, decision
 end
@@ -102,6 +127,7 @@ end
 function WorldProgressionManager:Halt()
 	self.Mechanics:EndIslandContact() -- Release an existing simulated contact; no new attempt.
 	self.Decision = nil -- Cancellation belongs to TaskScheduler. Request/backoff ledgers deliberately survive controls.
+	self.Economics = nil -- A stopped/paused estimate must not appear current; existing samples survive for reevaluation.
 end
 
 function WorldProgressionManager:Completed(status, result, reason)
@@ -109,7 +135,7 @@ function WorldProgressionManager:Completed(status, result, reason)
 end
 
 function WorldProgressionManager:GetStatus()
-	return { Decision = self.Decision, SessionUnlockRequests = self.Mechanics.SessionUnlockRequests or 0,
+	return { Decision = self.Decision, Economics = self.Economics, SessionUnlockRequests = self.Mechanics.SessionUnlockRequests or 0,
 		UnlockAttempts = table.clone(self.Mechanics.UnlockAttempts or {}), TravelFailures = table.clone(self.TravelFailures),
 		IslandDiscoveryAttempts = table.clone(self.Mechanics.IslandDiscoveryAttempts), DiscoveryCapability = self.Mechanics:IslandDiscoveryCapability() }
 end

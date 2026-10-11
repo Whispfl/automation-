@@ -44,6 +44,9 @@ return {
 	},
 	WORLD_SETTINGS = {
 		ENABLE_WORLD_PROGRESSION = false, --// Opt into Phase 3 native graph planning; existing Phase 2 configurations retain their behavior.
+		ENABLE_ECONOMIC_DIAGNOSTICS = true, --// Explain native world funding using existing observed stationary balance samples; never enable another action.
+		FUNDING_HORIZON_HOURS = 24, --// Owner-adjustable diagnostic practicality threshold, not a game rule, deadline or farming limit.
+		ECONOMIC_LOG_INTERVAL_SECONDS = 30, --// Throttle funding estimates and read-only earning-power recommendations.
 		AUTO_DISCOVER_ISLANDS = false, --// Opt into the owner's stationary Overworld discovery experiment; capability and actual LocalData checks remain mandatory.
 		ISLAND_DISCOVERY_CONTACT_SECONDS = 0.1, --// Separate the reference runtime's contact begin/end calls; cancellation releases an existing contact only.
 		ISLAND_DISCOVERY_CONFIRMATION_TIMEOUT_SECONDS = 10, --// Wait for the correct actual AreasUnlocked flag; contact invocation is never success.

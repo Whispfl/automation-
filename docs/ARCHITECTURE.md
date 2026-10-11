@@ -17,7 +17,11 @@ updates in build 78b2a278c20d in approximately 41 seconds. Rejoin persistence an
 server-only validation rules remain unknown. The integrated example now enables
 verified-shortage farming and farming-island travel, retaining disabled world
 spending. World funding rechecks received balances between paced pickup requests
-and before starting funding travel. See [PHASE3.md](PHASE3.md).
+and before starting funding travel. The owner confirmed that integrated handoff in
+build fdda549304a0. The Brain now explains conditional world-funding ETA and native
+earning-power candidates without adding task authority; gate travel rechecks actual
+funds/authorization and unsupported approach remains manual with distance diagnostics.
+See [PHASE3.md](PHASE3.md) and [PHASE3-ECONOMICS.md](PHASE3-ECONOMICS.md).
 Phases 4–9 have no new executors; hybrid farming remains deferred to Phase 9.
 
 ## Sources and reusable layers
@@ -90,7 +94,7 @@ Permanent and event definitions may persist after gameplay is unavailable.
 | --- | --- | --- |
 | 1: Account intelligence / Brain | Verified Client.Framework.Services.LocalData; Shared.Data.Worlds/Gum/Flavors/Mastery and StatsUtil | Preserve owner-approved account reading/goals. Definitions describe possibilities; actual LocalData records describe progress. |
 | 2: Farming / bubbles / selling / upgrades | Shared.Utils.GetPickupZones, Shared.Data.Worlds/Gum/Flavors, Assets.Pickups, Remotes.Pickups, Client HUD/Activation/GumShop/WorldMap and Remote wrapper | Actual spawn IDs, radius, positions, discovered access, arrival and balance credit. Pickup-first cooperative blowing, bounded optional isolation, selected-island execution and sell-return cycles; owner must verify these fixes. |
-| 3: Island / world progression | Shared.Data.Worlds, Shared.Utils.WorldUtil and native WorldMap/gate client behavior | Distinguish discovered areas from world access; inspect exact progression commands/requirements before implementing. Verify received unlock membership and destination arrival. Not started. |
+| 3: Island / world progression | Shared.Data.Worlds/Gum/Flavors/Mastery, StatsUtil, Shared.Utils.WorldUtil and native WorldMap/gate client behavior | Overworld discovery and stationary funding handoff owner-confirmed in session; rejoin persistence, real world purchase and approval pending. Economic diagnostics are read-only; unsupported gate approach remains manual. |
 | 4: Pets / eggs / inventory | Shared.Data.Pets/Eggs, Assets, GetEggPool/GetPetModel/EnchantUtil and relevant Client/remotes | Actual inventory/equipped IDs, capacity, affordability and ownership changes. Confirm native hatch/equip/craft contracts; consuming/deleting requires explicit enabled configuration. Not started. |
 | 5: Mastery / rewards | Shared.Data.Mastery/DailyRewards/Playtime/WorldRewards and related Client/remotes | Actual level, claim availability, costs and received level/reward changes. No assumption that a catalog tier is purchasable. Not started. |
 | 6: Quests / shops / consumables | Shared.Data.Quests/Shops/Powerups/Potions, ShopUtil, related Client/remotes | Actual objective/stock/ownership, budgets, cooldowns and confirmed claims/purchases/consumption. Not started. |

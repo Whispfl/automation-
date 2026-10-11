@@ -3,7 +3,9 @@
 Phase 1 and Phase 2's agreed stationary farming scope are owner-approved. Phase 3
 is explicitly authorized; the owner confirmed all five Overworld discoveries through
 actual AreasUnlocked updates in build 78b2a278c20d (approximately 41 seconds). Rejoin
-persistence, the integrated handoff and actual world purchases remain pending. Phase 4
+persistence and actual world purchases remain pending. The owner also confirmed the
+integrated discovery-skip -> actual world shortage -> Void travel -> credited stationary
+farming handoff in build fdda549304a0. Phase 4
 is not authorized. Start with [examples/Progression.luau](examples/Progression.luau)
 and [Phase 3 evidence, controls and live checks](docs/PHASE3.md). Progression spending
 and progression travel default OFF; the current Phase 3 example enables actual
@@ -15,6 +17,12 @@ affordable world waits with purchases disabled. Server-only validation rules rem
 unknown, despite the owner's confirmed discovery acknowledgements.
 No climbing, physics changes or movement fallback is added; correct LocalData flags
 are mandatory, and a live rejoin test must establish persistence.
+
+Phase 3 now reports measured funding rates, conditional time-to-afford and economic
+bottlenecks, with native upgrade/selling recommendations that enable no actions.
+Gate travel rechecks live affordability and authorization immediately before dispatch;
+unsupported gate approach reports actual distance and retains the manual blocker.
+See [economic findings, completion gaps and next test](docs/PHASE3-ECONOMICS.md).
 
 The existing Phase 2 configuration remains available below.
 Stationary pickup requests now use the Flame reference's genuine-ID approach in

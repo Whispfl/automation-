@@ -54,7 +54,8 @@ function GameKnowledge:ProgressionContract()
 		DiscoveryCapability = "firetouchinterest is runtime-specific, absent from inspected native scripts; check at live execution, never assume Studio support",
 		WorldTravel = "Native FastTravel.Spawn; Seven Seas has a separate fishing-area contract, deferred",
 		UnlockVerification = "Actual WorldsUnlocked absent -> present; balances logged separately; invocation/visuals not proof",
-		ServerValidation = "UNAVAILABLE", LivePhase3Verification = "OWNER_PENDING" }
+		ServerValidation = "UNAVAILABLE", LivePhase3Verification = "OWNER_CONFIRMED_DISCOVERY_AND_FUNDING_IN_SESSION",
+		SavedDiscoveryPersistence = "OWNER_REJOIN_PENDING", WorldPurchase = "OWNER_LIVE_PENDING", AutomaticGateApproach = "UNVERIFIED_MANUAL_BLOCKER" }
 end
 
 function GameKnowledge:ActivePickups()
