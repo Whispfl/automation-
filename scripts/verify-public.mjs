@@ -8,7 +8,7 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 const refs = ['main', commit];
-for (const artifact of ['dist/OC.lua', 'examples/StationaryOnly.luau', 'examples/Progression.luau', 'examples/Pets.luau']) {
+for (const artifact of ['dist/OC.lua', 'examples/StationaryOnly.luau', 'examples/Progression.luau', 'examples/Pets.luau', 'examples/PetEquipTest.luau']) {
   const expected = await readFile(path.join(root, artifact));
   const results = await Promise.all(refs.map(async ref => {
     const url = `https://raw.githubusercontent.com/ryanrooflead-source/OCscript/${ref}/${artifact}`;

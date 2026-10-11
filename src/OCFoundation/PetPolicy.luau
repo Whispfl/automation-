@@ -42,9 +42,71 @@ function PetPolicy.Inventory(raw)
 	return result
 end
 
-function PetPolicy.Protected(config, pet)
-	return pet.Locked == true or table.find(config.PET_SETTINGS.PROTECTED_PET_IDS, pet.Id) ~= nil
-		or table.find(config.PET_SETTINGS.SELECTED_PETS, pet.Name) ~= nil
+function PetPolicy.Protection(config, pet, definition)
+	local p = config.PET_SETTINGS
+	if table.find(p.PROTECTED_PET_IDS, pet.Id) then return "explicitly protected ID (no equipment changes)" end
+	if pet.Locked then return "native Locked flag" end
+	if table.find(p.FAVORITE_PET_IDS, pet.Id) then return "owner-designated favorite ID" end
+	if pet.Favorite or pet.Favorited then return "received favorite marker; native pet-favorite contract unverified" end
+	if table.find(p.SELECTED_PETS, pet.Name) then return "selected target name" end
+	if table.find(p.VALUABLE_PET_IDS, pet.Id) then return "owner-designated valuable ID" end
+	if pet.Super or pet.Shiny or pet.Mythic or pet.XL then return "valuable variant" end
+	if definition and (definition.Rarity == "Secret" or definition.Rarity == "Infinity") then return "valuable native rarity" end
+	return nil
+end
+
+function PetPolicy.Protected(config, pet, definition)
+	return PetPolicy.Protection(config, pet, definition) ~= nil
+end
+
+function PetPolicy.Equal(a, b)
+	if type(a) ~= type(b) then return false end
+	if type(a) ~= "table" then return a == b end
+	for k, v in pairs(a) do if not PetPolicy.Equal(v, b[k]) then return false end end
+	for k in pairs(b) do if a[k] == nil then return false end end
+	return true
+end
+
+function PetPolicy.Describe(config, context, ids)
+	local rows, inv = {}, context.Inventory
+	for slot, id in ipairs(ids or {}) do
+		local pet = inv.ById[id]
+		local def = (context.Pets or {})[pet.Name]
+		local variants = {} for _, key in ipairs({ "Super", "XL", "Shiny", "Mythic" }) do if pet[key] then table.insert(variants, key) end end
+		local stats = context.PetStats and context.PetStats(pet, ids)
+		local value = context.PetScore and context.PetScore(pet, ids)
+		local without = table.clone(ids) table.remove(without, slot)
+		local whole, remainder = context.ScoreTeam(ids), context.ScoreTeam(without)
+		table.insert(rows, { Slot = slot, Id = id, Name = pet.Name, Variant = #variants > 0 and table.concat(variants, " ") or "Normal",
+			OwnedQuantity = pet.Amount or 1, EquippedCopies = PetPolicy.Counts(ids)[id], XP = pet.XP, Enchants = pet.Enchants,
+			Rarity = def and def.Rarity or "UNKNOWN", NativeStats = stats, NativeRoleStat = value,
+			RemovalMarginal = PetPolicy.Finite(whole) and PetPolicy.Finite(remainder) and whole - remainder or nil,
+			Protection = PetPolicy.Protection(config, pet, def) })
+	end
+	return rows
+end
+
+function PetPolicy.TeamText(team, details)
+	if team.Status ~= "ESTIMATE" then return "Team UNKNOWN: " .. tostring(team.Reason) end
+	local function lineup(rows)
+		local out = {} for _, r in ipairs(rows) do table.insert(out, r.Variant .. " " .. r.Name .. " [" .. r.Id .. "]") end
+		return table.concat(out, ", ")
+	end
+	local header = string.format("%s | team=%s | equipped=%d/native limit=%d | %d records/%d pets | native estimate %.3f -> %.3f | bounded search %d%s",
+		tostring(team.Currency), tostring(team.TeamIndex), team.EquippedCount, team.MaxEquipped, team.RecordCount, team.Quantity,
+		team.CurrentScore, team.ProjectedScore, team.Evaluations, team.SearchBoundReached and " (limit reached)" or " (local optimum)")
+	if not details then return header .. " | proposed: " .. lineup(team.ProposedPets) .. " | details: OC:PrintPetTeam(); earnings impact unmeasured" end
+	local lines = { header, "Current: " .. lineup(team.CurrentPets), "Proposed: " .. lineup(team.ProposedPets) }
+	for _, group in ipairs({ { "CURRENT", team.CurrentPets }, { "PROPOSED", team.ProposedPets } }) do
+		for _, r in ipairs(group[2]) do table.insert(lines, string.format("%s slot %d | %s %s [%s] | owned=%d; team copies=%d | %s stat=%s; removal marginal=%s | XP=%s | protection=%s",
+			group[1], r.Slot, r.Variant, r.Name, r.Id, r.OwnedQuantity, r.EquippedCopies, tostring(team.Currency),
+			tostring(r.NativeRoleStat or "UNKNOWN"), tostring(r.RemovalMarginal or "UNKNOWN"), tostring(r.XP or "UNKNOWN"), r.Protection or "none")) end
+	end
+	for index, step in ipairs(team.Improvements) do table.insert(lines, string.format("Search improvement %d | %s replaces %s | native FULL-team %.3f -> %.3f (+%.3f); variants, enchants and account modifiers evaluated together",
+		index, step.AddId, step.RemoveId or "free slot", step.BeforeScore, step.AfterScore, step.AfterScore - step.BeforeScore)) end
+	for _, reason in ipairs(team.Unknowns) do table.insert(lines, "UNCERTAINTY | " .. reason) end
+	table.insert(lines, "Stack copies reuse the actual base ID; no new inventory IDs. Per-pet marginals can overlap through enchants; they are not additive earnings rates.")
+	return table.concat(lines, "\n")
 end
 
 function PetPolicy.Currency(config, plan)
@@ -78,7 +140,9 @@ end
 -- the game's helper; this is explicitly a heuristic rather than an exhaustive optimum.
 function PetPolicy.Team(config, context)
 	local inv = context.Inventory
-	local report = { Currency = context.Currency, Status = "UNKNOWN", Evidence = "Native full-team stat projection; greedy local search", Evaluations = 0 }
+	local report = { Currency = context.Currency, Status = "UNKNOWN", Evidence = "Native full-team stat projection; greedy local search", Evaluations = 0,
+		MaxEquipped = context.MaxEquipped, Improvements = {}, Unknowns = { "Server-only modifiers and actual earning-rate impact unverified; native helper totals are client estimates",
+			"Bounded greedy local search is not a guaranteed global optimum with interacting enchants", "No native pet-favorite contract found; use FAVORITE_PET_IDS / PROTECTED_PET_IDS" } }
 	if not inv or not context.Currency or not context.ScoreTeam or not PetPolicy.Finite(context.MaxEquipped)
 		or context.MaxEquipped < 1 or context.MaxEquipped % 1 ~= 0 or #inv.Team > context.MaxEquipped then
 		report.Reason = context.Error or "Account, objective or native stat/capacity helper unavailable" return report
@@ -98,36 +162,45 @@ function PetPolicy.Team(config, context)
 		-- Super equip constraints are a separate native capacity: preserve existing
 		-- Supers but never add or replace them in this initial executor.
 		local definition = (context.Pets or {})[pet.Name]
-		if not definition or not definition.Rarity then continue end
+		if not definition or not definition.Rarity then table.insert(report.Unknowns, pet.Name .. " [" .. id .. "]: definition/rarity UNKNOWN; preserved") continue end
 		if pet.Super then continue end
+		if table.find(config.PET_SETTINGS.PROTECTED_PET_IDS, id) then continue end
 		local value = context.PetScore and context.PetScore(pet)
-		if PetPolicy.Finite(value) then table.insert(candidates, { Id = id, Score = value }) end
+		if PetPolicy.Finite(value) then table.insert(candidates, { Id = id, Score = value })
+		else table.insert(report.Unknowns, pet.Name .. " [" .. id .. "]: native pet stat failed; excluded") end
 	end
 	table.sort(candidates, function(a, b) return a.Score == b.Score and a.Id < b.Id or a.Score > b.Score end)
 	local limit = config.PET_SETTINGS.MAXIMUM_TEAM_EVALUATIONS
 	local exhausted = false
 	while report.Evaluations < limit do
-		local best, bestScore = nil, report.ProjectedScore
+		local best, bestScore, improvement = nil, report.ProjectedScore, nil
 		local counts = PetPolicy.Counts(report.ProposedIds)
 		for _, candidate in ipairs(candidates) do
 			if (counts[candidate.Id] or 0) >= (inv.ById[candidate.Id].Amount or 1) then continue end
 			for slot = 1, #report.ProposedIds + (#report.ProposedIds < context.MaxEquipped and 1 or 0) do
 				if report.Evaluations >= limit then exhausted = true break end
 				local old = inv.ById[report.ProposedIds[slot]]
-				if old and (old.Super or PetPolicy.Protected(config, old) or not (context.Pets or {})[old.Name] or not context.Pets[old.Name].Rarity) then continue end
+				if old and (old.Super or PetPolicy.Protected(config, old, (context.Pets or {})[old.Name]) or not (context.Pets or {})[old.Name] or not context.Pets[old.Name].Rarity) then continue end
 				local ids = table.clone(report.ProposedIds) ids[slot] = candidate.Id
 				local value = score(ids)
-				if value and value > bestScore + 1e-6 then best, bestScore = ids, value end
+				if value and value > bestScore + 1e-6 then
+					best, bestScore = ids, value
+					improvement = { AddId = candidate.Id, RemoveId = old and old.Id, BeforeScore = report.ProjectedScore, AfterScore = value }
+				elseif not value then report.ProjectionFailures = (report.ProjectionFailures or 0) + 1 end
 			end
 			if exhausted then break end
 		end
 		if not best then break end
+		table.insert(report.Improvements, improvement)
 		report.ProposedIds, report.ProjectedScore = best, bestScore
 		if exhausted then break end
 	end
 	report.Status = "ESTIMATE" report.SearchBoundReached = exhausted or report.Evaluations >= limit
 	report.Gain = report.ProjectedScore - current
 	report.Reason = report.Gain > 0 and "A stronger owned team is available before hatching" or "No owned improvement found within bounded native projections"
+	if report.SearchBoundReached then table.insert(report.Unknowns, "Search limit reached; stronger combinations may remain unevaluated") end
+	if report.ProjectionFailures then table.insert(report.Unknowns, tostring(report.ProjectionFailures) .. " candidate full-team helper failures; results incomplete") end
+	report.CurrentPets, report.ProposedPets = PetPolicy.Describe(config, context, report.BeforeIds), PetPolicy.Describe(config, context, report.ProposedIds)
 	return report
 end
 

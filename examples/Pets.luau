@@ -6,9 +6,11 @@ local Config = {
 	PET_SETTINGS = {
 		ENABLE_PET_INTELLIGENCE = true,
 		OBJECTIVE_CURRENCY = "Coins", -- Analysis role only. Change to Gems/Bubbles when testing that team role.
-		SELECTED_PETS = {}, PROTECTED_PET_IDS = {},
+		SELECTED_PETS = {}, PROTECTED_PET_IDS = {}, FAVORITE_PET_IDS = {}, VALUABLE_PET_IDS = {},
 		AUTO_HATCH = false, AUTO_EQUIP = false,
-		MAXIMUM_SESSION_EQUIP_COMMANDS = 4, MAXIMUM_TEAM_EVALUATIONS = 300,
+		EQUIP_OWNED_TEAM_ONCE = false, LOG_TEAM_DETAILS = true,
+		MAXIMUM_SESSION_EQUIP_COMMANDS = 16, MAXIMUM_TEAM_EVALUATIONS = 1000,
+		MAXIMUM_EQUIP_ATTEMPT_SECONDS = 120, MINIMUM_EQUIP_COMMAND_INTERVAL_SECONDS = 1,
 		ANALYSIS_INTERVAL_SECONDS = 15, EQUIP_CONFIRMATION_TIMEOUT_SECONDS = 10,
 		AUTO_DELETE_PETS = false, AUTO_CRAFT_SHINY = false, AUTO_FUSE_PETS = false,
 	},
@@ -17,7 +19,7 @@ local Config = {
 		MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0,
 		MAXIMUM_SESSION_HATCHES = 1, MAXIMUM_BATCH_HATCHES = 1, MAXIMUM_SESSION_SECONDS = 60,
 		MINIMUM_REQUEST_INTERVAL_SECONDS = 5, CONFIRMATION_TIMEOUT_SECONDS = 15,
-		PRESERVE_PROGRESSION_RESERVE = true, ENABLE_BACKGROUND_PICKUPS = true, MAXIMUM_EGGS_ANALYZED = 40,
+		PRESERVE_PROGRESSION_RESERVE = true, ENABLE_BACKGROUND_PICKUPS = false, MAXIMUM_EGGS_ANALYZED = 40,
 	},
 	WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false,
 		AUTO_FARM_UNLOCK_REQUIREMENTS = false, AUTO_UNLOCK_WORLDS = false, AUTO_TRAVEL_FOR_PROGRESSION = false },
@@ -39,4 +41,5 @@ local Config = {
 
 local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"))()(Config)
 -- Controls: OC:Pause(), OC:Resume(), OC:Stop(). Full estimates: OC:GetStatus().Pets.Analysis
+-- Detailed comparison on demand: OC:PrintPetTeam(). AUTO_EQUIP remains OFF in this default Test A.
 -- Manual movement is allowed. Native egg models may need to stream in near an egg.

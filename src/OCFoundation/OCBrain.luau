@@ -33,23 +33,23 @@ function OCBrain:AnalyzePets(snapshot, context)
 	return PetPolicy.Analyze(self.Config, snapshot, context)
 end
 
-function OCBrain:PlanPets(report, context, state)
-	local settings, hatch = self.Config.PET_SETTINGS, self.Config.HATCH_SETTINGS
-	if not settings.ENABLE_PET_INTELLIGENCE or not self.Config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS then return { Kind = "WAIT", OwnsLocation = false } end
-	if state.Pending then return { Kind = "OBSERVE", OwnsLocation = state.Location ~= nil, Reason = "Awaiting actual inventory/equipment acknowledgement" } end
-	if state.Fault then return { Kind = "WAIT", OwnsLocation = state.Location ~= nil, Reason = state.Fault } end
-	if state.EquipmentContinuation then return state.EquipmentContinuation end
-	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return { Kind = "WAIT", OwnsLocation = false, Reason = "Pickup-only mode excludes pet actions" } end
-	local team, inv = report.Team, context.Inventory
+function OCBrain:PlanEquipmentStep(team, context, state)
+	local settings, inv = self.Config.PET_SETTINGS, context.Inventory
 	if settings.AUTO_EQUIP and inv and team.Status == "ESTIMATE" and team.Gain > 1e-6 then
 		local before, desired = PetPolicy.Counts(inv.Team), PetPolicy.Counts(team.ProposedIds)
 		-- One verified improvement at a time; never clear the entire team.
-		for addId, amount in pairs(desired) do
+		local adds = {} for id in pairs(desired) do table.insert(adds, id) end table.sort(adds)
+		for _, addId in ipairs(adds) do
+			local amount = desired[addId]
 			if amount <= (before[addId] or 0) then continue end
+			if table.find(settings.PROTECTED_PET_IDS, addId) then continue end
 			local removes = { false }
 			if #inv.Team >= context.MaxEquipped then
 				removes = {}
-				for id, count in pairs(before) do if count > (desired[id] or 0) then table.insert(removes, id) end end
+				for id, count in pairs(before) do
+					local pet = inv.ById[id]
+					if count > (desired[id] or 0) and not PetPolicy.Protected(self.Config, pet, (context.Pets or {})[pet.Name]) then table.insert(removes, id) end
+				end
 				table.sort(removes)
 			end
 			for _, removeId in ipairs(removes) do
@@ -66,6 +66,42 @@ function OCBrain:PlanPets(report, context, state)
 			end
 		end
 	end
+	return nil
+end
+
+function OCBrain:PlanPets(report, context, state)
+	local settings, hatch = self.Config.PET_SETTINGS, self.Config.HATCH_SETTINGS
+	if not settings.ENABLE_PET_INTELLIGENCE or not self.Config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS then return { Kind = "WAIT", OwnsLocation = false } end
+	if state.Pending then return { Kind = "OBSERVE", OwnsLocation = state.Location ~= nil, Reason = "Awaiting actual inventory/equipment acknowledgement" } end
+	if state.Fault then return { Kind = "WAIT", OwnsLocation = state.Location ~= nil, Reason = state.Fault } end
+	if state.EquipmentContinuation then return state.EquipmentContinuation end
+	if state.Attempt and state.Attempt.Ended then return { Kind = "WAIT", OwnsLocation = false, Reason = "One-time equipment authorization consumed: " .. tostring(state.Attempt.Status) } end
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return { Kind = "WAIT", OwnsLocation = false, Reason = "Pickup-only mode excludes pet actions" } end
+	local team, inv = report.Team, context.Inventory
+	if settings.EQUIP_OWNED_TEAM_ONCE then
+		if state.Attempt then
+			if state.Attempt.Ended then return { Kind = "WAIT", OwnsLocation = false, Reason = "One-time owned-team attempt ended: " .. tostring(state.Attempt.Status) } end
+			if not settings.AUTO_EQUIP then return { Kind = "WAIT", OwnsLocation = false, Reason = "Equipment authorization withdrawn" } end
+			return state.Attempt.Steps[state.Attempt.Step] or { Kind = "WAIT", OwnsLocation = false, Reason = "No remaining equipment step" }
+		end
+		if not settings.AUTO_EQUIP or not inv or team.Status ~= "ESTIMATE" then return { Kind = "WAIT", OwnsLocation = false, Reason = "One-time equipment requires ready native team analysis and authorization" } end
+		if team.Gain <= 1e-6 then return { Kind = "TEAM_ATTEMPT_END", OwnsLocation = false, Reason = "No valid owned-team improvement; no equipment change" } end
+		-- Freeze a complete serial plan BEFORE any command. Insufficient command budget,
+		-- protected membership or a non-improving intermediate swap cannot leave a partial team.
+		local projected = table.clone(context) projected.Inventory = table.clone(inv) projected.Inventory.Team = table.clone(inv.Team)
+		local steps, commands = {}, state.EquipCommands
+		while not PetPolicy.SameTeam(projected.Inventory.Team, team.ProposedIds) do
+			local current = context.ScoreTeam(projected.Inventory.Team)
+			if not PetPolicy.Finite(current) then return { Kind = "TEAM_ATTEMPT_END", OwnsLocation = false, Reason = "Native intermediate score UNKNOWN; no commands" } end
+			local step = self:PlanEquipmentStep({ Status = "ESTIMATE", Gain = team.ProjectedScore - current, CurrentScore = current, ProposedIds = team.ProposedIds }, projected, { EquipCommands = commands })
+			if not step then return { Kind = "TEAM_ATTEMPT_END", OwnsLocation = false, Reason = "Complete team plan blocked by command budget/protection or unsupported intermediate improvement; no commands" } end
+			step.OwnsLocation = false table.insert(steps, step)
+			commands += step.RemoveId and 2 or 1 projected.Inventory.Team = step.AfterIds
+		end
+		return { Kind = "TEAM_ATTEMPT_START", OwnsLocation = false, Steps = steps, Team = team, RequiredCommands = commands - state.EquipCommands }
+	end
+	local equipment = self:PlanEquipmentStep(team, context, state)
+	if equipment then return equipment end
 	if settings.AUTO_HATCH and not state.SessionEnded then
 		for _, egg in ipairs(report.Eggs) do
 			if state.Location and egg.Name ~= state.Location.EggName then continue end

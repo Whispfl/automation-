@@ -9,10 +9,79 @@ notes. It does not authorize hatch spending or equipment changes in the first te
 No Notion checkboxes or completion claims were changed.
 
 Validation: `node scripts/build.mjs` and `node scripts/test.mjs` pass **259 offline
-regressions** (227 preserved + 32 Phase 4 cases), official Luau compilation, all
+regressions** (227 preserved + 32 initial Phase 4 cases), official Luau compilation, all
 existing example Config checks, the new action-disabled pet Config, and the actual
 single-bundle custom initializer. Public artifact verification is required after
 publishing; these checks do not establish live gameplay results.
+
+## Owned-team visibility and one-time equipment candidate
+
+Owner feedback on build `56ba58b6d0d7`, commit `30b3bca`: analysis-only loader
+ran on the **main account**, reading 19 records / 34 pets, seven equipped, native
+Coins score estimate 117 -> 1,324. Coins 5,731,381 and Gems 906,870 stayed unchanged;
+equip/hatch flags were false. This is analysis evidence only. It neither verifies
+equipment nor establishes an 11.3x earning-rate increase.
+
+The owner subsequently authorized the attached smart owned-pet team/equip-only
+assignment. Master, complete Phase 4 and Phase 3 pages/owner notes were reread;
+comments returned only `suggested_edits_status=not_enabled`, with no discussion
+content. No Notion checkboxes were changed. Phase 3 carryovers below remain open.
+
+This candidate passes **281 offline regressions** (259 prior + 22 new owned-team
+cases), official compilation, both complete test Configs and the custom bundle
+initializer. This remains **CODE PUBLISHED / READY FOR USER TEST** after push/raw
+verification, not live equipment PASS or complete Phase 4.
+
+- `[OC][PET][TEAM_PLAN]` prints the native equip limit, actual names/base IDs,
+  variants, before/after estimate, record/quantity counts and bounded-search status.
+  Optional `[OC][PET][TEAM_DETAILS]` shows each current/proposed native role stat,
+  contextual removal marginal, stack copies, protection, each accepted full-team
+  search improvement, unresolved definitions/helper failures and uncertainty.
+  `PET_SETTINGS.LOG_TEAM_DETAILS` enables it once per changed report;
+  `OC:PrintPetTeam()` requests detail. Both test Configs enable initial detail.
+- Native `PetUtil:GetStats(pet, projectedProfile)` uses the proposed team too,
+  including native XP, Shiny/Mythic/XL, enchants and team dependencies. Native
+  `StatsUtil:GetCurrencyMultiplier` is the full-account client total. Per-pet
+  marginals can overlap: never add them into an invented earning-rate claim.
+- Test A is the default `examples/Pets.luau`: analytics ON, all actions OFF.
+  Test B is separately selected `examples/PetEquipTest.luau`: AUTO_EQUIP=true
+  and EQUIP_OWNED_TEAM_ONCE=true. The latter validates Coins-only, zero hatch
+  budgets, hatching/background pickups OFF and all other gameplay actions OFF.
+- The existing Brain preflights one fixed complete target before any request,
+  checks budget for every necessary command and requires supported improving
+  intermediate swaps. It fills free capacity before removing anything. The one
+  existing scheduler/mechanics adapter executes single native commands and waits
+  for exact received team-index/ID multiplicity. No bulk equip or team switch.
+- Protect existing Locked, target, owner favorite/valuable IDs, Secret/Infinity and
+  Shiny/Mythic/XL/Super copies from removal. Explicit PROTECTED_PET_IDS are excluded
+  from new equips as well. Unknown definitions/rarities are preserved. Received
+  favorite markers, if any, are conservatively preserved, but no native pet-favorite
+  contract was found: owner favorites must be supplied in FAVORITE_PET_IDS.
+  No lock/unlock, delete, trade, craft, fusion, consumption or hatch is issued.
+- Recheck native objective, account identity/capacity, target ownership/protection,
+  active membership and native benefit before each command. Compare actual received
+  account facts again after potentially yielding guards, immediately before dispatch.
+  Guard blocks do not charge a request; uncertain invocation does charge its ledger.
+- Conservative one-second OC pacing is not a claim of verified server cooldown.
+  Native Inventory:2140-2192 checks max equips then sends EquipPet/UnequipPet(baseId);
+  stack UI appends selection suffixes but dispatches the same real base ID. Team
+  switching exists at Inventory:2615-2637, but the test preserves TeamEquipped.
+  Locked is inspected at Inventory:2229. ClickableButton has no demonstrated equip
+  server cooldown. Server handlers/validation remain unavailable.
+- `[OC][PET][EQUIP_RESULT]` records original and received membership, predicted
+  old/new score, received native client total and command count. Exact target
+  membership ends permanently for that controller. No improvement/budget block
+  sends zero requests. Partial/mismatch/timeout results freeze without retries or
+  automatic restoration. Received results cannot exclude manual/external actions.
+- Pause prevents dispatch and retains pending evidence/continuation, deadlines and
+  budgets. Resume rechecks facts. Stop consumes the one-time authorization permanently;
+  an already sent command cannot be recalled. Re-running B creates a new attempt.
+
+Owner test: run A first and inspect the real lineup/protections; then run B only
+when deliberately authorizing equipment. Close trading/prompts/game frames, preserve
+the same active team, and watch per-command `[PET][VERIFIED]` plus final EQUIP_RESULT.
+Return TEAM_PLAN, detailed lineup, final result and actual equipped inventory.
+No earning-rate comparison is part of this test; no hatch/egg-approach test required.
 
 ## Transition and verification scope
 

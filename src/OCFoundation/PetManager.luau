@@ -41,6 +41,31 @@ end
 function PetManager:Uncertain(reason)
 	self.Fault = reason
 	self.Controller:Log("PET][BLOCKER", reason)
+	if self.Attempt and not self.Attempt.Ended then self:FinishAttempt("PARTIAL_OR_UNCONFIRMED", reason) end
+end
+
+function PetManager:FinishAttempt(status, reason)
+	local attempt = self.Attempt
+	if not attempt or attempt.Ended then return end
+	attempt.Ended, attempt.Status, attempt.Reason = true, status, reason
+	local _, context = self:Fresh()
+	local inv = context.Inventory
+	attempt.ActualTeamIndex, attempt.AfterIds = inv and inv.TeamIndex, inv and table.clone(inv.Team)
+	attempt.AfterScore = inv and context.ScoreTeam and context.ScoreTeam(inv.Team) or nil
+	attempt.ConfirmedTarget = inv ~= nil and inv.TeamIndex == attempt.TeamIndex and Policy.SameTeam(inv.Team, attempt.TargetIds or {})
+	attempt.ActualPets = inv and context.ScoreTeam and Policy.Describe(self.Config, context, inv.Team) or nil
+	attempt.Attribution = "Received LocalData membership/native client total; manual/external changes cannot be excluded; earnings gain unmeasured"
+	self.Controller:Log("PET][EQUIP_RESULT", string.format("%s | team=%s -> %s | before IDs=%s | received IDs=%s | predicted %s -> %s; received native score=%s | commands=%d | %s | no more equip requests; earnings impact unmeasured",
+		status, tostring(attempt.TeamIndex), tostring(attempt.ActualTeamIndex), table.concat(attempt.BeforeIds or {}, ","),
+		attempt.AfterIds and table.concat(attempt.AfterIds, ",") or "UNKNOWN", tostring(attempt.BeforeScore or "UNKNOWN"), tostring(attempt.ProjectedScore or "UNKNOWN"),
+		tostring(attempt.AfterScore or "UNKNOWN"), self.EquipCommands, reason))
+end
+
+function PetManager:PrintTeam()
+	if not self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE then return false, "Pet intelligence disabled" end
+	self:Analyze(true)
+	self.Controller:Log("PET][TEAM_DETAILS", Policy.TeamText(self.Report.Team, true), true)
+	return true
 end
 
 function PetManager:Observe()
@@ -59,6 +84,15 @@ function PetManager:Observe()
 		end
 	end
 	if self.Hatch.Fault then self.Fault = self.Hatch.Fault end
+	local attempt = self.Attempt
+	if attempt and not attempt.Ended then
+		local inv = Policy.Inventory(raw)
+		if os.clock() >= attempt.Deadline then self:Uncertain("One-time equipment wall-clock deadline expired; inspect partial/unknown team; no retry")
+		elseif inv and (inv.TeamIndex ~= attempt.TeamIndex or not self.PendingEquip and not Policy.SameTeam(inv.Team, attempt.ExpectedIds)) then
+			self:Uncertain("Manual/external team mismatch; frozen one-time plan abandoned")
+		elseif not self.Config.PET_SETTINGS.AUTO_EQUIP or self.Config.PET_SETTINGS.AUTO_HATCH
+			or not self.Config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE then self:Uncertain("One-time equipment authorization changed; no further commands") end
+	end
 	if self.Transaction and not self.PendingEquip and os.clock() >= self.Transaction.Deadline then
 		self:Uncertain("Equipment replacement continuation expired; inspect the actual partial team. No automatic restoration or retry")
 		self.Transaction = nil
@@ -71,9 +105,20 @@ function PetManager:Observe()
 		self.LastEquipment = { Status = "EQUIPPED_IDS_OBSERVED", Command = pending.Command, Id = pending.Id,
 			BeforeIds = pending.BeforeIds, AfterIds = table.clone(inv.Team), TeamIndex = inv.TeamIndex,
 			Attribution = "Exact received multiplicity observed; manual/external activity cannot be excluded" }
-		self.Controller:Log("PET][VERIFIED", pending.Command .. " | actual equipped IDs acknowledged; team=" .. tostring(inv.TeamIndex))
+		self.Controller:Log("PET][VERIFIED", pending.Command .. " [" .. pending.Id .. "] | received IDs=" .. table.concat(inv.Team, ",") .. "; team=" .. tostring(inv.TeamIndex))
 		if pending.Command == "EquipPet" then self.Transaction = nil end
+		if attempt and not attempt.Ended then
+			attempt.ExpectedIds = table.clone(inv.Team)
+			if pending.Command == "EquipPet" then attempt.Step += 1 end
+			if Policy.SameTeam(inv.Team, attempt.TargetIds) then self:FinishAttempt("TARGET_MEMBERSHIP_OBSERVED", "Frozen target multiplicity confirmed in LocalData") end
+		end
 		return
+	end
+	if attempt and not attempt.Ended and inv and (inv.TeamIndex ~= pending.TeamIndex
+		or not Policy.SameTeam(inv.Team, pending.BeforeIds)) then
+		self:Uncertain("Unexpected received equipment result/multiplicity; no retry or restoration")
+		self.LastEquipment = { Status = "MISMATCH", AfterIds = table.clone(inv.Team), TeamIndex = inv.TeamIndex }
+		self.PendingEquip, self.Transaction = nil, nil return
 	end
 	if os.clock() >= pending.Deadline then
 		self:Uncertain("Equipment acknowledgement timed out; team result unknown. No retry; command budget retained")
@@ -85,7 +130,7 @@ end
 function PetManager:State()
 	return { Pending = self.Hatch.Pending or self.PendingEquip, Fault = self.Fault, Location = self.Hatch.Location,
 		SessionEnded = self.Hatch:Ended(), RequestCost = self.Hatch.RequestCost, RequestedHatches = self.Hatch.RequestedHatches,
-		EquipCommands = self.EquipCommands, EquipmentContinuation = self.Transaction and not self.PendingEquip
+		EquipCommands = self.EquipCommands, Attempt = self.Attempt, EquipmentContinuation = self.Transaction and not self.PendingEquip and not self.Fault and not (self.Attempt and self.Attempt.Ended)
 			and { Kind = "TEAM_ADD", Transaction = self.Transaction, OwnsLocation = self.Hatch.Location ~= nil } or nil }
 end
 
@@ -111,6 +156,13 @@ function PetManager:Analyze(force)
 		end
 		message ..= " | hatch=" .. tostring(self.Config.PET_SETTINGS.AUTO_HATCH) .. "; equip=" .. tostring(self.Config.PET_SETTINGS.AUTO_EQUIP)
 		if self.LastAnalysisMessage ~= message then self.Controller:Log("PET][ANALYSIS", message) self.LastAnalysisMessage = message end
+		local teamMessage = Policy.TeamText(team, false)
+		local details = Policy.TeamText(team, true)
+		if self.LastTeamPlan ~= details then
+			self.Controller:Log("PET][TEAM_PLAN", teamMessage)
+			if self.Config.PET_SETTINGS.LOG_TEAM_DETAILS then self.Controller:Log("PET][TEAM_DETAILS", details, true) end
+			self.LastTeamPlan = details
+		end
 	end
 	return context
 end
@@ -136,6 +188,18 @@ function PetManager:Select(plan)
 	local snapshot, context = self:Fresh()
 	local report = self.Controller.Brain:AnalyzePets(snapshot, context)
 	local decision = self.Controller.Brain:PlanPets(report, context, self:State())
+	if decision.Kind == "TEAM_ATTEMPT_START" or decision.Kind == "TEAM_ATTEMPT_END" then
+		local team = report.Team
+		self.Attempt = { Steps = decision.Steps or {}, Step = 1, TeamIndex = context.Inventory.TeamIndex,
+			BeforeIds = table.clone(context.Inventory.Team), ExpectedIds = table.clone(context.Inventory.Team),
+			TargetIds = table.clone(team.ProposedIds), BeforeScore = team.CurrentScore, ProjectedScore = team.ProjectedScore,
+			Currency = context.Currency, MaxEquipped = context.MaxEquipped, BeforePets = team.CurrentPets,
+			UserId = self.Controller.Reader.Player and self.Controller.Reader.Player.UserId,
+			Deadline = os.clock() + self.Config.PET_SETTINGS.MAXIMUM_EQUIP_ATTEMPT_SECONDS }
+		if decision.Kind == "TEAM_ATTEMPT_END" then self:FinishAttempt("NO_ACTION", decision.Reason)
+		else self.Controller:Log("PET][TEAM_PLAN", "One authorized frozen owned-team attempt | commands required=" .. decision.RequiredCommands .. "; each result must be observed; no hatching/spending") end
+		decision = self.Controller.Brain:PlanPets(report, context, self:State())
+	end
 	if decision.Kind == "HATCH" then
 		self.Hatch.StartedAt = self.Hatch.StartedAt or os.clock()
 		for _, egg in ipairs(context.Eggs) do
@@ -176,6 +240,22 @@ function PetManager:Prepare(decision, token)
 	end
 	if decision.Kind == "TEAM" or decision.Kind == "TEAM_ADD" then
 		if not config.PET_SETTINGS.AUTO_EQUIP then return nil, nil, nil, "Team changes disabled" end
+		if config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE and os.clock() < (self.NextEquipAt or -math.huge) then return nil, nil, nil, "OC equipment request pacing; no native server cooldown assumed" end
+		if config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE then
+			local attempt = self.Attempt
+			if not attempt or attempt.Ended then return nil, nil, nil, "One-time equipment attempt not active" end
+			if os.clock() >= attempt.Deadline or context.Currency ~= attempt.Currency or context.MaxEquipped ~= attempt.MaxEquipped
+				or c.Reader.Player.UserId ~= attempt.UserId or config.PET_SETTINGS.AUTO_HATCH then
+				self:Uncertain("Account/objective/capacity/authorization changed during one-time attempt") return nil, nil, nil, self.Fault
+			end
+			local step = attempt.Steps[attempt.Step]
+			if decision.Kind == "TEAM" and decision ~= step or decision.Kind == "TEAM_ADD" and self.Transaction ~= step then return nil, nil, nil, "Stale equipment step" end
+			local desired = Policy.Counts(attempt.TargetIds)
+			for id, count in pairs(desired) do
+				local pet = inv.ById[id]
+				if not pet or count > (pet.Amount or 1) then self:Uncertain("Frozen target ownership/quantity changed") return nil, nil, nil, self.Fault end
+			end
+		end
 		local transaction = decision.Kind == "TEAM_ADD" and self.Transaction or decision
 		if not transaction or inv.TeamIndex ~= transaction.TeamIndex then return nil, nil, nil, "Active team changed" end
 		local expected = table.clone(transaction.BeforeIds)
@@ -186,6 +266,7 @@ function PetManager:Prepare(decision, token)
 		end
 		local add, remove = inv.ById[transaction.AddId], inv.ById[transaction.RemoveId]
 		if not add or add.Super or not (context.Pets or {})[add.Name] or not context.Pets[add.Name].Rarity then return nil, nil, nil, "Unsupported or unavailable replacement" end
+		if table.find(config.PET_SETTINGS.PROTECTED_PET_IDS, add.Id) then self:Uncertain("Explicitly protected candidate cannot be touched") return nil, nil, nil, self.Fault end
 		local final = transaction.AfterIds
 		local score = context.ScoreTeam and context.ScoreTeam(final)
 		local originalScore = context.ScoreTeam and context.ScoreTeam(transaction.BeforeIds)
@@ -195,7 +276,10 @@ function PetManager:Prepare(decision, token)
 		if not Policy.Finite(context.MaxEquipped) or #final > context.MaxEquipped then return nil, nil, nil, "Native team capacity changed" end
 		local command, id, after = "EquipPet", add.Id, table.clone(final)
 		if decision.Kind == "TEAM" and transaction.RemoveId then
-			if not remove or remove.Super or Policy.Protected(config, remove) then return nil, nil, nil, "Protected pet cannot be removed" end
+			if not remove or remove.Super or Policy.Protected(config, remove, (context.Pets or {})[remove.Name]) then
+				if self.Attempt then self:Uncertain("Protected pet cannot be removed: " .. tostring(remove and Policy.Protection(config, remove, context.Pets[remove.Name]))) end
+				return nil, nil, nil, "Protected pet cannot be removed"
+			end
 			command, id, after = "UnequipPet", remove.Id, table.clone(inv.Team)
 			table.remove(after, table.find(after, remove.Id))
 		end
@@ -204,7 +288,26 @@ function PetManager:Prepare(decision, token)
 		if not allowed() then return nil, nil, nil, "Cancelled before dispatch" end
 		local guarded, guardReason = c.Farming.Mechanics:Guard()
 		if not guarded or not allowed() then return nil, nil, nil, guardReason or "Cancelled before dispatch" end
+		-- Guards/helpers may yield. Compare the actual account records and membership
+		-- again, with no yield between this final check, ledger creation and dispatch.
+		local live = c.Reader:GetLiveProfile()
+		local liveInv = Policy.Inventory(live)
+		local attempt = self.Attempt
+		local authorizationChanged = not config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE or not config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS
+			or config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST or not config.PET_SETTINGS.AUTO_EQUIP
+			or table.find(config.PET_SETTINGS.PROTECTED_PET_IDS, add.Id) ~= nil
+			or command == "UnequipPet" and Policy.Protected(config, remove, context.Pets[remove.Name])
+			or self.EquipCommands + needed > config.PET_SETTINGS.MAXIMUM_SESSION_EQUIP_COMMANDS
+			or attempt and (attempt.Ended or os.clock() >= attempt.Deadline or not config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE
+				or config.PET_SETTINGS.AUTO_HATCH or c.Reader.Player.UserId ~= attempt.UserId
+				or Policy.Currency(config, c.Plan) ~= attempt.Currency)
+		if not liveInv or liveInv.TeamIndex ~= inv.TeamIndex or not Policy.SameTeam(liveInv.Team, inv.Team)
+			or not Policy.Equal(live, context.AccountFacts) or authorizationChanged or not allowed() then
+			if self.Attempt then self:Uncertain("Account/equipment/protection changed during final native guards") end
+			return nil, nil, nil, "Actual account changed before equipment dispatch"
+		end
 		self.EquipCommands += 1
+		self.NextEquipAt = os.clock() + config.PET_SETTINGS.MINIMUM_EQUIP_COMMAND_INTERVAL_SECONDS
 		if command == "UnequipPet" then
 			transaction.Deadline = os.clock() + 2 * config.PET_SETTINGS.EQUIP_CONFIRMATION_TIMEOUT_SECONDS
 			self.Transaction = transaction
@@ -292,14 +395,19 @@ function PetManager:Definition(decision, generation)
 end
 
 function PetManager:Completed() self:Observe() end
-function PetManager:Halt()
+function PetManager:Halt(stopped)
 	self.Hatch.Location = nil -- Pause/Stop release the lease, never reset request/command ledgers.
-	if self.Transaction and not self.PendingEquip then self.Transaction = nil end
+	if stopped and self.Config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE then
+		self.Attempt = self.Attempt or { BeforeIds = {}, TargetIds = {} }
+		self:FinishAttempt("STOPPED", "Owner stopped equipment test; any dispatched request may still be received; no automatic continuation")
+	end
+	if self.Transaction and not self.PendingEquip and not self.Attempt then self.Transaction = nil end
 end
 function PetManager:GetStatus()
 	return { Enabled = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE, Analysis = self.Report, Decision = self.Decision,
 		Hatch = self.Hatch:GetStatus(), EquipmentCommands = self.EquipCommands, PendingEquipment = self.PendingEquip,
 		LastEquipment = self.LastEquipment, LastAction = self.LastAction, Fault = self.Fault,
+		EquipmentAttempt = self.Attempt,
 		DestructiveActions = "OFF", ActionVerification = "OWNER_LIVE_PENDING" }
 end
 return PetManager

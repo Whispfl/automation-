@@ -392,5 +392,241 @@ test("Unavailable replacement benefit expires after confirmed removal without fu
 	end)
 end)
 
+local function once(overrides)
+	local s = fixture({ PET_SETTINGS = { AUTO_HATCH = false, AUTO_EQUIP = true, EQUIP_OWNED_TEAM_ONCE = true, MAXIMUM_SESSION_EQUIP_COMMANDS = 16 } })
+	for key, value in pairs(overrides or {}) do s.Controller.Config.PET_SETTINGS[key] = value end
+	return s
+end
+local function applyReceived(s, command, id)
+	local ids = s.Profile.Teams[s.Profile.TeamEquipped].Pets
+	if command == "EquipPet" then table.insert(ids, id)
+	elseif command == "UnequipPet" then table.remove(ids, table.find(ids, id))
+	else error("Equip-only test attempted " .. command) end
+end
+
+test("Detailed team plan exposes identities variants native cap contributions and swap evidence", function()
+	simulated(function()
+		local s = fixture({ PET_SETTINGS = { AUTO_HATCH = false } }) s.Profile.Pets[2].Shiny = true
+		local snap, ctx = s.Manager:Fresh() local team = Policy.Team(s.Controller.Config, ctx)
+		assert(team.MaxEquipped == 2 and team.CurrentPets[1].Name == "Weak" and team.CurrentPets[1].NativeRoleStat == 2)
+		assert(team.ProposedPets[1].Id == "strong" and team.ProposedPets[1].OwnedQuantity == 2 and team.ProposedPets[1].Variant == "Shiny")
+		assert(team.ProposedPets[2].Id == "strong" and team.ProposedPets[1].EquippedCopies == 2)
+		local text = Policy.TeamText(team, true) assert(text:find("FULL%-team") and text:find("UNCERTAINTY") and text:find("earnings rates"))
+		assert(#s.Commands == 0 and #s.Teleports == 0 and s.Profile.Coins == 10000) s:Close()
+	end)
+end)
+
+test("Team plan marks unresolved definitions and candidate stat failures without guessing", function()
+	simulated(function()
+		local s = fixture() s.Dependencies.Pets.Strong = nil
+		local _, ctx = s.Manager:Fresh() local t = Policy.Team(s.Controller.Config, ctx)
+		assert(Policy.SameTeam(t.ProposedIds, { "weak" }) and table.concat(t.Unknowns, " "):find("UNKNOWN"))
+		s.ScoreError = true _, ctx = s.Manager:Fresh() t = Policy.Team(s.Controller.Config, ctx)
+		assert(t.Status == "UNKNOWN" and Policy.TeamText(t, true):find("no guessed fallback")) s:Close()
+	end)
+end)
+
+test("Protection preserves favorite valuable variant Secret locked and target equipped copies", function()
+	simulated(function()
+		for _, key in ipairs({ "Locked", "Favorite", "Favorited", "Shiny", "Mythic", "XL", "Super" }) do
+			local s = once() s.MaxEquipped = 1 s.Profile.Pets[1][key] = true
+			s.Manager:Select({}) assert(s.Manager.Attempt.Ended and #s.Commands == 0 and s.Profile.Teams[1].Pets[1] == "weak") s:Close()
+		end
+		for _, setting in ipairs({ "FAVORITE_PET_IDS", "VALUABLE_PET_IDS", "PROTECTED_PET_IDS" }) do
+			local s = once({ [setting] = { "weak" } }) s.MaxEquipped = 1 s.Manager:Select({})
+			assert(s.Manager.Attempt.Ended and #s.Commands == 0) s:Close()
+		end
+		local s = once() s.MaxEquipped = 1 s.Dependencies.Pets.Weak.Rarity = "Secret" s.Manager:Select({})
+		assert(s.Manager.Attempt.Ended and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Explicitly protected unequipped candidate never enters a command plan", function()
+	simulated(function()
+		local s = once({ PROTECTED_PET_IDS = { "strong" } }) s.MaxEquipped = 1 s.Manager:Select({})
+		assert(s.Manager.Attempt.Ended and s.Manager.Attempt.Status == "NO_ACTION" and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Analysis-only detailed logging stays opt-in and never dispatches equipment", function()
+	simulated(function()
+		local s = fixture({ PET_SETTINGS = { AUTO_HATCH = false, AUTO_EQUIP = false, LOG_TEAM_DETAILS = true } })
+		local messages = {} s.Controller.Log = function(_, kind, text) table.insert(messages, kind .. text) end
+		s.Manager:Select({}) local count = #messages s.Manager:Analyze(true)
+		assert(count == #messages and table.concat(messages, " "):find("PET%]%[TEAM_PLAN") and table.concat(messages, " "):find("TEAM_DETAILS"))
+		assert(s.Manager:PrintTeam() and #messages == count + 1 and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("One frozen whole-team attempt verifies all stacked changes then permanently ends", function()
+	simulated(function(clock)
+		local s = once() s.OnCommand = function(command, id) applyReceived(s, command, id) end
+		for _ = 1, 6 do local owns, decision = s.Manager:Select({}) if owns then s:Dispatch(decision) s.Manager:Observe() end clock.Time += 1 end
+		assert(Policy.SameTeam(s.Profile.Teams[1].Pets, { "strong", "strong" }) and #s.Commands == 3)
+		assert(s.Commands[1].Command == "EquipPet", "Fill native free capacity before any unequip")
+		assert(s.Manager.Attempt.Ended and s.Manager.Attempt.Status == "TARGET_MEMBERSHIP_OBSERVED" and s.Manager.Attempt.ConfirmedTarget)
+		assert(s.Manager.Attempt.BeforeScore == 2 and s.Manager.Attempt.AfterScore == 9 and s.Manager.Hatch.RequestCost == 0)
+		s.Profile.Teams[1].Pets = { "weak" } s.Manager:Select({}) assert(not s:Dispatch() and #s.Commands == 3)
+		assert(#s.Teleports == 0 and s.Profile.Coins == 10000) s:Close()
+	end)
+end)
+
+test("Whole-team preflight sends nothing if total command budget cannot complete target", function()
+	simulated(function()
+		local s = once({ MAXIMUM_SESSION_EQUIP_COMMANDS = 2 }) local owns = s.Manager:Select({})
+		assert(not owns and s.Manager.Attempt.Ended and s.Manager.Attempt.Status == "NO_ACTION" and #s.Commands == 0)
+		assert(s.Profile.Teams[1].Pets[1] == "weak" and s.Manager.EquipCommands == 0) s:Close()
+	end)
+end)
+
+test("One-time preflight handles seven-slot team and actual repeated stack IDs", function()
+	simulated(function(clock)
+		local s = once({ MAXIMUM_TEAM_EVALUATIONS = 1000 }) s.MaxEquipped = 7
+		s.Profile.Pets[1].Amount, s.Profile.Pets[2].Amount = 7, 7
+		s.Profile.Teams[1].Pets = { "weak", "weak", "weak", "weak", "weak", "weak", "weak" }
+		s.OnCommand = function(command, id) applyReceived(s, command, id) end
+		for _ = 1, 16 do local owns, d = s.Manager:Select({}) if owns then s:Dispatch(d) s.Manager:Observe() end clock.Time += 1 end
+		assert(s.Manager.Attempt.ConfirmedTarget and #s.Commands == 14 and #s.Profile.Teams[1].Pets == 7)
+		for _, command in ipairs(s.Commands) do assert(command.First == "strong" or command.First == "weak") end
+		s:Close()
+	end)
+end)
+
+test("One-time equipment awaits acknowledgement and respects OC pacing without retry spam", function()
+	simulated(function(clock)
+		local s = once() local _, d = s.Manager:Select({}) assert(s:Dispatch(d))
+		for _ = 1, 4 do s.Manager:Select({}) assert(not s:Dispatch()) end assert(#s.Commands == 1)
+		applyReceived(s, "EquipPet", "strong") s.Manager:Observe()
+		assert(not s:Dispatch() and #s.Commands == 1) clock.Time = 1 assert(s:Dispatch() and #s.Commands == 2) s:Close()
+	end)
+end)
+
+test("One-time timeout reports received partial membership and never starts another attempt", function()
+	simulated(function(clock)
+		local s = once() s.MaxEquipped = 1 local _, d = s.Manager:Select({}) assert(s:Dispatch(d))
+		s.Profile.Teams[1].Pets = {} s.Manager:Observe() clock.Time = 1 assert(s:Dispatch())
+		clock.Time = 12 s.Manager:Observe()
+		assert(s.Manager.Attempt.Ended and not s.Manager.Attempt.ConfirmedTarget and #s.Manager.Attempt.AfterIds == 0)
+		assert(s.Manager.Attempt.Status == "PARTIAL_OR_UNCONFIRMED" and not s:Dispatch() and #s.Commands == 2) s:Close()
+	end)
+end)
+
+test("Unexpected unequip multiplicity ends frozen attempt instead of inventing stack success", function()
+	simulated(function()
+		local s = once() s.MaxEquipped = 2 s.Profile.Pets[1].Amount = 2 s.Profile.Teams[1].Pets = { "weak", "weak" }
+		local _, d = s.Manager:Select({}) assert(s:Dispatch(d)) s.Profile.Teams[1].Pets = {} s.Manager:Observe()
+		assert(s.Manager.Attempt.Ended and s.Manager.Fault and s.Manager.LastEquipment.Status == "MISMATCH" and #s.Commands == 1)
+		assert(not s:Dispatch()) s:Close()
+	end)
+end)
+
+test("Frozen attempt detects team switching and lost target ownership before next command", function()
+	simulated(function(clock)
+		local s = once() s.Manager:Select({}) s.Profile.Teams[2] = { Pets = { "weak" } } s.Profile.TeamEquipped = 2
+		s.Manager:Select({}) assert(s.Manager.Fault and s.Manager.Attempt.Ended and #s.Commands == 0) s:Close()
+		s = once() s.Manager:Select({}) s.Profile.Pets[2].Amount = 1
+		assert(not s:Dispatch() and s.Manager.Fault and s.Manager.Attempt.Ended and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Frozen attempt rechecks newly protected IDs and native capacity before dispatch", function()
+	simulated(function()
+		local s = once() s.MaxEquipped = 1 s.Manager:Select({}) s.Profile.Pets[1].Locked = true
+		assert(not s:Dispatch() and s.Manager.Fault and #s.Commands == 0) s:Close()
+		s = once() s.Manager:Select({}) s.MaxEquipped = 3
+		assert(not s:Dispatch() and s.Manager.Fault and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Final guard refresh prevents stale owned-team dispatch after yielding account change", function()
+	simulated(function()
+		local s = once() s.Manager:Select({}) local calls = 0
+		s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then s.Profile.Pets[2].Locked = true end return true end
+		assert(not s:Dispatch() and s.Manager.Fault and s.Manager.EquipCommands == 0 and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Pause retains frozen continuation and ledger; Stop permanently ends it", function()
+	simulated(function(clock)
+		local s = once() s.MaxEquipped = 1 local _, d = s.Manager:Select({}) assert(s:Dispatch(d))
+		s.Profile.Teams[1].Pets = {} s.Manager:Observe() s.Controller.State = "PAUSED" s.Manager:Halt()
+		assert(not s:Dispatch() and s.Manager.Transaction and not s.Manager.Attempt.Ended)
+		s.Controller.State = "RUNNING" clock.Time = 1 assert(s:Dispatch())
+		s.Manager:Halt(true) s.Profile.Teams[1].Pets = { "strong" } s.Manager:Observe()
+		assert(s.Manager.Attempt.Status == "STOPPED" and s.Manager.Attempt.Ended and not s:Dispatch() and #s.Commands == 2) s:Close()
+	end)
+end)
+
+test("One-time wall-clock deadline and lost profile block further equipment", function()
+	simulated(function(clock)
+		local s = once({ MAXIMUM_EQUIP_ATTEMPT_SECONDS = 5 }) s.Manager:Select({}) s.Manager:Halt() clock.Time = 6
+		s.Manager:Observe() assert(s.Manager.Attempt.Ended and s.Manager.Fault and #s.Commands == 0) s:Close()
+		s = once() s.Manager:Select({}) assert(s:Dispatch()) s.Controller.Reader.GetLiveProfile = function() return nil end
+		clock.Time += 11 s.Manager:Observe() assert(s.Manager.Attempt.Ended and s.Manager.Attempt.AfterIds == nil and not s:Dispatch()) s:Close()
+	end)
+end)
+
+test("No owned improvement consumes zero commands and ends the one-time authorization", function()
+	simulated(function()
+		local s = once() s.Profile.Teams[1].Pets = { "strong", "strong" } s.Manager:Select({})
+		assert(s.Manager.Attempt.Status == "NO_ACTION" and s.Manager.EquipCommands == 0 and #s.Commands == 0)
+		s.Profile.Teams[1].Pets = { "weak" } s.Manager:Select({}) assert(not s:Dispatch() and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("One-time mode rejects implicit equip authorization non-Coins roles and hatching", function()
+	for _, settings in ipairs({ { ENABLE_PET_INTELLIGENCE = true, EQUIP_OWNED_TEAM_ONCE = true },
+		{ ENABLE_PET_INTELLIGENCE = true, EQUIP_OWNED_TEAM_ONCE = true, AUTO_EQUIP = true, OBJECTIVE_CURRENCY = "Gems" },
+		{ ENABLE_PET_INTELLIGENCE = true, EQUIP_OWNED_TEAM_ONCE = true, AUTO_EQUIP = true, OBJECTIVE_CURRENCY = "Coins", AUTO_HATCH = true },
+		{ EQUIP_OWNED_TEAM_ONCE = "true" }, { LOG_TEAM_DETAILS = "true" } }) do
+		assert(not pcall(function() local c = Controller.new(config({ PET_SETTINGS = settings })) c:Destroy() end))
+	end
+end)
+
+test("Final equipment guard catches changed non-inventory account capacity facts", function()
+	simulated(function()
+		local s = once() s.Manager:Select({}) local calls = 0
+		s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then s.Profile.MasteryLevels = { Pets = 5 } end return true end
+		assert(not s:Dispatch() and s.Manager.Fault and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Final yielding guard honors newly protected Config IDs and expired attempt deadlines", function()
+	simulated(function(clock)
+		local s = once() s.Manager:Select({}) local calls = 0
+		s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then s.Controller.Config.PET_SETTINGS.PROTECTED_PET_IDS = { "strong" } end return true end
+		assert(not s:Dispatch() and s.Manager.Fault and #s.Commands == 0) s:Close()
+		s = once({ MAXIMUM_EQUIP_ATTEMPT_SECONDS = 5 }) s.Manager:Select({}) calls = 0
+		s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then clock.Time += 6 end return true end
+		assert(not s:Dispatch() and s.Manager.Attempt.Ended and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Consumed one-time equipment authorization cannot become an ongoing optimizer", function()
+	simulated(function()
+		local s = once() s.Profile.Teams[1].Pets = { "strong", "strong" } s.Manager:Select({})
+		s.Controller.Config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE = false s.Profile.Teams[1].Pets = { "weak" }
+		s.Manager:Select({}) assert(not s:Dispatch() and #s.Commands == 0 and s.Manager.Attempt.Ended) s:Close()
+	end)
+end)
+
+test("Equip-only Config rejects enabled competing farming and nonzero hatch budgets", function()
+	local isolated = {
+		PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = true, AUTO_EQUIP = true, EQUIP_OWNED_TEAM_ONCE = true, OBJECTIVE_CURRENCY = "Coins" },
+		HATCH_SETTINGS = { ENABLE_BACKGROUND_PICKUPS = false },
+		WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false, AUTO_UNLOCK_WORLDS = false, AUTO_TRAVEL_FOR_PROGRESSION = false, AUTO_FARM_UNLOCK_REQUIREMENTS = false },
+		FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false },
+		ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
+		BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false, AUTO_BUY_FLAVORS = false, ENABLE_SIMULTANEOUS_BLOWING = false },
+		UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false, ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false },
+	}
+	local c = Controller.new(config(isolated)) c:Destroy()
+	for _, entry in ipairs({ { "FARMING_SETTINGS", "AUTO_RESOURCE_FARM", true }, { "BUBBLE_SETTINGS", "AUTO_BUY_GUM", true },
+		{ "WORLD_SETTINGS", "AUTO_UNLOCK_WORLDS", true }, { "HATCH_SETTINGS", "MAXIMUM_SESSION_COST", 1 } }) do
+		local bad = table.clone(isolated) bad[entry[1]] = table.clone(bad[entry[1]]) bad[entry[1]][entry[2]] = entry[3]
+		assert(not pcall(function() local instance = Controller.new(config(bad)) instance:Destroy() end))
+	end
+end)
+
 print("[OC TEST] Phase 4 regressions passed: " .. tostring(tests - before) .. "; total=" .. tostring(tests) .. "; native action/gameplay verification remains owner-pending")
 end

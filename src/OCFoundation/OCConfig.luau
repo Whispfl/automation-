@@ -189,8 +189,14 @@ return {
 		OBJECTIVE_CURRENCY = "AUTO", --// AUTO follows the current Coins/Gems goal; an explicit native currency or Bubbles selects its team score.
 		SELECTED_PETS = {}, --// Protect these target pet names; do not remove them from the active team.
 		PROTECTED_PET_IDS = {}, --// Preserve these IDs and locked pets in the active team; no inventory destruction exists.
+		FAVORITE_PET_IDS = {}, --// Owner-supplied favorites: no native pet-favorite flag was found in the inspected client.
+		VALUABLE_PET_IDS = {}, --// Preserve these valuable equipped copies, plus Secret/Infinity, Shiny/Mythic/XL/Super copies automatically.
 		AUTO_HATCH = false, --// Explicit hatch authorization; also requires positive HATCH_SETTINGS budgets and selected eggs.
 		AUTO_EQUIP = false, --// Explicit authorization for verified incremental owned-team changes.
+		EQUIP_OWNED_TEAM_ONCE = false, --// Separately authorized equip-only test: freeze one owned-team plan, then end permanently for this controller.
+		LOG_TEAM_DETAILS = false, --// Print a detailed comparison once per changed plan; OC:PrintPetTeam() also exposes it on demand.
+		MAXIMUM_EQUIP_ATTEMPT_SECONDS = 120, --// Wall-clock limit includes pauses; never retry or automatically restore a partial team.
+		MINIMUM_EQUIP_COMMAND_INTERVAL_SECONDS = 1, --// Conservative OC pacing; native/server equip cooldown remains unknown.
 		MAXIMUM_SESSION_EQUIP_COMMANDS = 4, --// Bound native equip/unequip commands for this loaded controller, including uncertain requests.
 		MAXIMUM_TEAM_EVALUATIONS = 300, --// Bound native projected-team comparisons per analysis; results are a heuristic, not a guaranteed global optimum.
 		ANALYSIS_INTERVAL_SECONDS = 15, --// Refresh read-only analytics through the existing planner, without another automation loop.

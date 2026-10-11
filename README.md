@@ -5,7 +5,21 @@ owned-team/native egg analysis and separately configured bounded hatch/equip
 executors through the existing Brain/scheduler. Start its **action-disabled** test
 with [examples/Pets.luau](examples/Pets.luau); see [Phase 4 evidence, scope and
 remaining work](docs/PHASE4.md). Final odds/total-time unknowns are explicit;
-destructive actions remain OFF. Live Phase 4 verification is owner-pending.
+destructive actions remain OFF. The owner ran build `56ba58b6d0d7` on the main
+account: 19 records / 34 pets, seven equipped, native Coins score estimate
+117 -> 1,324, with equipment/hatching OFF and unchanged balances. This establishes
+account analysis, not equipment success or a measured earning-rate increase.
+
+The next candidate supplies exact current/proposed lineups and native swap evidence.
+**Test A** [examples/Pets.luau](examples/Pets.luau) remains analysis-only.
+**Test B** [examples/PetEquipTest.luau](examples/PetEquipTest.luau) explicitly
+authorizes one frozen, bounded owned Coins-team attempt: at most 16 acknowledged
+equip/unequip requests and 120 wall-clock seconds, with hatching, spending, farming
+and travel OFF. Fill favorite/protected IDs before running B. Full-team preflight
+blocks incomplete budgets; unexpected or timed-out results end without retry or
+automatic restoration. Pause retains deadlines/ledgers; Stop ends the attempt.
+`OC:PrintPetTeam()` exposes detailed native comparisons. Live equipment remains
+owner-pending; bounded greedy search does not guarantee the global best combination.
 
 Phase 1 and Phase 2's agreed stationary farming scope are owner-approved. Phase 3
 is explicitly authorized; the owner confirmed all five Overworld discoveries through

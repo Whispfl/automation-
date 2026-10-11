@@ -49,6 +49,7 @@ function GameKnowledge:PetContract()
 		Probability = "CLIENT_UI_ESTIMATE; effective server Secret/Infinity/variant/pity odds UNKNOWN",
 		Hatch = "ClientScript:879,926-931,986-1025; native Root distance <=16, account cost/capacity, NextEggOpenAt; HatchEgg(name,count)",
 		Equip = "Client.Gui.Frames.Inventory:2140-2192; EquipPet/UnequipPet(base ID); duplicate team IDs represent stacked copies",
+		EquipmentRules = "Inventory:2615-2637 EquipTeam exists, but this test preserves the current TeamEquipped; Locked:2229; no pet-favorite field found; no verified server cooldown",
 		Space = "StatsUtil:GetUsedPetStorage ordinary Amount counts or Digital Storage JSON bytes; IsInventoryFull native guard; digital requests limited to one egg",
 		Result = "Received LocalData.Pets and Teams[TeamEquipped].Pets multiplicity, not invocation or hatch animation",
 		Actions = "OWNER_LIVE_PENDING", ServerValidation = "UNAVAILABLE" }
@@ -92,6 +93,7 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 	if not raw or not snapshot.Ready then context.Error = "Current LocalData unavailable" return context end
 	-- Helpers receive a detached account. Their weak caches cannot mutate live inventory.
 	local profile = detached(raw)
+	context.AccountFacts = profile -- Final equipment dispatch compares received facts again after any yielding guards.
 	context.Inventory, context.Error = PetPolicy.Inventory(profile)
 	local stats, util, pools = self:Get("StatsUtil"), self:Get("PetUtil"), self:Get("GetEggPool")
 	context.MaxEquipped = native(stats, "GetMaxPetsEquipped", profile)
@@ -111,8 +113,13 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			return native(stats, "GetCurrencyMultiplier", projected, currency)
 		end
 		context.ScoreTeam = score
-		context.PetScore = function(pet)
-			local values = native(util, "GetStats", pet, profile)
+		context.PetStats = function(pet, ids)
+			local projected = table.clone(profile) projected.Teams = detached(profile.Teams)
+			projected.Teams[profile.TeamEquipped].Pets = table.clone(ids or context.Inventory.Team)
+			return native(util, "GetStats", pet, projected)
+		end
+		context.PetScore = function(pet, ids)
+			local values = context.PetStats(pet, ids)
 			return type(values) == "table" and (values[currency] or (currency ~= "Bubbles" and 1 or nil)) or nil
 		end
 		context.ScoreNewPet = function(name, ids)
@@ -122,7 +129,7 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			if not PetPolicy.Finite(best) or not PetPolicy.Finite(context.MaxEquipped) then return nil end
 			for slot = 1, #ids + (#ids < context.MaxEquipped and 1 or 0) do
 				local old = context.Inventory.ById[ids[slot]]
-				if old and (old.Super or PetPolicy.Protected(self.Reader.Config, old) or not context.Pets or not context.Pets[old.Name] or not context.Pets[old.Name].Rarity) then continue end
+				if old and (old.Super or PetPolicy.Protected(self.Reader.Config, old, (context.Pets or {})[old.Name]) or not context.Pets or not context.Pets[old.Name] or not context.Pets[old.Name].Rarity) then continue end
 				local proposal = table.clone(ids) proposal[slot] = pet.Id
 				local value = score(proposal, pets)
 				if not PetPolicy.Finite(value) then return nil end

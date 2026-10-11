@@ -95,11 +95,26 @@ local function validate(config)
 	end
 	assert(pets.MAXIMUM_TEAM_EVALUATIONS <= 1000 and hatch.MAXIMUM_EGGS_ANALYZED <= 64 and hatch.MAXIMUM_BATCH_HATCHES <= 12, "Pet analysis/batch limits exceed supported bounds")
 	assert(pets.ANALYSIS_INTERVAL_SECONDS >= 5 and pets.EQUIP_CONFIRMATION_TIMEOUT_SECONDS >= 1
+		and pets.MAXIMUM_EQUIP_ATTEMPT_SECONDS >= 1 and pets.MINIMUM_EQUIP_COMMAND_INTERVAL_SECONDS >= 1
 		and hatch.CONFIRMATION_TIMEOUT_SECONDS >= 1 and hatch.MAXIMUM_SESSION_SECONDS >= 1
 		and hatch.MINIMUM_REQUEST_INTERVAL_SECONDS >= 1, "Pet/hatch intervals must be bounded and positive")
 	assert(type(hatch.PRESERVE_PROGRESSION_RESERVE) == "boolean", "PRESERVE_PROGRESSION_RESERVE must be boolean")
 	for _, currency in ipairs(hatch.ALLOWED_CURRENCIES) do assert(table.find({ "Coins", "Gems", "Tickets", "Pearls" }, currency), "Unsupported hatch currency") end
 	if pets.AUTO_HATCH or pets.AUTO_EQUIP then assert(pets.ENABLE_PET_INTELLIGENCE, "Pet actions require ENABLE_PET_INTELLIGENCE") end
+	assert(type(pets.EQUIP_OWNED_TEAM_ONCE) == "boolean" and type(pets.LOG_TEAM_DETAILS) == "boolean", "Owned-team test/detail flags must be boolean")
+	if pets.EQUIP_OWNED_TEAM_ONCE then
+		assert(pets.AUTO_EQUIP and not pets.AUTO_HATCH and pets.OBJECTIVE_CURRENCY == "Coins", "One-time owned-team test requires explicit Coins equipment authorization and hatching OFF")
+		for category, keys in pairs({
+			WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
+			FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" },
+			ISLAND_SETTINGS = { "AUTO_TRAVEL_BEST_ISLAND", "AUTO_EXPLORE_UNLOCKED_ISLANDS" },
+			BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
+			UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
+		}) do
+			for _, key in ipairs(keys) do assert(not config[category][key], "Equip-only test requires " .. category .. "." .. key .. " OFF") end
+		end
+		assert(hatch.MAXIMUM_EGG_COST == 0 and hatch.MAXIMUM_SESSION_COST == 0 and not hatch.ENABLE_BACKGROUND_PICKUPS, "Equip-only test requires zero hatch budgets and background collection OFF")
+	end
 	if pets.AUTO_HATCH then
 		assert(#hatch.SELECTED_EGGS > 0 and hatch.MAXIMUM_EGG_COST > 0 and hatch.MAXIMUM_SESSION_COST > 0, "Hatching requires explicit egg selection and positive spending budgets")
 		assert(#hatch.ALLOWED_CURRENCIES == 1, "Each bounded hatch session must authorize exactly one currency")
@@ -201,7 +216,7 @@ function OCController:Log(kind, message, explicitDetail)
 	if not settings.ENABLE_DEBUG_LOGGING and not explicitDetail then
 		local immediate = kind == "INIT" or kind == "SCOPE" or kind == "CONTROL" or kind == "GOAL" or kind == "SUMMARY"
 			or kind == "ISLAND][VERIFIED" or kind == "WORLD][VERIFIED" or kind == "UPGRADE][VERIFIED" or kind == "FARM][RETURN"
-			or kind == "PET][ANALYSIS" or kind == "PET][VERIFIED"
+			or kind == "PET][ANALYSIS" or kind == "PET][VERIFIED" or kind == "PET][TEAM_PLAN" or kind == "PET][EQUIP_RESULT"
 		if kind == "FARM][TRAVEL" then immediate = not message:match("^Request ") end
 		local blocker = kind == "FARM][FALLBACK" or kind == "WORLD][GATE_APPROACH" or kind == "DIAGNOSTIC" or kind == "UNAVAILABLE"
 			or kind:find("ERROR", 1, true) ~= nil or kind == "ISLAND][CONTACT" or kind == "PET][BLOCKER"
@@ -236,6 +251,10 @@ function OCController:_reportSummary(status, now)
 	if not previous then return end -- Establish a baseline; never invent initial interval earnings.
 	local ok, output = pcall(AccountPresentation.Summary, status, previous, now, self.Config)
 	self:Log(ok and "SUMMARY" or "CONSOLE][ERROR", ok and output or "Summary formatting unavailable: " .. tostring(output))
+end
+
+function OCController:PrintPetTeam()
+	return self.Pets:PrintTeam()
 end
 
 function OCController:PrintAccount(limit)
@@ -394,7 +413,7 @@ function OCController:Stop()
 	self.Scheduler:Stop()
 	self.Farming:Halt()
 	self.WorldProgression:Halt()
-	self.Pets:Halt()
+	self.Pets:Halt(true)
 	self.Plan = nil
 	self.Error = nil
 	self.Brain:Reset()
