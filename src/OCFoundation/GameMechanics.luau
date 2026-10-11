@@ -113,14 +113,15 @@ function GameMechanics:CollectStationary(record, token)
 	local permitted, reason, root = self:Guard()
 	if not permitted then return false, reason end
 	local area = self.Tracker.Current
-	if not area or area.World ~= "The Overworld" or (area.Name ~= "The Void" and area.Name ~= "Zen")
+	local hatchLocation = self.HatchLocationProvider and self.HatchLocationProvider(area)
+	if not area or (not hatchLocation and (area.World ~= "The Overworld" or (area.Name ~= "The Void" and area.Name ~= "Zen")))
 		or record.AreaKey ~= area.Key or not self:Unlocked(area.World, area.Name) then return false, "Stationary island excluded, stale or locked" end
 	if self.Config.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND and self.Config.ISLAND_SETTINGS.PREFERRED_FARMING_ISLAND ~= ""
 		and os.clock() - (self.Tracker.ArrivedAt or os.clock()) < self.Config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS then return false, "Selected island/character stabilization pending" end
 	local selected = self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS
 	local worlds = self.Config.BRAIN_SETTINGS.SELECTED_WORLDS
-	if (#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key))
-		or (#worlds > 0 and not table.find(worlds, area.World)) then return false, "Stationary island excluded by Config" end
+	if not hatchLocation and ((#selected > 0 and not table.find(selected, area.Name) and not table.find(selected, area.Key))
+		or (#worlds > 0 and not table.find(worlds, area.World))) then return false, "Stationary island excluded by Config" end
 	local registry = self.Tracker.Knowledge:ActivePickups()
 	local key = record.RegistryKey or record.Id
 	local model = record.Model
@@ -146,6 +147,7 @@ function GameMechanics:CollectStationary(record, token)
 	if not self.Tracker.Current or self.Tracker.Current.Key ~= area.Key or not self:Unlocked(area.World, area.Name)
 		or not freshRegistry or freshRegistry[key] ~= model or not model.Parent or tostring(key) ~= model.Name then return false, "Registry/island changed before dispatch" end
 	if token:CheckCancelled() then return false, "Cancelled" end
+	if hatchLocation and not self.HatchLocationProvider(area) then return false, "Hatch location ownership ended before pickup dispatch" end
 	self.LastPickupRequestAt = os.clock()
 	local ok, errorText = pcall(function() remote:FireServer(key) end)
 	local cleaned, cleanupReason = false, nil
@@ -212,6 +214,9 @@ function GameMechanics:SellStations()
 end
 
 function GameMechanics:Travel(destination, world, area, token, islandTravel, sellingTravel)
+	if self.PetLocationOwnerProvider and self.PetLocationOwnerProvider() then return false, "Authorized hatch task owns location" end
+	local hatch = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and self.Config.PET_SETTINGS.AUTO_HATCH and self.Reader:_dependency("HatchPresentation")
+	if hatch then local ok, active = pcall(function() return hatch:IsHatching() end) if not ok or active ~= false then return false, "Native hatch presentation owns movement" end end
 	if sellingTravel and not self:BubbleRequirement() then return false, "Selling travel requires an active verified bubble task" end
 	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST and not islandTravel then return false, "Pickup-only mode blocks selling excursions" end
 	local permitted, reason = self:Guard()
@@ -580,6 +585,9 @@ function GameMechanics:_gateTravelAuthorized(gate)
 end
 
 function GameMechanics:TravelForProgression(name, token)
+	if self.PetLocationOwnerProvider and self.PetLocationOwnerProvider() then return false, "Authorized hatch task owns location" end
+	local hatch = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and self.Config.PET_SETTINGS.AUTO_HATCH and self.Reader:_dependency("HatchPresentation")
+	if hatch then local ok, active = pcall(function() return hatch:IsHatching() end) if not ok or active ~= false then return false, "Native hatch presentation owns movement" end end
 	local settings = self.Config.WORLD_SETTINGS
 	if token:CheckCancelled() then return false, "Cancelled" end
 	if not settings.ENABLE_WORLD_PROGRESSION or not settings.AUTO_TRAVEL_FOR_PROGRESSION then return false, "Progression travel disabled" end
@@ -687,6 +695,23 @@ function GameMechanics:UnlockWorld(name, token)
 		task.wait(0.2)
 	end
 	return false, token:CheckCancelled() and "Cancelled; dispatched request cannot be recalled" or "Unlock unconfirmed: no LocalData WorldsUnlocked acknowledgement", evidence
+end
+
+-- Pet managers prepare evidence/ledgers; only this shared adapter invokes native
+-- commands, inside the single foreground scheduler task. No yield after final guards.
+function GameMechanics:PetAction(manager, decision, token)
+	if token:CheckCancelled() or manager.Controller.State ~= "RUNNING" then return false, "Cancelled or stopped" end
+	local permitted, blocker = self:Guard()
+	if not permitted then return false, blocker end
+	local remote = self.Reader:_dependency("Remote")
+	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote unavailable" end
+	local command, first, second, reason = manager:Prepare(decision, token)
+	if not command then return false, reason end
+	-- Prepare validates fresh account, authorization, limits and native interfaces,
+	-- then records the pending request before even an uncertain invocation.
+	local ok, err = pcall(function() remote:FireServer(command, first, second) end)
+	if not ok then manager:Uncertain("Pet invocation failed; delivery unknown: " .. tostring(err)) end
+	return true, ok and "Dispatched; awaiting received LocalData result" or manager.Fault
 end
 
 return GameMechanics

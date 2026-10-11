@@ -6,6 +6,7 @@ local AccountPresentation = require(script.Parent.AccountPresentation)
 local FarmingCoordinator = require(script.Parent.FarmingCoordinator)
 local GameKnowledge = require(script.Parent.GameKnowledge)
 local WorldProgressionManager = require(script.Parent.WorldProgressionManager)
+local PetManager = require(script.Parent.PetManager)
 
 local OCController = {}
 OCController.__index = OCController
@@ -13,7 +14,7 @@ OCController.__index = OCController
 local function validate(config)
 	for _, name in ipairs({ "GENERAL_SETTINGS", "ACCOUNT_SETTINGS", "BRAIN_SETTINGS", "RESOURCE_SETTINGS",
 		"TASK_SETTINGS", "BUBBLE_SETTINGS", "FALL_EVENT_SETTINGS", "PET_SETTINGS", "STATUS_UI_SETTINGS", "DIAGNOSTIC_SETTINGS",
-		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS", "WORLD_SETTINGS" }) do
+		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS", "WORLD_SETTINGS", "HATCH_SETTINGS" }) do
 		assert(type(config[name]) == "table", "Missing configuration category: " .. name)
 	end
 	for category, entries in pairs(config) do
@@ -86,11 +87,28 @@ local function validate(config)
 	assert(config.PICKUP_SETTINGS.MAXIMUM_CLUSTER_CANDIDATES <= 64, "Cluster candidate limit must not exceed 64")
 	assert(config.PICKUP_SETTINGS.ZONE_MATCH_TOLERANCE_STUDS <= 2, "Zone boundary tolerance must not exceed two studs")
 	assert(config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS < config.ISLAND_SETTINGS.PICKUP_PROBE_TIMEOUT_SECONDS, "Arrival grace must be smaller than the pickup trial timeout")
-	-- Unimplemented future executors still cannot be silently enabled.
+	local pets, hatch = config.PET_SETTINGS, config.HATCH_SETTINGS
+	assert(table.find({ "AUTO", "Coins", "Gems", "Bubbles", "Tickets", "Pearls" }, pets.OBJECTIVE_CURRENCY), "Unknown pet objective currency")
+	for _, value in ipairs({ pets.MAXIMUM_SESSION_EQUIP_COMMANDS, pets.MAXIMUM_TEAM_EVALUATIONS,
+		hatch.MAXIMUM_SESSION_HATCHES, hatch.MAXIMUM_BATCH_HATCHES, hatch.MAXIMUM_EGGS_ANALYZED }) do
+		assert(value >= 1 and value % 1 == 0, "Pet/hatch count and analysis limits must be positive integers")
+	end
+	assert(pets.MAXIMUM_TEAM_EVALUATIONS <= 1000 and hatch.MAXIMUM_EGGS_ANALYZED <= 64 and hatch.MAXIMUM_BATCH_HATCHES <= 12, "Pet analysis/batch limits exceed supported bounds")
+	assert(pets.ANALYSIS_INTERVAL_SECONDS >= 5 and pets.EQUIP_CONFIRMATION_TIMEOUT_SECONDS >= 1
+		and hatch.CONFIRMATION_TIMEOUT_SECONDS >= 1 and hatch.MAXIMUM_SESSION_SECONDS >= 1
+		and hatch.MINIMUM_REQUEST_INTERVAL_SECONDS >= 1, "Pet/hatch intervals must be bounded and positive")
+	assert(type(hatch.PRESERVE_PROGRESSION_RESERVE) == "boolean", "PRESERVE_PROGRESSION_RESERVE must be boolean")
+	for _, currency in ipairs(hatch.ALLOWED_CURRENCIES) do assert(table.find({ "Coins", "Gems", "Tickets", "Pearls" }, currency), "Unsupported hatch currency") end
+	if pets.AUTO_HATCH or pets.AUTO_EQUIP then assert(pets.ENABLE_PET_INTELLIGENCE, "Pet actions require ENABLE_PET_INTELLIGENCE") end
+	if pets.AUTO_HATCH then
+		assert(#hatch.SELECTED_EGGS > 0 and hatch.MAXIMUM_EGG_COST > 0 and hatch.MAXIMUM_SESSION_COST > 0, "Hatching requires explicit egg selection and positive spending budgets")
+		assert(#hatch.ALLOWED_CURRENCIES == 1, "Each bounded hatch session must authorize exactly one currency")
+	end
+	-- Destructive and later-phase executors remain unavailable.
 	for _, category in ipairs({ "PET_SETTINGS", "FALL_EVENT_SETTINGS" }) do
 		for key, value in pairs(config[category]) do
-			if (key:match("^AUTO_") or key == "ENABLE_FALL_EVENT") and value then
-				error("[OC] " .. category .. "." .. key .. " is reserved; its executor is not implemented in Phase 2")
+			if (key:match("^AUTO_") or key == "ENABLE_FALL_EVENT") and value and key ~= "AUTO_HATCH" and key ~= "AUTO_EQUIP" then
+				error("[OC] " .. category .. "." .. key .. " is reserved; its executor is not implemented")
 			end
 		end
 	end
@@ -115,6 +133,7 @@ function OCController.new(config, player)
 	self.Snapshot = self.Reader:GetSnapshot()
 	self.Farming = FarmingCoordinator.new(self, player)
 	self.WorldProgression = WorldProgressionManager.new(self)
+	self.Pets = PetManager.new(self)
 	table.insert(self.Connections, self.Reader.Changed.Event:Connect(function(snapshot)
 		self.Snapshot = snapshot
 		self:_diagnoseSnapshot(snapshot)
@@ -127,6 +146,7 @@ function OCController.new(config, player)
 		if id == "OC_GAMEPLAY" then
 			if definition and definition.Generation == self.Generation then
 				if definition.Owner == "WORLD_PROGRESSION" then self.WorldProgression:Completed(status, result, reason)
+				elseif definition.Owner == "PETS" then self.Pets:Completed(status, result, reason)
 				else self.Farming:Completed(status, result, reason) end
 				self.Reader:Refresh()
 				self:_requestPlan(true)
@@ -146,9 +166,14 @@ function OCController.new(config, player)
 				self:Log("PROGRESSION", result.Progression .. " | " .. result.ProgressionEvidence)
 				if #goal.Prerequisites > 0 then self:Log("PREREQUISITES", table.concat(goal.Prerequisites, "; ")) end
 			end
-			local owns, decision = self.WorldProgression:Select(result)
+			local petOwns, petDecision = self.Pets:Select(result)
+			local owns, decision
+			if not petOwns then owns, decision = self.WorldProgression:Select(result) end
 			local taskDefinition
-			if owns then
+			if petOwns then
+				if self.Farming.Activity then self.Farming:Halt(true) end
+				taskDefinition = self.Pets:Definition(petDecision, self.Generation)
+			elseif owns then
 				self.Farming:Halt(true)
 				taskDefinition = self.WorldProgression:Definition(decision, self.Generation)
 			else
@@ -176,9 +201,10 @@ function OCController:Log(kind, message, explicitDetail)
 	if not settings.ENABLE_DEBUG_LOGGING and not explicitDetail then
 		local immediate = kind == "INIT" or kind == "SCOPE" or kind == "CONTROL" or kind == "GOAL" or kind == "SUMMARY"
 			or kind == "ISLAND][VERIFIED" or kind == "WORLD][VERIFIED" or kind == "UPGRADE][VERIFIED" or kind == "FARM][RETURN"
+			or kind == "PET][ANALYSIS" or kind == "PET][VERIFIED"
 		if kind == "FARM][TRAVEL" then immediate = not message:match("^Request ") end
 		local blocker = kind == "FARM][FALLBACK" or kind == "WORLD][GATE_APPROACH" or kind == "DIAGNOSTIC" or kind == "UNAVAILABLE"
-			or kind:find("ERROR", 1, true) ~= nil or kind == "ISLAND][CONTACT"
+			or kind:find("ERROR", 1, true) ~= nil or kind == "ISLAND][CONTACT" or kind == "PET][BLOCKER"
 		if kind == "WORLD][DECISION" then blocker = message:match("^WAIT ") ~= nil end
 		if kind == "WORLD][RESULT" then
 			immediate = message:find("Native portal arrival stabilized", 1, true) ~= nil
@@ -274,7 +300,8 @@ end
 function OCController:GetStatus()
 	return { State = self.State, Snapshot = self.Reader:GetSnapshot(), Plan = self.Plan,
 		Scheduler = self.Scheduler:GetStatus(), Farming = self.Farming:GetStatus(), WorldProgression = self.WorldProgression:GetStatus(),
-		Error = self.Error, Phase = self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and 3 or 2 }
+		Pets = self.Pets and self.Pets:GetStatus(), Error = self.Error,
+		Phase = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and 4 or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and 3 or 2 }
 end
 
 function OCController:_notify()
@@ -341,6 +368,7 @@ function OCController:Pause()
 	self.Scheduler:Pause()
 	self.Farming:Halt(true)
 	self.WorldProgression:Halt()
+	self.Pets:Halt()
 	self:_notify()
 	self:Log("CONTROL", "PAUSE | recommendations paused; read-only account updates remain visible")
 	return true
@@ -366,6 +394,7 @@ function OCController:Stop()
 	self.Scheduler:Stop()
 	self.Farming:Halt()
 	self.WorldProgression:Halt()
+	self.Pets:Halt()
 	self.Plan = nil
 	self.Error = nil
 	self.Brain:Reset()

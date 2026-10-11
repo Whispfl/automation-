@@ -3,6 +3,7 @@
 -- it neither loads future systems nor executes actions or substitutes account/world facts.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameKnowledge = {}
+local PetPolicy = require(script.Parent.PetPolicy)
 GameKnowledge.__index = GameKnowledge
 
 local pickupContract = table.freeze({
@@ -41,6 +42,134 @@ function GameKnowledge:Assets(name)
 	return assets and assets:FindFirstChild(name)
 end
 
+function GameKnowledge:PetContract()
+	return { Definitions = "Shared.Data.Eggs/Pets + native builders",
+		Stats = "Shared.Utils.Stats.PetUtil:GetStats; StatsUtil:GetCurrencyMultiplier/GetBubblePower on detached team projections",
+		Pool = "Client.Gui.LootPoolViewer:601-613; GetEggPool; ApplyMultiplierToPool; GetRandomWeightedItem normalizes Chance weights",
+		Probability = "CLIENT_UI_ESTIMATE; effective server Secret/Infinity/variant/pity odds UNKNOWN",
+		Hatch = "ClientScript:879,926-931,986-1025; native Root distance <=16, account cost/capacity, NextEggOpenAt; HatchEgg(name,count)",
+		Equip = "Client.Gui.Frames.Inventory:2140-2192; EquipPet/UnequipPet(base ID); duplicate team IDs represent stacked copies",
+		Space = "StatsUtil:GetUsedPetStorage ordinary Amount counts or Digital Storage JSON bytes; IsInventoryFull native guard; digital requests limited to one egg",
+		Result = "Received LocalData.Pets and Teams[TeamEquipped].Pets multiplicity, not invocation or hatch animation",
+		Actions = "OWNER_LIVE_PENDING", ServerValidation = "UNAVAILABLE" }
+end
+
+local function detached(value)
+	if type(value) ~= "table" then return value end
+	local result = {}
+	for key, entry in pairs(value) do result[key] = detached(entry) end
+	return result
+end
+
+local function native(object, method, ...)
+	if not object or type(object[method]) ~= "function" then return nil end
+	local ok, value = pcall(object[method], object, ...)
+	if ok then return value end
+	return nil
+end
+
+function GameKnowledge:EggModels()
+	if os.clock() - (self.LastEggScan or -math.huge) >= self.Reader.Config.PET_SETTINGS.ANALYSIS_INTERVAL_SECONDS then
+		self.LastEggScan, self.NativeEggModels = os.clock(), {}
+		local eggs = self:Get("Eggs") or {}
+		-- Native tags are removed by ClientScript:674. Keep original Root/Prompt/
+		-- Plate/Cost models, including actual Rendered.Chunker receivers; visual
+		-- Generic egg clones lack this interface. No object mutation or hidden scan.
+		for _, model in ipairs(workspace:GetDescendants()) do
+			if model:IsA("Model") and eggs[model.Name] and model:FindFirstChild("Root")
+				and model:FindFirstChild("Prompt") and model:FindFirstChild("Plate") and model:FindFirstChild("Cost") then
+				table.insert(self.NativeEggModels, model)
+			end
+		end
+	end
+	return self.NativeEggModels or {}
+end
+
+function GameKnowledge:PetContext(snapshot, plan, tracker)
+	local raw = self.Reader:GetLiveProfile()
+	local currency = PetPolicy.Currency(self.Reader.Config, plan)
+	local context = { Currency = currency, Eggs = {}, Pets = self:Get("Pets") }
+	if not raw or not snapshot.Ready then context.Error = "Current LocalData unavailable" return context end
+	-- Helpers receive a detached account. Their weak caches cannot mutate live inventory.
+	local profile = detached(raw)
+	context.Inventory, context.Error = PetPolicy.Inventory(profile)
+	local stats, util, pools = self:Get("StatsUtil"), self:Get("PetUtil"), self:Get("GetEggPool")
+	context.MaxEquipped = native(stats, "GetMaxPetsEquipped", profile)
+	context.MaxHatches = native(stats, "GetMaxEggHatches", profile)
+	context.StorageUsed, context.StorageCapacity = native(stats, "GetUsedPetStorage", profile), native(stats, "GetMaxPetStorage", profile)
+	context.DigitalStorage = native(stats, "HasDigitalStorage", profile)
+	context.InventoryFull = native(stats, "IsInventoryFull", profile)
+	context.AutoDeleteKnown = type(profile.AutoDelete) == "table"
+	context.AutoDeleteActive = context.AutoDeleteKnown and next(profile.AutoDelete) ~= nil
+	context.StorageUnit = context.DigitalStorage == true and "JSON_BYTES" or context.DigitalStorage == false and "PET_QUANTITY" or "UNKNOWN"
+	if context.Inventory and stats and currency then
+		local function score(ids, pets)
+			local projected = table.clone(profile) projected.Teams = detached(profile.Teams)
+			projected.Pets = pets or profile.Pets
+			projected.Teams[profile.TeamEquipped].Pets = table.clone(ids)
+			if currency == "Bubbles" then return native(stats, "GetBubblePower", projected) end
+			return native(stats, "GetCurrencyMultiplier", projected, currency)
+		end
+		context.ScoreTeam = score
+		context.PetScore = function(pet)
+			local values = native(util, "GetStats", pet, profile)
+			return type(values) == "table" and (values[currency] or (currency ~= "Bubbles" and 1 or nil)) or nil
+		end
+		context.ScoreNewPet = function(name, ids)
+			local pet = { Id = "OC_DETACHED_PROJECTION", Name = name, XP = 0 }
+			local pets = table.clone(profile.Pets) table.insert(pets, pet)
+			local best = score(ids, pets)
+			if not PetPolicy.Finite(best) or not PetPolicy.Finite(context.MaxEquipped) then return nil end
+			for slot = 1, #ids + (#ids < context.MaxEquipped and 1 or 0) do
+				local old = context.Inventory.ById[ids[slot]]
+				if old and (old.Super or PetPolicy.Protected(self.Reader.Config, old) or not context.Pets or not context.Pets[old.Name] or not context.Pets[old.Name].Rarity) then continue end
+				local proposal = table.clone(ids) proposal[slot] = pet.Id
+				local value = score(proposal, pets)
+				if not PetPolicy.Finite(value) then return nil end
+				best = math.max(best, value)
+			end
+			return best
+		end
+	end
+	local definitions = self:Get("Eggs") or {}
+	local currentWorld = native(self:Get("WorldUtil"), "GetPlayerWorld", self.Reader.Player)
+	local root = tracker:Root()
+	local byName = {}
+	for _, model in ipairs(self:EggModels()) do
+		if not model.Parent or not model:IsDescendantOf(workspace) then continue end
+		local part = model:FindFirstChild("Root")
+		if not part or not part:IsA("BasePart") then continue end
+		local distance = root and (part.Position - root.Position).Magnitude
+		local old = byName[model.Name]
+		if old and (old.Distance or math.huge) <= (distance or math.huge) then continue end
+		local def = definitions[model.Name]
+		local island = model:GetAttribute("Island") or def.Island
+		local world = def.World
+		local accessible = world ~= nil and not def.Event and not def.ProductId and not def.IsAdminEgg and model.Name ~= "Infinity Egg"
+			and type(profile.WorldsUnlocked) == "table" and profile.WorldsUnlocked[world] ~= nil
+			and (not island or type(profile.AreasUnlocked) == "table" and profile.AreasUnlocked[island] ~= nil)
+		local bonus = model:GetAttribute("BonusLuck")
+		local poolWorld = world == currentWorld and currentWorld or "None"
+		local luck = native(stats, "GetLuckMultiplier", self.Reader.Player, profile, poolWorld, nil, bonus, model.Name)
+		local pool
+		if pools and PetPolicy.Finite(luck) and luck > 0 then
+			local ok, value = pcall(pools, model.Name, poolWorld, luck, nil, nil, profile)
+			if ok then pool = value end
+		end
+		byName[model.Name] = { Name = model.Name, Model = model, World = world, Island = island, Distance = distance,
+			Accessible = accessible == true, InRange = accessible and world == currentWorld and distance ~= nil and distance <= 16,
+			Cost = native(stats, "GetEggCost", self.Reader.Player, profile, model.Name), Pool = pool, Luck = luck,
+			Duration = native(stats, "GetHatchDuration", profile), Unlocked = model:GetAttribute("Unlocked"),
+			Reason = accessible and "Scene-present native egg; account world/island access confirmed" or "Premium/event/special/locked or unknown access; no hatch action" }
+	end
+	local names = {} for name in pairs(byName) do table.insert(names, name) end table.sort(names)
+	for index, name in ipairs(names) do
+		if index > self.Reader.Config.HATCH_SETTINGS.MAXIMUM_EGGS_ANALYZED then context.EggLimitReached = true break end
+		table.insert(context.Eggs, byName[name])
+	end
+	return context
+end
+
 function GameKnowledge:PickupContract() return pickupContract end
 
 function GameKnowledge:ProgressionContract()
@@ -74,7 +203,7 @@ function GameKnowledge:GetStatus()
 		dependencies[name] = { Status = entry.Status, Source = "ReplicatedStorage." .. entry.Path, Error = entry.Error }
 	end
 	return { Dependencies = dependencies, PickupAssetsAvailable = self:Assets("Pickups") ~= nil,
-		Pickup = table.clone(pickupContract), Progression = self:ProgressionContract(), ServerOnlyRules = "UNAVAILABLE" }
+		Pickup = table.clone(pickupContract), Progression = self:ProgressionContract(), Pets = self:PetContract(), ServerOnlyRules = "UNAVAILABLE" }
 end
 
 function GameKnowledge:ReleaseChunkerObserver()

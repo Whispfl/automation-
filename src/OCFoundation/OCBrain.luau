@@ -4,6 +4,7 @@ local OCBrain = {}
 local FarmingPolicy = require(script.Parent.FarmingPolicy)
 local ProgressionGraph = require(script.Parent.ProgressionGraph)
 local TravelPlanner = require(script.Parent.TravelPlanner)
+local PetPolicy = require(script.Parent.PetPolicy)
 OCBrain.__index = OCBrain
 
 local function countEntries(map)
@@ -26,6 +27,68 @@ function OCBrain:Reset()
 	self.Previous = nil
 	self.SelectedAt = 0
 	self.FarmingMemory = { Mode = nil, StartedAt = 0, LastTest = {} }
+end
+
+function OCBrain:AnalyzePets(snapshot, context)
+	return PetPolicy.Analyze(self.Config, snapshot, context)
+end
+
+function OCBrain:PlanPets(report, context, state)
+	local settings, hatch = self.Config.PET_SETTINGS, self.Config.HATCH_SETTINGS
+	if not settings.ENABLE_PET_INTELLIGENCE or not self.Config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS then return { Kind = "WAIT", OwnsLocation = false } end
+	if state.Pending then return { Kind = "OBSERVE", OwnsLocation = state.Location ~= nil, Reason = "Awaiting actual inventory/equipment acknowledgement" } end
+	if state.Fault then return { Kind = "WAIT", OwnsLocation = state.Location ~= nil, Reason = state.Fault } end
+	if state.EquipmentContinuation then return state.EquipmentContinuation end
+	if self.Config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST then return { Kind = "WAIT", OwnsLocation = false, Reason = "Pickup-only mode excludes pet actions" } end
+	local team, inv = report.Team, context.Inventory
+	if settings.AUTO_EQUIP and inv and team.Status == "ESTIMATE" and team.Gain > 1e-6 then
+		local before, desired = PetPolicy.Counts(inv.Team), PetPolicy.Counts(team.ProposedIds)
+		-- One verified improvement at a time; never clear the entire team.
+		for addId, amount in pairs(desired) do
+			if amount <= (before[addId] or 0) then continue end
+			local removes = { false }
+			if #inv.Team >= context.MaxEquipped then
+				removes = {}
+				for id, count in pairs(before) do if count > (desired[id] or 0) then table.insert(removes, id) end end
+				table.sort(removes)
+			end
+			for _, removeId in ipairs(removes) do
+				local needed = removeId and 2 or 1
+				if state.EquipCommands + needed > settings.MAXIMUM_SESSION_EQUIP_COMMANDS then continue end
+				local ids = table.clone(inv.Team)
+				if removeId then table.remove(ids, table.find(ids, removeId)) end
+				table.insert(ids, addId)
+				local score = context.ScoreTeam(ids)
+				if PetPolicy.Finite(score) and score > team.CurrentScore + 1e-6 then
+					return { Kind = "TEAM", AddId = addId, RemoveId = removeId or nil, BeforeIds = table.clone(inv.Team),
+						AfterIds = ids, TeamIndex = inv.TeamIndex, BeforeScore = team.CurrentScore, AfterScore = score, OwnsLocation = state.Location ~= nil }
+				end
+			end
+		end
+	end
+	if settings.AUTO_HATCH and not state.SessionEnded then
+		for _, egg in ipairs(report.Eggs) do
+			if state.Location and egg.Name ~= state.Location.EggName then continue end
+			if not table.find(hatch.SELECTED_EGGS, egg.Name) or egg.Status ~= "ESTIMATE" or not egg.Eligible or not egg.Affordable
+				or not egg.Cost or not table.find(hatch.ALLOWED_CURRENCIES, egg.Cost.Currency) or egg.Cost.Amount > hatch.MAXIMUM_EGG_COST
+				or (egg.ExpectedIncrement <= 1e-6 and egg.ClientTargetProbability <= 0) then continue end
+			local remainingCost = hatch.MAXIMUM_SESSION_COST - state.RequestCost
+			local remaining = hatch.MAXIMUM_SESSION_HATCHES - state.RequestedHatches
+			local free = PetPolicy.Finite(context.StorageCapacity) and PetPolicy.Finite(context.StorageUsed) and context.StorageCapacity - context.StorageUsed or 0
+			if type(context.DigitalStorage) ~= "boolean" or context.InventoryFull ~= false or not context.AutoDeleteKnown or context.AutoDeleteActive then
+				return { Kind = "WAIT", OwnsLocation = state.Location ~= nil, Reason = "Hatching requires native available storage and empty native AutoDelete settings" }
+			end
+			if context.DigitalStorage then free = 1 end -- Bytes are not pet slots; use native available-space guard, one egg per request.
+			local capacity = PetPolicy.Finite(context.MaxHatches) and context.MaxHatches or 0
+			local count = math.floor(math.min(remaining, hatch.MAXIMUM_BATCH_HATCHES, capacity, free,
+				egg.Spendable / egg.Cost.Amount, remainingCost / egg.Cost.Amount))
+			if count < 1 or not PetPolicy.Finite(egg.DurationSeconds) or egg.DurationSeconds <= 0 then continue end
+			return { Kind = "HATCH", EggName = egg.Name, Count = count, OwnsLocation = true,
+				Reason = egg.InRange and "Authorized bounded useful hatch" or "Manual approach to selected egg required; no automatic repositioning" }
+		end
+	end
+	return { Kind = "WAIT", OwnsLocation = state.Location ~= nil and not state.SessionEnded,
+		Reason = "Pet actions disabled, bounded session ended, or no eligible useful affordable action" }
 end
 
 function OCBrain:PlanProgression(snapshot, plan, context)

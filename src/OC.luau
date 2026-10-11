@@ -22,7 +22,14 @@ return function(customConfig)
 		controller.Interface = OCInterface.new(controller, playerGui)
 		controller:Log("INIT", "Phase " .. tostring(controller:GetStatus().Phase) .. " initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | Overworld discovery owner-confirmed in session; rejoin persistence and world purchases pending")
 		controller:Log("SCOPE", "One Brain/scheduler: configured progression and actual-shortage stationary Coins/Gems farming on The Void/Zen; bubbles require a real bubble objective.")
+		if config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE then controller:Log("SCOPE", "Phase 4: actual owned-team/native egg estimates; hatch and equipment require separate Config authorization; destructive actions OFF; final odds/total time may remain UNKNOWN.") end
 		controller:Log("FARM][BULK", "Paced genuine loaded registry IDs, up to " .. tostring(config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_BATCH_SIZE) .. " per stationary batch; distances observed, server validation unchanged; only LocalData balances verify credit.")
+		-- Release the previous action authority before starting this instance.
+		if type(shared) == "table" then
+			local previous = shared.__OC_PHASE1_INSTANCE
+			if previous and previous ~= controller and type(previous.Destroy) == "function" then previous:Destroy() end
+			shared.__OC_PHASE1_INSTANCE = controller
+		end
 		if config.GENERAL_SETTINGS.AUTO_START then
 			local started, reason = controller:Start()
 			if not started then controller.Error = reason controller:Log("CONTROL", reason) controller:_notify() end
@@ -30,11 +37,5 @@ return function(customConfig)
 		return controller
 	end, debug.traceback)
 	if not ok then controller:Destroy() error("[OC] Initialization failed: " .. tostring(result), 0) end
-	-- A repeated user-run loader cleans up only a previous OC instance from this registry.
-	if type(shared) == "table" then
-		local previous = shared.__OC_PHASE1_INSTANCE
-		if previous and previous ~= controller and type(previous.Destroy) == "function" then previous:Destroy() end
-		shared.__OC_PHASE1_INSTANCE = controller
-	end
 	return result
 end

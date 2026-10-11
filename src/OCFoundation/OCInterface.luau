@@ -30,10 +30,10 @@ function OCInterface.new(controller, playerGui)
 	make("UIPadding", { PaddingTop = UDim.new(0, 16), PaddingBottom = UDim.new(0, 14),
 		PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }, self.Panel)
 	make("TextLabel", { Name = "Title", Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1,
-		Text = "BUBBLE OC  /  PHASE 2", TextSize = 18, Font = Enum.Font.GothamBold,
+		Text = "BUBBLE OC  /  PHASE " .. tostring(controller:GetStatus().Phase), TextSize = 18, Font = Enum.Font.GothamBold,
 		TextColor3 = Color3.fromRGB(241, 246, 255), TextXAlignment = Enum.TextXAlignment.Left }, self.Panel)
 	make("TextLabel", { Name = "Scope", Position = UDim2.fromOffset(0, 29), Size = UDim2.new(1, 0, 0, 20),
-		BackgroundTransparency = 1, Text = "Intelligent farming, selling and upgrades", TextSize = 12,
+		BackgroundTransparency = 1, Text = controller.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and "Pet team and egg intelligence" or "Intelligent farming, selling and upgrades", TextSize = 12,
 		Font = Enum.Font.Gotham, TextColor3 = Color3.fromRGB(162, 178, 203), TextXAlignment = Enum.TextXAlignment.Left }, self.Panel)
 	local controls = make("Frame", { Name = "Controls", Position = UDim2.fromOffset(0, 61), Size = UDim2.new(1, 0, 0, 36),
 		BackgroundTransparency = 1 }, self.Panel)
@@ -100,6 +100,20 @@ function OCInterface:Render(status)
 	for _, name in ipairs({ "Pets", "Inventory", "Worlds", "Upgrades", "Mastery" }) do
 		self.Labels[name].Visible = settings["SHOW_" .. string.upper(name)]
 		self.Labels[name].Text = string.upper(name) .. "\n" .. sections[name]
+	end
+	local pets = status.Pets
+	if pets and pets.Enabled then
+		local analysis = pets.Analysis
+		local team = analysis and analysis.Team
+		local egg = analysis and analysis.RecommendedEgg
+		self.Labels.Pets.Text ..= "\nNative team: " .. (team and team.Status or "WAITING")
+		if team and team.Status == "ESTIMATE" then
+			self.Labels.Pets.Text ..= string.format(" | %s %.3f -> %.3f (estimate)", tostring(team.Currency), team.CurrentScore, team.ProjectedScore)
+		elseif team then self.Labels.Pets.Text ..= " | " .. tostring(team.Reason) end
+		self.Labels.Pets.Text ..= "\nEgg: " .. tostring(egg and egg.Name or "No useful affordable estimate")
+			.. " | final odds/total time UNKNOWN\nOC hatch/equip: " .. tostring(self.Controller.Config.PET_SETTINGS.AUTO_HATCH)
+			.. "/" .. tostring(self.Controller.Config.PET_SETTINGS.AUTO_EQUIP) .. " | destructive OFF"
+		if pets.Fault then self.Labels.Pets.Text ..= "\n" .. pets.Fault end
 	end
 	self.Labels.Progression.Visible = settings.SHOW_PROGRESSION
 	self.Labels.Progression.Text = "Progression: " .. (plan and plan.Progression or "UNDETERMINED")

@@ -129,7 +129,8 @@ function PickupTracker:_prefabs(now)
 end
 
 function PickupTracker:Refresh(snapshot, now)
-	if self.Destroyed or not self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM then return end
+	local hatch = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and self.Config.PET_SETTINGS.AUTO_HATCH and self.Config.HATCH_SETTINGS.ENABLE_BACKGROUND_PICKUPS
+	if self.Destroyed or not self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM and not hatch then return end
 	self:_hookSpawn()
 	self:_zones(now)
 	local root = self:Root()

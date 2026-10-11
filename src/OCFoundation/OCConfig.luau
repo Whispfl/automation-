@@ -185,12 +185,33 @@ return {
 		REBIRTH_SHARD_RESERVE = 0, --// Preserve RebirthShards26 if a supported catalog uses it; no rebirth executor exists.
 	},
 	PET_SETTINGS = {
-		SELECTED_PETS = {}, --// Reserve target pet names for later modules; no acquisition tasks run now.
-		AUTO_HATCH = false, --// Reserved; hatching is outside the current build.
-		AUTO_EQUIP = false, --// Reserved; pet team changes remain recommendations only.
+		ENABLE_PET_INTELLIGENCE = false, --// Opt into Phase 4 account-aware native pet/egg analysis without changing earlier Config behavior.
+		OBJECTIVE_CURRENCY = "AUTO", --// AUTO follows the current Coins/Gems goal; an explicit native currency or Bubbles selects its team score.
+		SELECTED_PETS = {}, --// Protect these target pet names; do not remove them from the active team.
+		PROTECTED_PET_IDS = {}, --// Preserve these IDs and locked pets in the active team; no inventory destruction exists.
+		AUTO_HATCH = false, --// Explicit hatch authorization; also requires positive HATCH_SETTINGS budgets and selected eggs.
+		AUTO_EQUIP = false, --// Explicit authorization for verified incremental owned-team changes.
+		MAXIMUM_SESSION_EQUIP_COMMANDS = 4, --// Bound native equip/unequip commands for this loaded controller, including uncertain requests.
+		MAXIMUM_TEAM_EVALUATIONS = 300, --// Bound native projected-team comparisons per analysis; results are a heuristic, not a guaranteed global optimum.
+		ANALYSIS_INTERVAL_SECONDS = 15, --// Refresh read-only analytics through the existing planner, without another automation loop.
+		EQUIP_CONFIRMATION_TIMEOUT_SECONDS = 10, --// Hold subsequent commands until actual equipped-ID multiplicity acknowledges the request.
 		AUTO_DELETE_PETS = false, --// Reserved; destructive inventory operations are disabled.
 		AUTO_CRAFT_SHINY = false, --// Reserved; the current build never consumes duplicate pets.
 		AUTO_FUSE_PETS = false, --// Reserved; the current build never submits pets to machines.
+	},
+	HATCH_SETTINGS = {
+		SELECTED_EGGS = {}, --// Empty permits recommendations but authorizes no hatch location or spending.
+		ALLOWED_CURRENCIES = { "Coins" }, --// Only these nonpremium currencies may be spent by an explicitly enabled hatch session.
+		MAXIMUM_EGG_COST = 0, --// Explicit per-egg ceiling in native currency units; zero prevents spending.
+		MAXIMUM_SESSION_COST = 0, --// Request-cost cap in the session's one authorized currency; uncertain requests consume budget for this loaded controller.
+		MAXIMUM_SESSION_HATCHES = 1, --// Count requested eggs, including unconfirmed requests; Stop/Resume cannot reset this ledger.
+		MAXIMUM_BATCH_HATCHES = 1, --// Bound each batch by native capacity, remaining session budget and actual free slots.
+		MAXIMUM_SESSION_SECONDS = 60, --// End location ownership after this wall-clock session limit, including pauses.
+		MINIMUM_REQUEST_INTERVAL_SECONDS = 5, --// Additional pacing floor; native duration and NextEggOpenAt must also permit a request.
+		CONFIRMATION_TIMEOUT_SECONDS = 15, --// Wait for actual expected-pool inventory gains; timeout halts this session without automatic retry.
+		PRESERVE_PROGRESSION_RESERVE = true, --// Fully protect the next native world gate cost as well as configured currency reserves.
+		ENABLE_BACKGROUND_PICKUPS = true, --// Reuse existing stationary collection at the owned egg location where native area/ID evidence permits it.
+		MAXIMUM_EGGS_ANALYZED = 40, --// Bound scene-present permanent egg projections; excluded and unknown candidates remain visible.
 	},
 	STATUS_UI_SETTINGS = {
 		ENABLE_STATUS_UI = true, --// Display the foundation panel and OC controls.

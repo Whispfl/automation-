@@ -1,5 +1,12 @@
 # Phase 3 acceptance review — awaiting owner scope approval
 
+**Phase 4 transition update:** the owner accepted summary build `150749dc7fb0`
+and now explicitly authorized Phase 4 development while carrying Phase 3 gaps
+forward. Actual paid world unlocking, reliable auto/manual gate approach,
+leave/rejoin persistence and unsupported later-island routes remain open and
+unverified. This authorizes development, not completion of Phase 3. See
+[Phase 4 scope and initial action-disabled test](PHASE4.md).
+
 Successfully reread the [Master Roadmap](https://app.notion.com/p/3f53d7e9278d81c5a6cacfe227eb4349),
 including its latest owner Brain/ROI research notes, and the
 [Phase 3 page](https://app.notion.com/p/3f53d7e9278d816c8494da53650aaa10)

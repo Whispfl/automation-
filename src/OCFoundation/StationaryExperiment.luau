@@ -49,7 +49,7 @@ function StationaryExperiment:Collect(decision, token, canContinue)
 	local initialBubble = raw and raw.Bubble and raw.Bubble.Amount
 	local saleSequence, previousBubble = owner.SaleSequence or 0, initialBubble
 	local previous, after = before, before
-	local contaminated, missing, areaChanged = false, false, false
+	local contaminated, missing, areaChanged = decision.HatchSpending == true, false, false
 	local ids, currencies, outside, invocationSucceeded, cleaned = {}, {}, 0, true, 0
 	local function observe()
 		after = owner.Reader:ReadBalances()

@@ -95,7 +95,7 @@ Permanent and event definitions may persist after gameplay is unavailable.
 | 1: Account intelligence / Brain | Verified Client.Framework.Services.LocalData; Shared.Data.Worlds/Gum/Flavors/Mastery and StatsUtil | Preserve owner-approved account reading/goals. Definitions describe possibilities; actual LocalData records describe progress. |
 | 2: Farming / bubbles / selling / upgrades | Shared.Utils.GetPickupZones, Shared.Data.Worlds/Gum/Flavors, Assets.Pickups, Remotes.Pickups, Client HUD/Activation/GumShop/WorldMap and Remote wrapper | Actual spawn IDs, radius, positions, discovered access, arrival and balance credit. Pickup-first cooperative blowing, bounded optional isolation, selected-island execution and sell-return cycles; owner must verify these fixes. |
 | 3: Island / world progression | Shared.Data.Worlds/Gum/Flavors/Mastery, StatsUtil, Shared.Utils.WorldUtil and native WorldMap/gate client behavior | Overworld discovery and stationary funding handoff owner-confirmed in session; rejoin persistence, real world purchase and approval pending. Economic diagnostics are read-only; unsupported gate approach remains manual. |
-| 4: Pets / eggs / inventory | Shared.Data.Pets/Eggs, Assets, GetEggPool/GetPetModel/EnchantUtil and relevant Client/remotes | Actual inventory/equipped IDs, capacity, affordability and ownership changes. Confirm native hatch/equip/craft contracts; consuming/deleting requires explicit enabled configuration. Not started. |
+| 4: Pets / eggs / inventory | Shared.Data.Pets/Eggs, Assets, PetUtil/StatsUtil, GetEggPool and native Client hatch/inventory interfaces | Development authorized; initial account-aware analysis and bounded hatch/equip candidate uses the existing Brain/scheduler/adapter. Actual results remain owner-live-pending. Craft/delete/fuse OFF; complete roadmap still open. See PHASE4.md. |
 | 5: Mastery / rewards | Shared.Data.Mastery/DailyRewards/Playtime/WorldRewards and related Client/remotes | Actual level, claim availability, costs and received level/reward changes. No assumption that a catalog tier is purchasable. Not started. |
 | 6: Quests / shops / consumables | Shared.Data.Quests/Shops/Powerups/Potions, ShopUtil, related Client/remotes | Actual objective/stock/ownership, budgets, cooldowns and confirmed claims/purchases/consumption. Not started. |
 | 7: Rifts / advanced eggs / minigames / worlds | Shared.Data.Rifts/Minigames/RiftSummonCosts/Eggs; XLEggUtil/FragmentUtil/ShadowRealmUtil and relevant Client/remotes | Verify live availability, prerequisites, native command schemas, exclusive activity/movement constraints and actual rewards; no unsupported batch/skip interfaces. Research names found are not execution proof. Not started. |
@@ -108,5 +108,14 @@ Studio remains unchanged and read-only. All sources and the generated bundle liv
 in ryanrooflead-source/OCscript. Central OCConfig naming and custom Config entry
 remain unchanged. Each fix rebuilds, compiles/tests, commits/pushes and verifies the
 public raw URL. The owner runs the loader and reports results; phase approval is
-explicit. Phase 2's agreed scope is now approved and Phase 3 is authorized. Phase 4
-cannot begin without the owner's explicit approval.
+explicit. Phase 2's agreed scope is approved, Phase 3 is authorized with documented
+verification gaps carried forward, and Phase 4 development is now explicitly
+authorized. Its first test authorizes no spending or equipment changes.
+
+`PetPolicy` is pure account-aware analysis; `OCBrain:PlanPets` selects actions.
+`PetManager` coordinates bounded foreground slices/verification and location
+ownership, while `HatchManager` keeps request/result ledgers without another loop.
+GameMechanics remains the sole gameplay-command adapter. All native projected
+profiles are detached; only received LocalData verifies account changes. The
+collector's hatch-location exception requires a live authorized lease at a native
+egg and current classified area; it cannot widen normal Void/Zen farming policy.

@@ -38,7 +38,7 @@ console.log('[OC] Static bundle and configuration checks passed');
 
 const executable = process.env.LUAU_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau.exe' : 'luau');
 const compiler = process.env.LUAU_COMPILE_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau-compile.exe' : 'luau-compile');
-const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau'), path.join(root, 'examples/PickupOnly.luau'), path.join(root, 'examples/StationaryOnly.luau'), path.join(root, 'examples/CombinedFarming.luau'), path.join(root, 'examples/UpgradeTest.luau'), path.join(root, 'examples/Progression.luau')], { encoding: 'utf8' });
+const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau'), path.join(root, 'examples/PickupOnly.luau'), path.join(root, 'examples/StationaryOnly.luau'), path.join(root, 'examples/CombinedFarming.luau'), path.join(root, 'examples/UpgradeTest.luau'), path.join(root, 'examples/Progression.luau'), path.join(root, 'examples/Pets.luau')], { encoding: 'utf8' });
 if (compile.error) throw new Error('Official Luau CLI is required. Set LUAU_BIN and LUAU_COMPILE_BIN. ' + compile.error.message);
 process.stdout.write(compile.stdout);
 process.stderr.write(compile.stderr);
@@ -59,6 +59,7 @@ const discoveryAssertions = await readFile(path.join(root, 'tests/discovery.luau
 const integrationAssertions = await readFile(path.join(root, 'tests/integration.luau'), 'utf8');
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
+const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -78,13 +79,13 @@ const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau')
 const pickupConfig = configPrefix(pickupExample);
 assertFarmingSelection(pickupConfig);
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + '\n' + progressionAssertions + '\n' + discoveryAssertions + '\n' + integrationAssertions + '\n' + economicsAssertions + '\n' + loggingAssertions + exampleCheck + pickupCheck);
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + '\n' + progressionAssertions + '\n' + discoveryAssertions + '\n' + integrationAssertions + '\n' + economicsAssertions + '\n' + loggingAssertions + '\n' + petAssertions + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
 assert.equal(run.status, 0, 'Foundation behavior tests failed');
 
-for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false]]) {
+for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
   const configText = configPrefix(contents);
   if (filename === 'CombinedFarming.luau') {
@@ -105,6 +106,15 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
     for (const key of ['AUTO_FARM_UNLOCK_REQUIREMENTS', 'AUTO_RESOURCE_FARM', 'AUTO_TRAVEL_BEST_ISLAND']) assert(configText.includes(key + ' = true'));
     assert(configText.includes('MAXIMUM_WORLD_UNLOCK_COST = 0'));
     assertFarmingSelection(configText);
+  }
+  if (filename === 'Pets.luau') {
+    assert(configText.includes('ENABLE_PET_INTELLIGENCE = true'));
+    for (const key of ['AUTO_HATCH', 'AUTO_EQUIP', 'AUTO_DELETE_PETS', 'AUTO_CRAFT_SHINY', 'AUTO_FUSE_PETS',
+      'ENABLE_WORLD_PROGRESSION', 'AUTO_DISCOVER_ISLANDS', 'AUTO_UNLOCK_WORLDS', 'AUTO_TRAVEL_FOR_PROGRESSION',
+      'AUTO_RESOURCE_FARM', 'AUTO_TRAVEL_BEST_ISLAND', 'AUTO_BLOW_BUBBLES', 'AUTO_SELL_BUBBLES', 'ENABLE_SMART_UPGRADES']) {
+      assert(configText.includes(key + ' = false'), 'First pet intelligence test must disable ' + key);
+    }
+    assert(configText.includes('MAXIMUM_SESSION_COST = 0') && configText.includes('MAXIMUM_EGG_COST = 0'));
   }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;
   await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);

@@ -437,14 +437,26 @@ function AccountStateReader:Start()
 			Flavors = "Shared.Data.Flavors", Mastery = "Shared.Data.Mastery", StatsUtil = "Shared.Utils.Stats.StatsUtil" }) do
 			self:_load(name, path)
 		end
-		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then
+		local pets = self.Config.PET_SETTINGS
+		if pets.ENABLE_PET_INTELLIGENCE then
+			self:_load("Eggs", "Shared.Data.Eggs") self:_load("Pets", "Shared.Data.Pets")
+			self:_load("PetUtil", "Shared.Utils.Stats.PetUtil")
+			self:_load("GetEggPool", "Shared.Utils.GetEggPool", "function")
+			self:_load("WorldUtil", "Shared.Utils.WorldUtil")
+			if pets.AUTO_HATCH then
+				self:_load("HatchPresentation", "Client.Effects.HatchEgg")
+				self:_load("Time", "Shared.Framework.Utilities.Math.Time")
+			end
+		end
+		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION
+			or (pets.ENABLE_PET_INTELLIGENCE and (pets.AUTO_HATCH or pets.AUTO_EQUIP)) then
 			if self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
 				and self.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY then
 				self:_load("Tutorial", "Client.Tutorial") self:_load("Chunker", "Shared.Utils.Chunker")
 			end
 			self:_load("GetPickupZones", "Shared.Utils.GetPickupZones", "function")
 			self:_load("Remote", "Shared.Framework.Network.Remote")
-			if self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION then self:_load("WorldUtil", "Shared.Utils.WorldUtil") end
+			if self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and not pets.ENABLE_PET_INTELLIGENCE then self:_load("WorldUtil", "Shared.Utils.WorldUtil") end
 			self:_load("QuestUtil", "Shared.Utils.Stats.QuestUtil")
 			self:_load("GuiFrame", "Client.Gui.GuiFrame")
 			self:_load("PhysicalItem", "Client.Effects.PhysicalItem")

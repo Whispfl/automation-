@@ -1,12 +1,19 @@
-# OCscript — approved stationary farming and Phase 3 progression candidate
+# OCscript — approved baseline and Phase 4 pet intelligence candidate
+
+The owner authorized Phase 4 development. The first slice adds current-account
+owned-team/native egg analysis and separately configured bounded hatch/equip
+executors through the existing Brain/scheduler. Start its **action-disabled** test
+with [examples/Pets.luau](examples/Pets.luau); see [Phase 4 evidence, scope and
+remaining work](docs/PHASE4.md). Final odds/total-time unknowns are explicit;
+destructive actions remain OFF. Live Phase 4 verification is owner-pending.
 
 Phase 1 and Phase 2's agreed stationary farming scope are owner-approved. Phase 3
 is explicitly authorized; the owner confirmed all five Overworld discoveries through
 actual AreasUnlocked updates in build 78b2a278c20d (approximately 41 seconds). Rejoin
 persistence and actual world purchases remain pending. The owner also confirmed the
 integrated discovery-skip -> actual world shortage -> Void travel -> credited stationary
-farming handoff in build fdda549304a0. Phase 4
-is not authorized. Start with [examples/Progression.luau](examples/Progression.luau)
+farming handoff in build fdda549304a0. The approved baseline remains available
+with [examples/Progression.luau](examples/Progression.luau)
 and [Phase 3 evidence, controls and live checks](docs/PHASE3.md). Progression spending
 and progression travel default OFF; the current Phase 3 example enables actual
 world-cost shortage farming and native farming-island travel. It connects

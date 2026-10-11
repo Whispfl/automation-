@@ -70,7 +70,8 @@ function FarmingCoordinator:_background(token)
 end
 
 function FarmingCoordinator:Observe()
-	if self.Destroyed or not self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM then return end
+	local hatch = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and self.Config.PET_SETTINGS.AUTO_HATCH and self.Config.HATCH_SETTINGS.ENABLE_BACKGROUND_PICKUPS
+	if self.Destroyed or not self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM and not hatch then return end
 	local now, snapshot = os.clock(), self.Reader:GetSnapshot()
 	local ok, reason = xpcall(function() self.Tracker:Refresh(snapshot, now) end, debug.traceback)
 	if not ok then self.Tracker.Error = tostring(reason) end
@@ -240,7 +241,8 @@ function FarmingCoordinator:_logPickupScan(now)
 end
 
 function FarmingCoordinator:StartObservations()
-	if self.ObservationThread or not self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM then return end
+	local hatch = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and self.Config.PET_SETTINGS.AUTO_HATCH and self.Config.HATCH_SETTINGS.ENABLE_BACKGROUND_PICKUPS
+	if self.ObservationThread or not self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM and not hatch then return end
 	self.ObservationThread = task.spawn(function()
 		while not self.Destroyed do
 			task.wait(self.Config.FARMING_SETTINGS.OBSERVATION_INTERVAL_SECONDS)
