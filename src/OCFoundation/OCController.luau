@@ -74,6 +74,7 @@ local function validate(config)
 		"World unlock confirmation must be at least one second and retry at least ten seconds")
 	assert(config.WORLD_SETTINGS.FUNDING_HORIZON_HOURS > 0 and config.WORLD_SETTINGS.ECONOMIC_LOG_INTERVAL_SECONDS >= 5,
 		"Funding diagnostic horizon must be positive and economic log interval at least five seconds")
+	assert(config.DIAGNOSTIC_SETTINGS.SUMMARY_INTERVAL_SECONDS >= 5, "Console summary interval must be at least five seconds")
 	assert(config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS >= 0.4
 		and config.WORLD_SETTINGS.TRAVEL_STABILIZATION_SECONDS < config.ISLAND_SETTINGS.TRAVEL_CONFIRMATION_TIMEOUT_SECONDS,
 		"Progression travel stabilization must fit inside the native travel confirmation window")
@@ -168,10 +169,47 @@ function OCController.new(config, player)
 	return self
 end
 
-function OCController:Log(kind, message)
-	if self.Config.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING then
-		print("[OC][" .. kind .. "] " .. tostring(message))
+function OCController:Log(kind, message, explicitDetail)
+	local settings = self.Config.DIAGNOSTIC_SETTINGS
+	if not settings.ENABLE_CONSOLE_LOGGING then return end
+	message = tostring(message)
+	if not settings.ENABLE_DEBUG_LOGGING and not explicitDetail then
+		local immediate = kind == "INIT" or kind == "SCOPE" or kind == "CONTROL" or kind == "GOAL" or kind == "SUMMARY"
+			or kind == "ISLAND][VERIFIED" or kind == "WORLD][VERIFIED" or kind == "UPGRADE][VERIFIED" or kind == "FARM][RETURN"
+		if kind == "FARM][TRAVEL" then immediate = not message:match("^Request ") end
+		local blocker = kind == "FARM][FALLBACK" or kind == "WORLD][GATE_APPROACH" or kind == "DIAGNOSTIC" or kind == "UNAVAILABLE"
+			or kind:find("ERROR", 1, true) ~= nil or kind == "ISLAND][CONTACT"
+		if kind == "WORLD][DECISION" then blocker = message:match("^WAIT ") ~= nil end
+		if kind == "WORLD][RESULT" then
+			immediate = message:find("Native portal arrival stabilized", 1, true) ~= nil
+			blocker = not immediate and message:find("Actual LocalData", 1, true) == nil
+		end
+		if kind == "DEPENDENCY" then blocker = message:find("=ERROR", 1, true) ~= nil end
+		if kind == "PICKUP][CLEANUP_ERROR" then message = message:gsub("^id=[^|]+ | ", "") end
+		if kind == "WORLD][BOTTLENECK" then
+			blocker = true message = "Estimated funding time exceeds the configured horizon; earning-power review needed. Recommendations do not authorize purchases."
+		end
+		if not immediate and not blocker then return end
+		if blocker and not immediate then
+			self.ConsoleBlockers = self.ConsoleBlockers or {}
+			local previous, now = self.ConsoleBlockers[kind], os.clock()
+			if previous and previous.Message == message and now - previous.At < math.max(60, settings.MINIMUM_LOG_INTERVAL_SECONDS) then return end
+			self.ConsoleBlockers[kind] = { Message = message, At = now } -- One record per existing diagnostic category, not per pickup ID.
+		end
 	end
+	print("[OC][" .. kind .. "] " .. message)
+end
+
+function OCController:_reportSummary(status, now)
+	local settings = self.Config.DIAGNOSTIC_SETTINGS
+	if not settings.ENABLE_CONSOLE_LOGGING or settings.ENABLE_DEBUG_LOGGING then self.SummaryPrevious = nil return end
+	local previous = self.SummaryPrevious
+	if previous and now - previous.At < settings.SUMMARY_INTERVAL_SECONDS then return end
+	local balances = status.Snapshot and status.Snapshot.Balances or {}
+	self.SummaryPrevious = { At = now, Balances = table.clone(balances) }
+	if not previous then return end -- Establish a baseline; never invent initial interval earnings.
+	local ok, output = pcall(AccountPresentation.Summary, status, previous, now, self.Config)
+	self:Log(ok and "SUMMARY" or "CONSOLE][ERROR", ok and output or "Summary formatting unavailable: " .. tostring(output))
 end
 
 function OCController:PrintAccount(limit)
@@ -179,15 +217,15 @@ function OCController:PrintAccount(limit)
 	limit = limit or self.Config.DIAGNOSTIC_SETTINGS.MAXIMUM_LOG_ENTRIES
 	assert(type(limit) == "number" and limit >= 1 and limit % 1 == 0, "PrintAccount limit must be a positive integer")
 	local snapshot = self.Reader:GetSnapshot()
-	self:Log("ACCOUNT", "Status=" .. snapshot.Status .. "; Ready=" .. tostring(snapshot.Ready) .. "; Revision=" .. snapshot.Revision)
-	if snapshot.Source then self:Log("SOURCE", snapshot.Source) end
+	self:Log("ACCOUNT", "Status=" .. snapshot.Status .. "; Ready=" .. tostring(snapshot.Ready) .. "; Revision=" .. snapshot.Revision, true)
+	if snapshot.Source then self:Log("SOURCE", snapshot.Source, true) end
 	local sections = AccountPresentation.Sections(snapshot, self.Config, limit)
 	for _, name in ipairs({ "Balances", "Pets", "Inventory", "Worlds", "Upgrades", "Mastery" }) do
-		self:Log(string.upper(name), "\n" .. sections[name])
+		self:Log(string.upper(name), "\n" .. sections[name], true)
 	end
-	for _, diagnostic in ipairs(snapshot.Diagnostics or {}) do self:Log("DIAGNOSTIC", diagnostic) end
+	for _, diagnostic in ipairs(snapshot.Diagnostics or {}) do self:Log("DIAGNOSTIC", diagnostic, true) end
 	if snapshot.UnavailableFields and #snapshot.UnavailableFields > 0 then
-		self:Log("UNAVAILABLE", table.concat(snapshot.UnavailableFields, ", "))
+		self:Log("UNAVAILABLE", table.concat(snapshot.UnavailableFields, ", "), true)
 	end
 	return true
 end
@@ -211,11 +249,13 @@ function OCController:_diagnoseSnapshot(snapshot)
 		for _, message in ipairs(snapshot.Diagnostics or {}) do self:Log("DIAGNOSTIC", message) end
 	end
 	if not snapshot.Ready then return end
+	if not settings.ENABLE_DEBUG_LOGGING then return end -- Only presentation: full account formatting is unnecessary in summary mode.
 	if self.AccountLogThread then return end
 	local delaySeconds = math.max(0, settings.MINIMUM_LOG_INTERVAL_SECONDS - (os.clock() - (self.LastAccountLogAt or -math.huge)))
 	self.AccountLogThread = task.delay(delaySeconds, function()
 		self.AccountLogThread = nil
 		if self.Destroyed then return end
+		if not settings.ENABLE_DEBUG_LOGGING then return end
 		local latest = self.Reader:GetSnapshot()
 		local sections = AccountPresentation.Sections(latest, self.Config, settings.MAXIMUM_LOG_ENTRIES)
 		local summary = latest.Status .. "\n" .. sections.Balances
@@ -238,7 +278,11 @@ function OCController:GetStatus()
 end
 
 function OCController:_notify()
-	if not self.Destroyed then self.Changed:Fire(self:GetStatus()) end
+	if not self.Destroyed then
+		local status = self:GetStatus()
+		self:_reportSummary(status, os.clock())
+		self.Changed:Fire(status)
+	end
 end
 
 function OCController:_cancelReplan()

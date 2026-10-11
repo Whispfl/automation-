@@ -55,7 +55,7 @@ function WorldProgressionManager:Select(plan)
 				economics.ETADays and string.format("%.2f days / %.1f hours", economics.ETADays, economics.ETAHours) or (economics.Status == "FUNDED" and "funded" or "unknown"),
 				economics.HorizonHours, economics.Assumption))
 			if economics.Status == "BOTTLENECK" then
-				controller:Log("WORLD][BOTTLENECK", "Observed rate exceeds the configured funding horizon; earning-power review needed. Native pickup multiplier=" .. tostring(economics.NativePickupMultiplier or "unknown") .. " | equipped pets=" .. tostring(economics.EquippedPets or "unknown") .. " | " .. table.concat(economics.Recommendations, " | "))
+				controller:Log("WORLD][BOTTLENECK", "Estimated funding time exceeds the configured horizon; earning-power review needed. Native pickup multiplier=" .. tostring(economics.NativePickupMultiplier or "unknown") .. " | equipped pets=" .. tostring(economics.EquippedPets or "unknown") .. " | " .. table.concat(economics.Recommendations, " | "))
 			end
 		end
 	end

@@ -23,6 +23,12 @@ bottlenecks, with native upgrade/selling recommendations that enable no actions.
 Gate travel rechecks live affordability and authorization immediately before dispatch;
 unsupported gate approach reports actual distance and retains the manual blocker.
 See [economic findings, completion gaps and next test](docs/PHASE3-ECONOMICS.md).
+The owner confirmed Pause/Resume/Stop and in-game economic diagnostics. Console
+defaults to a compact summary about every 15 seconds, with immediate meaningful
+events. Set DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING=true to restore detail under
+the existing LOG_* flags. See [Phase 3 acceptance review](docs/PHASE3-ACCEPTANCE.md):
+paid world unlocking, automatic gate approach and actual leave/rejoin persistence
+remain open; no Phase 3 approval or scope deferral is inferred.
 
 The existing Phase 2 configuration remains available below.
 Stationary pickup requests now use the Flame reference's genuine-ID approach in

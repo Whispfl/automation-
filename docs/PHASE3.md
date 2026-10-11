@@ -11,6 +11,9 @@ The owner subsequently confirmed the integrated discovery-skip -> native Void tr
 stationary world-funding flow in build `fdda549304a0`, with actual gains of 1,300 Coins
 and 25 Gems. See [economic diagnostics and remaining completion gaps](PHASE3-ECONOMICS.md)
 for the latest delivery, native earning-power research and gate-travel correction.
+The owner has now explicitly confirmed Pause, Resume and Stop, and ECONOMY/BOTTLENECK
+diagnostics in-game. See [clean logging and final acceptance review](PHASE3-ACCEPTANCE.md)
+for the current summary-mode delivery and the still-open acceptance items.
 Discovery persistence after rejoining remains pending. Phase 4 remains
 blocked; future reward, egg, Mastery, event and hybrid executors are not implemented.
 
@@ -241,17 +244,21 @@ still skips every unlock actually confirmed by LocalData.
    `[OC][WORLD][RESULT] COMPLETED ... Actual LocalData world unlock confirmed; account
    refreshed` and a fresh objective excluding that completed world. No acknowledgement
    produces `Unlock unconfirmed` and backoff, not success.
-6. Test Pause/Resume/Stop during waiting, farming and (if explicitly enabled) travel.
-   Send the account, GOAL, WORLD and STATIONARY_RESULT lines for owner verification.
+6. Pause/Resume/Stop are owner-confirmed. The current logging-only delivery needs
+   a summary-readability check, not another full controls test. Send SUMMARY and
+   meaningful event lines; explicit debug mode retains the detailed evidence.
 
 ## Validation and changed files
 
 `node scripts/build.mjs` and `node scripts/test.mjs` compile the source, actual bundled
 initializer and all examples, enforce command isolation/no navigation/no authentication,
-and run **211 deterministic regressions**: the original 175, 11 integrated
-progression cases and 25 economic/gate cases. The latest cases cover conditional
+and run **227 deterministic regressions**: the original 175, 11 integrated
+progression cases, 25 economic/gate cases and 16 logging-only cases. The economics cases cover conditional
 ETA, unknown/stale/wrong-currency samples, native recommendation eligibility,
 diagnostic throttling and stale gate-travel authorization/funds.
+Logging comparisons preserve requests, pacing, balance reads, cleanup, cancellation,
+discovery and gate verification across modes; interval changes use one balance
+baseline and unknown/stale rates cannot supply a guaranteed ETA.
 Fresh/partial/developed states, shortages/affordability, unknown prerequisites,
 unsupported ascent, native range/UI guards, failed travel/unlock, actual flag refresh,
 reserves, request limits, cancellation and 32-ID collector compatibility are covered.

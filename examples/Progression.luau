@@ -40,7 +40,8 @@ local Config = {
 	UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false,
 		ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false },
 	STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = true },
-	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, LOG_ACCOUNT_DETAILS = true, LOG_DEPENDENCIES = true },
+	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15,
+		LOG_ACCOUNT_DETAILS = true, LOG_DEPENDENCIES = true }, -- Existing detail controls apply when ENABLE_DEBUG_LOGGING=true.
 }
 
 local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"))()(Config)

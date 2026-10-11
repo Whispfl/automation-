@@ -5,6 +5,10 @@ Before code inspection and implementation, successfully reread the owner's
 including its latest Brain/ROI research notes, and
 [Phase 3 page](https://app.notion.com/p/3f53d7e9278d816c8494da53650aaa10).
 No Notion status or approval was changed. Phase 4, Phase 5 and Phase 9 remain deferred.
+Subsequent owner confirmation covers Pause/Resume/Stop and in-game economic
+diagnostics. The [latest acceptance review](PHASE3-ACCEPTANCE.md) records these and
+the default summary mode; detailed ECONOMY/BOTTLENECK output is available with
+DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING=true. Persistence and paid purchases stay open.
 
 ## Evidence and economic finding
 
@@ -100,8 +104,10 @@ payment, a request, contact or animation cannot prove it.
 
 ## Validation and completion gaps
 
-`node scripts/build.mjs` and `node scripts/test.mjs`: **211 deterministic offline
-regressions** (all 186 existing plus 25 economics/gate cases), official Luau source,
+The economic/gate delivery passed **211 deterministic offline regressions** (all
+186 existing plus 25 economics/gate cases). The later logging-only delivery retains
+these and adds 16, for **227**. `node scripts/build.mjs` and `node scripts/test.mjs`
+also check official Luau source,
 bundle and example compilation, public-example Config isolation and the actual
 function-returning initializer. Fixtures, balances, geometry, timestamps and
 server responses are synthetic. They are not live purchase or saved-state proof.
@@ -129,11 +135,12 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/O
 
 1. Confirm existing received discoveries are skipped, `[OC][GOAL]` selects the
    genuine world requirement and `[OC][FARM][TRAVEL]` confirms Void arrival for Coins.
-2. Observe actual balances in `[OC][PICKUP][STATIONARY_RESULT]`. After sufficient
-   sample time, capture `[OC][WORLD][ECONOMY]` and `[OC][WORLD][BOTTLENECK]`; initial
-   `UNMEASURED` is expected. No billion-Coin grind is needed for this check.
-3. Pause, Resume, Stop; verify controls remain responsive and no new OC dispatches
-   occur while paused/stopped. A request already sent cannot be recalled.
+2. In current summary mode, observe `[OC][SUMMARY]` for actual balance changes,
+   sample/age, shortage, estimated ETA and bottleneck. Enable debug explicitly to
+   capture per-batch STATIONARY_RESULT and detailed ECONOMY/BOTTLENECK lines. Initial
+   unknown estimates are expected. No billion-Coin grind is needed.
+3. Pause, Resume and Stop are now owner-confirmed; this presentation-only change
+   does not require another full controls test. A request already sent cannot be recalled.
 4. Rejoin normally and capture received `AreasUnlocked` plus discovery-skip logs.
    Do not edit LocalData. This is the pending persistence test.
 5. Do not enable spending for this test. If no real affordable world exists,

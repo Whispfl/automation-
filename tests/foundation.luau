@@ -2,6 +2,7 @@
 -- are not evidence that any real player profile or Roblox runtime works.
 local queue = {}
 local os = table.clone(os) -- Test-controlled clock; never included in the published bundle.
+local print = print -- Test-controlled console capture; never included in the published bundle.
 local task = {}
 function task.defer(callback)
 	local thread = coroutine.create(callback)

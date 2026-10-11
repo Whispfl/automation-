@@ -211,6 +211,8 @@ return {
 		PANEL_HEIGHT_PIXELS = 420, --// Set the maximum panel height; content can scroll.
 	},
 	DIAGNOSTIC_SETTINGS = {
+		ENABLE_DEBUG_LOGGING = false, --// Restore detailed diagnostics under the existing LOG_* controls; false prints compact summaries and meaningful events.
+		SUMMARY_INTERVAL_SECONDS = 15, --// Print one read-only summary at this interval through existing status updates; no new timer or gameplay loop.
 		LOG_MOVEMENT_DIAGNOSTICS = true, --// Report bounded path recovery and final blockers without per-frame progress spam.
 		LOG_UPGRADE_DIAGNOSTICS = true, --// Explain each considered catalog upgrade's budgets, projected effects, payback and blocking conditions.
 		LOG_PICKUP_DIAGNOSTICS = true, --// Print rate-limited scan, classification, rejection, range and balance-result summaries.
