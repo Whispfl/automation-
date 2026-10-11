@@ -90,7 +90,7 @@ local function validate(config)
 	local pets, hatch = config.PET_SETTINGS, config.HATCH_SETTINGS
 	assert(table.find({ "AUTO", "Coins", "Gems", "Bubbles", "Tickets", "Pearls" }, pets.OBJECTIVE_CURRENCY), "Unknown pet objective currency")
 	for _, value in ipairs({ pets.MAXIMUM_SESSION_EQUIP_COMMANDS, pets.MAXIMUM_TEAM_EVALUATIONS,
-		hatch.MAXIMUM_SESSION_HATCHES, hatch.MAXIMUM_BATCH_HATCHES, hatch.MAXIMUM_EGGS_ANALYZED }) do
+		hatch.MAXIMUM_SESSION_HATCHES, hatch.MAXIMUM_BATCH_HATCHES, hatch.MAXIMUM_EGGS_ANALYZED, hatch.MAXIMUM_PLAN_CANDIDATES }) do
 		assert(value >= 1 and value % 1 == 0, "Pet/hatch count and analysis limits must be positive integers")
 	end
 	assert(pets.MAXIMUM_TEAM_EVALUATIONS <= 1000 and hatch.MAXIMUM_EGGS_ANALYZED <= 64 and hatch.MAXIMUM_BATCH_HATCHES <= 12, "Pet analysis/batch limits exceed supported bounds")
@@ -99,6 +99,12 @@ local function validate(config)
 		and hatch.CONFIRMATION_TIMEOUT_SECONDS >= 1 and hatch.MAXIMUM_SESSION_SECONDS >= 1
 		and hatch.MINIMUM_REQUEST_INTERVAL_SECONDS >= 1, "Pet/hatch intervals must be bounded and positive")
 	assert(type(hatch.PRESERVE_PROGRESSION_RESERVE) == "boolean", "PRESERVE_PROGRESSION_RESERVE must be boolean")
+	assert(type(hatch.HATCH_ONE_EGG_ONCE) == "boolean" and type(hatch.LOG_EGG_DETAILS) == "boolean", "Single-hatch/detail flags must be boolean")
+	assert(hatch.MAXIMUM_PLAN_CANDIDATES <= 6, "Compact egg plan supports at most six candidates")
+	if hatch.HATCH_ONE_EGG_ONCE then
+		local reason = require(script.Parent.PetPolicy).HatchIsolation(config)
+		assert(not reason, reason)
+	end
 	for _, currency in ipairs(hatch.ALLOWED_CURRENCIES) do assert(table.find({ "Coins", "Gems", "Tickets", "Pearls" }, currency), "Unsupported hatch currency") end
 	if pets.AUTO_HATCH or pets.AUTO_EQUIP then assert(pets.ENABLE_PET_INTELLIGENCE, "Pet actions require ENABLE_PET_INTELLIGENCE") end
 	assert(type(pets.EQUIP_OWNED_TEAM_ONCE) == "boolean" and type(pets.LOG_TEAM_DETAILS) == "boolean", "Owned-team test/detail flags must be boolean")
@@ -217,6 +223,7 @@ function OCController:Log(kind, message, explicitDetail)
 		local immediate = kind == "INIT" or kind == "SCOPE" or kind == "CONTROL" or kind == "GOAL" or kind == "SUMMARY"
 			or kind == "ISLAND][VERIFIED" or kind == "WORLD][VERIFIED" or kind == "UPGRADE][VERIFIED" or kind == "FARM][RETURN"
 			or kind == "PET][ANALYSIS" or kind == "PET][VERIFIED" or kind == "PET][TEAM_PLAN" or kind == "PET][EQUIP_RESULT"
+			or kind == "EGG_PLAN" or kind == "HATCH_RESULT"
 		if kind == "FARM][TRAVEL" then immediate = not message:match("^Request ") end
 		local blocker = kind == "FARM][FALLBACK" or kind == "WORLD][GATE_APPROACH" or kind == "DIAGNOSTIC" or kind == "UNAVAILABLE"
 			or kind:find("ERROR", 1, true) ~= nil or kind == "ISLAND][CONTACT" or kind == "PET][BLOCKER"

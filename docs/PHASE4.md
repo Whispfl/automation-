@@ -5,14 +5,116 @@ or coding, read the complete [master roadmap](https://app.notion.com/p/3f53d7e92
 [Phase 3](https://app.notion.com/p/3f53d7e9278d816c8494da53650aaa10),
 [Phase 4](https://app.notion.com/p/3f53d7e9278d81a796a9d3c505076363), and latest
 owner notes. The new explicit development authorization supersedes older deferral
-notes. It does not authorize hatch spending or equipment changes in the first test.
+notes. The default analysis test authorizes no actions; the separately selected active test explicitly authorizes one bounded hatch only. Later phases remain excluded.
 No Notion checkboxes or completion claims were changed.
 
-Validation: `node scripts/build.mjs` and `node scripts/test.mjs` pass **259 offline
-regressions** (227 preserved + 32 initial Phase 4 cases), official Luau compilation, all
-existing example Config checks, the new action-disabled pet Config, and the actual
-single-bundle custom initializer. Public artifact verification is required after
-publishing; these checks do not establish live gameplay results.
+Current validation: `node scripts/build.mjs` and `node scripts/test.mjs` pass
+**311 offline regressions** (227 baseline + 54 existing Phase 4 + 30 new hatch/egg
+cases), official Luau compilation, existing and new complete Configs, and the
+single-bundle initializer. Public bytes and matching release tag are verified after
+publication; offline fixtures are not live hatch verification.
+
+## Owner-confirmed owned-team success
+
+The owner tested commit `d64b6c8a303d43a2eedd9846dcbeb8c630c1a15b`, build
+`90ce16e63ccd`. Test A correctly showed current/proposed membership. Test B
+acknowledged **12 native equip/unequip commands**, kept active team 1, and confirmed
+the frozen seven-pet target with stack copies: **1 Yellow Fox, 2 Orange Deer,
+3 Red Golem, 1 Shiny Ice Kitty**. The protected Shiny Ice Kitty remained equipped.
+Received native Coins score changed **117 -> 1586**, about **13.6x**. The owner
+observed the game's Coin multiplier enter the **1k range**. Coins/Gems remained
+unchanged in the equipment test; authorization ended with no repeated swaps.
+This is owner-confirmed equipment and multiplier improvement. It does not turn
+the rounded HUD into a measured Coins-per-minute rate. Preserve the optimizer;
+no repeat equipment or earnings experiment is required before the hatch milestone.
+
+## Explainable eggs and isolated single hatch
+
+Master, complete Phase 4, Phase 3 and latest visible owner notes were reread before
+this task's planning/edits. Their older DEFERRED notes are superseded by current
+explicit Phase 4 development authorization. The connector's comment read returned
+only `suggested_edits_status=not_enabled`, with no discussions; no missing comment
+content is represented as read. No Notion checkboxes or completion status changed.
+
+- Egg estimates now compare base outcomes with actual equipped IDs/native current
+  score, not the projected owned-team optimum or hardcoded prior account values.
+  Owned-team analysis remains available and separate. Native GetEggPool receives
+  the inspected UI world/luck arguments and actual modifiers; normalized client
+  weights are estimates. Server Secret/Infinity transformations, variants and pity
+  remain UNKNOWN. Cost/cycle estimates do not establish total-time ROI.
+- `EGG_PLAN` shows up to three relevant candidates, the selected one first and the
+  recommendation next: world/island, cost, access, funds, reserve/spendable balance,
+  spending authorization, expected native gain, useful-pet names and estimated
+  weights. It distinguishes no useful base outcome, unavailable/locked/not loaded,
+  unknown evidence, insufficient funds, protected reserve and disabled/limited
+  configuration. Zero budgets do not invalidate read-only probability analysis.
+  `HATCH_SETTINGS.LOG_EGG_DETAILS` enables full evaluated outcomes; GetStatus
+  retains them. Currency groups are ranked separately with no invented conversion.
+- Coverage reports loaded original model count, pool-analysis count/cap, retained
+  native definition count and missing selected eggs. It never claims a full live
+  catalog scan, active event availability or ownership from catalog/assets alone.
+- `HATCH_ONE_EGG_ONCE` validates one selected Coins egg, one request/count and
+  positive explicit ceilings, protected progression reserves and every competing
+  action OFF. The default `EggAnalysis.luau` has zero budgets/AUTO_HATCH=false.
+  The separate `HatchOnceTest.luau` uses **Crystal Egg**, native base cost
+  **75,000 Coins** (Shared.Data.Eggs:55-56), with egg/session ceilings **75,000**.
+  Its native Unicorn/Flying Pig Coins stats are **135/310** (Pets:43-44), compared
+  with Red Golem's base **58** (Pets:71). These provide possible useful base outcomes
+  against the previously received lineup, not a live investment recommendation.
+  The real main's current XP/variants/enchants/team/modifiers, loaded access, funds
+  and world reserve must pass fresh analysis before any dispatch. The saved Studio
+  scene does not establish the main's current egg availability. No cheaper
+  mechanics-only fallback or automatic release of reserves is authorized.
+- Manual approach only: native unopened ProximityPrompt range **6.5 studs**
+  (ClientScript:569,616); native already-opened egg range **16** (879). No travel,
+  force-load, restriction bypass or pickup walking. Leaving range pauses dispatch;
+  active hatch ownership keeps Void/Zen farming away and never snaps position back.
+  Native first-open status requires the received counter and unlocked model.
+- Native `CheckInventorySpace` delegates to StatsUtil:IsInventoryFull. Ordinary
+  Amount capacity and digital native-byte fullness remain distinct; no byte-to-slot
+  conversion. Empty native AutoDelete is required conservatively, even if an entry
+  targets another pet/variant. Native GetAutoHatchStatus, presentation queue and
+  NextEggOpenAt/time guards must allow the request. OC asks the owner to adjust
+  native settings through blocker output; it never toggles auto-delete/auto-hatch.
+  No native AutoCraft interface was found in the inspected client; absence is not
+  proof of server-only rules. OC has no delete/craft/fuse/trade/consumption executor.
+- Reevaluate eligibility/cost/usefulness/funds/reserves/capacity before dispatch and
+  after native guards that may yield. Final checks compare detached account and
+  Config facts, identity, live range/model/world, cost, native capacity and conflict
+  guards before recording the request ledger and calling the existing adapter.
+- `HATCH_RESULT` requires received EggsOpened[selected] increase plus matching
+  inventory quantity gains. It records names, actual IDs/variants, new records or
+  existing-stack increments, counter delta, before/after team evidence and separate
+  observed currency changes. Real received copies are projected with their actual
+  native fields against the then-current team. NO_CURRENT_TEAM_IMPROVEMENT is an
+  honest successful hatch with no useful upgrade; unknown stats stay UNKNOWN.
+  External/manual/native activity cannot be excluded from attribution.
+- Counter/spending/animation alone do not prove a pet. Rejected or delayed outcomes
+  lacking matching evidence time out as UNCONFIRMED, not a fabricated server rejection
+  contract. Partial observed changes are retained. Late results after timeout do
+  not rewrite the uncertain verdict or reopen the budget. Uncertain transport also
+  consumes the ledger. Single-request authorization persists even if Config limits
+  are enlarged later; no equipment command is allowed in this isolated controller.
+  Pause/Resume retain pending evidence, deadlines and cost. Stop ends authorization,
+  including before dispatch, but cannot recall an already sent request.
+
+Run default analysis first near the intended egg. Inspect EGG_PLAN's actual current
+score, recommendation, loaded coverage, useful outcomes and every funding/access
+blocker. If no useful affordable candidate exists in that evaluated set, do not
+run a hatch merely for activity. If Crystal is not useful/eligible or another egg
+is recommended, report the plan before selecting a different test. The active
+Config will refuse blocked Crystal requests and has no fallback. Its 120-second
+wall-clock window starts when an eligible hatch task claims location, including
+manual approach and pauses. It requests one egg, waits up to 20 seconds for both
+received confirmations, reports usefulness and ends. Equipment/collection are
+later separately enabled integration tests; neither is enabled now. Re-running
+an active loader creates a new budget and must not be used as an uncertain retry.
+
+Pinned configs and bundle use the same `phase4-hatch-<build>` tag pointing to the
+tested commit; both can be loaded without auth. `scripts/test.mjs` checks that new
+examples name the current tested bundle release. Create/push that tag after the
+source/bundle commit, then `node scripts/verify-public.mjs` verifies exact bytes at
+main, commit and tag, and verifies the tag resolves to that commit.
 
 ## Owned-team visibility and one-time equipment candidate
 
@@ -30,7 +132,7 @@ content. No Notion checkboxes were changed. Phase 3 carryovers below remain open
 This candidate passes **281 offline regressions** (259 prior + 22 new owned-team
 cases), official compilation, both complete test Configs and the custom bundle
 initializer. This remains **CODE PUBLISHED / READY FOR USER TEST** after push/raw
-verification, not live equipment PASS or complete Phase 4.
+verification, historically pending at publication; the owner-confirmed equipment result above now supersedes that pending status. Full Phase 4 remains open.
 
 - `[OC][PET][TEAM_PLAN]` prints the native equip limit, actual names/base IDs,
   variants, before/after estimate, record/quantity counts and bounded-search status.
@@ -96,7 +198,7 @@ island routes**. Starting Phase 4 is an explicit development transition carrying
 these gaps forward, not Phase 3 completion or verification.
 
 This delivery is the first incremental Phase 4 candidate. Offline fixtures are
-synthetic. Native hatch/equip results, live guards, location coordination and
+synthetic. Native hatch results, live hatch guards, location coordination and
 account-specific estimates still need owner-operated testing. Studio inspection
 was read-only; no scripts, objects, Luau execution or play-state changes there.
 The owner supplies PlaceId 85896571713843; the connected saved Game workspace
@@ -111,7 +213,7 @@ cannot independently establish its actual PlaceId.
 | Client.Gui.LootPoolViewer:601-613; Shared.Utils.GetEggPool/ApplyMultiplierToPool/GetRandomWeightedItem | Reproduce client UI world/luck pool arguments and normalized weights. Additional server Secret/Infinity odds, variants, pity and final effective odds remain UNKNOWN. |
 | StatsUtil:GetEggCost/GetLuckMultiplier/GetMaxEggHatches/GetHatchDuration | Actual account cost, native hatch capacity/duration and modifier-aware client estimates; not a server guarantee. |
 | StatsUtil:GetUsedPetStorage/GetMaxPetStorage/HasDigitalStorage/IsInventoryFull:615-714 | Ordinary storage counts Amount; Digital Storage counts JSON bytes. Native fullness checks apply; digital requests limited to one egg, never bytes converted to slots. |
-| ClientScript:616,879,926-931,986-1025; GetAutoHatchStatus:819 | HatchEgg(name,count), original Root range <=16, one initial hatch, NextEggOpenAt/native time, native auto-hatch conflict guard. Manual approach is required; no assumed egg-travel contract. |
+| ClientScript:616,879,926-931,986-1025; GetAutoHatchStatus:819 | HatchEgg(name,count), unopened prompt <=6.5 / opened Root <=16, one initial hatch, NextEggOpenAt/native time, native auto-hatch conflict guard. Manual approach is required; no assumed egg-travel contract. |
 | Client.Effects.HatchEgg:IsHatching:1796-1815; Shared.Framework.Utilities.Math.Time | Presentation/queue guard and native server clock; preserve native animations/speed. |
 | Client.Gui.Frames.Inventory:2140-2192; Shared.Framework.Network.Remote | EquipPet/UnequipPet with real base inventory ID; duplicate equipped IDs represent copies from Amount stacks. No bulk swap API guessed. |
 | LootPoolViewer AutoDelete reads; LocalData.Pets/Teams/TeamEquipped/EggsOpened | Native deletion entries must be empty before hatching. Received equipped multiplicity and egg-counter plus matching inventory delta verify observations; manual/external activity cannot be excluded. |
@@ -130,7 +232,7 @@ invocation and hatch animation are not verification of inventory/equipment.
   It preserves locked/protected/target and unknown-definition pets and existing
   Supers; new Super equips are deferred. Bounded search is not a global optimum.
 - Compare loaded, accessible permanent eggs by expected *incremental* base-pet
-  team benefit after owned-team improvements, client useful-outcome/target-name
+  team benefit against the actual equipped team (updated in the hatch slice), client useful-outcome/target-name
   probabilities, native cost and hatch cycle. Cost efficiency has no invented
   cross-currency conversion. Total travel/verification time remains UNKNOWN;
   cycle-time estimates are not total-time guarantees.

@@ -5,12 +5,14 @@ local HatchManager = {}
 HatchManager.__index = HatchManager
 
 function HatchManager.new(controller)
-	return setmetatable({ Controller = controller, RequestedHatches = 0, RequestCost = 0, VerifiedHatches = 0 }, HatchManager)
+	return setmetatable({ Controller = controller, RequestedHatches = 0, RequestCost = 0, VerifiedHatches = 0,
+		Once = controller.Config.HATCH_SETTINGS.HATCH_ONE_EGG_ONCE }, HatchManager)
 end
 
 function HatchManager:Ended()
 	local settings = self.Controller.Config.HATCH_SETTINGS
-	return self.RequestedHatches >= settings.MAXIMUM_SESSION_HATCHES or self.RequestCost >= settings.MAXIMUM_SESSION_COST
+	return self.EndReason ~= nil or self.Once and self.RequestedHatches >= 1
+		or self.RequestedHatches >= settings.MAXIMUM_SESSION_HATCHES or self.RequestCost >= settings.MAXIMUM_SESSION_COST
 		or (self.StartedAt ~= nil and os.clock() - self.StartedAt >= settings.MAXIMUM_SESSION_SECONDS)
 end
 
@@ -18,40 +20,73 @@ function HatchManager:Observe(raw)
 	local pending = self.Pending
 	if not pending then return end
 	local inv = PetPolicy.Inventory(raw)
+	local gained, changes = 0, {}
 	if inv then
-		local gained, changes = 0, {}
 		for id, pet in pairs(inv.ById) do
 			local before = pending.Before[id]
-			local amount = pet.Amount or 1
-			if pending.Pool[pet.Name] and (not before or before.Name == pet.Name and before.Shiny == pet.Shiny
-				and before.Mythic == pet.Mythic and before.XL == pet.XL and before.Super == pet.Super) then
-				local delta = amount - (before and (before.Amount or 1) or 0)
-				if delta > 0 then gained += delta table.insert(changes, { Id = id, Name = pet.Name, Quantity = delta }) end
+			if pending.Pool[pet.Name] and (not before or before.Name == pet.Name and (before.Shiny == true) == (pet.Shiny == true)
+				and (before.Mythic == true) == (pet.Mythic == true) and (before.XL == true) == (pet.XL == true)
+				and PetPolicy.Equal(before.Super or false, pet.Super or false)) then
+				local delta = (pet.Amount or 1) - (before and (before.Amount or 1) or 0)
+				if delta > 0 then
+					local variants = {} for _, flag in ipairs({ "Super", "XL", "Shiny", "Mythic" }) do if pet[flag] then table.insert(variants, flag) end end
+					gained += delta
+					table.insert(changes, { Id = id, Name = pet.Name, Quantity = delta, Variant = #variants > 0 and table.concat(variants, " ") or "Normal",
+						Shiny = pet.Shiny == true, Mythic = pet.Mythic == true, XL = pet.XL == true, Super = pet.Super, ExistingStack = before ~= nil })
+				end
 			end
 		end
-		-- Inventory delta plus corresponding received hatch counter; manual/native
-		-- actions can still contribute, so attribution remains qualified.
-		local counter = type(raw.EggsOpened) == "table" and raw.EggsOpened[pending.EggName]
-		if type(counter) == "number" and counter >= pending.Counter + pending.Count and gained >= pending.Count then
-			self.VerifiedHatches += pending.Count
-			self.LastResult = { Status = "INVENTORY_GAIN_OBSERVED", EggName = pending.EggName, Quantity = gained, Changes = changes,
-				BeforeBalance = pending.BeforeBalance, AfterBalance = raw[pending.Currency], Attribution = "Matching received counter/inventory delta; external/manual activity cannot be excluded" }
-			self.Pending = nil
-			self.Controller:Log("PET][VERIFIED", pending.EggName .. " | actual inventory +" .. tostring(gained) .. "; hatch counter advanced; equipment unchanged by hatch verification")
-			return
+	end
+	table.sort(changes, function(a, b) return a.Id < b.Id end)
+	local counter = raw and type(raw.EggsOpened) == "table" and raw.EggsOpened[pending.EggName] or nil
+	local delta = PetPolicy.Finite(counter) and counter % 1 == 0 and counter - pending.Counter or nil
+	local balances = {}
+	for currency, before in pairs(pending.BeforeBalances or {}) do
+		local after = raw and raw[currency]
+		balances[currency] = { Before = before, After = after, Delta = PetPolicy.Finite(after) and after - before or nil }
+	end
+	pending.Observed = { CounterDelta = delta, MatchedQuantity = gained, Changes = changes, Balances = balances }
+	local confirmed = delta ~= nil and delta >= pending.Count and gained >= pending.Count
+	if confirmed or os.clock() >= pending.Deadline then
+		self.LastResult = { Status = confirmed and "INVENTORY_GAIN_OBSERVED" or "UNCONFIRMED", EggName = pending.EggName,
+			Quantity = gained, RequestedQuantity = pending.Count, CounterBefore = pending.Counter, CounterAfter = counter, CounterDelta = delta, Changes = changes,
+			BeforeBalance = pending.BeforeBalance, AfterBalance = raw and raw[pending.Currency], Balances = balances,
+			TeamBefore = pending.TeamBefore, TeamAfter = inv and table.clone(inv.Team), TeamIndexBefore = pending.TeamIndex,
+			TeamIndexAfter = inv and inv.TeamIndex, OCEquipmentCommands = 0,
+			Attribution = "Matching received counter/inventory observations; external/manual activity cannot be excluded; balance change is separate evidence" }
+		if confirmed then self.VerifiedHatches += pending.Count
+		else
+			self.Fault = "Hatch acknowledgement timed out; rejection/delay/delivery unresolved. No automatic retry; request budget retained"
+			self.LastResult.Reason = self.Fault self.EndReason = self.Fault
 		end
+		self.Pending = nil
+		if self.Once then self.EndReason = self.EndReason or "Single request consumed; hatch result observed; no further spending/equipment" end
 	end
-	if os.clock() >= pending.Deadline then
-		self.Fault = "Hatch acknowledgement timed out; delivery/result unknown. No automatic retry; request budget retained"
-		self.LastResult = { Status = "UNCONFIRMED", EggName = pending.EggName, Reason = self.Fault }
-		self.Pending = nil self.Controller:Log("PET][BLOCKER", self.Fault)
+end
+
+function HatchManager:ResultText()
+	local r = self.LastResult
+	if not r then return "No hatch result" end
+	local pets, balances = {}, {}
+	for _, change in ipairs(r.Changes or {}) do
+		table.insert(pets, string.format("%s %s [%s] +%d%s; usefulness=%s; native gain=%s", change.Variant, change.Name, change.Id, change.Quantity,
+			change.ExistingStack and " (existing stack)" or "", change.Usefulness or "UNKNOWN", tostring(change.ActualIncrement or "UNKNOWN")))
 	end
+	for _, currency in ipairs({ "Coins", "Gems", "Tickets", "Pearls" }) do
+		local value = r.Balances and r.Balances[currency]
+		if value then table.insert(balances, currency .. " net=" .. (value.Delta ~= nil and string.format("%+.3f", value.Delta) or "UNKNOWN")) end
+	end
+	return string.format("%s | %s | requested=%s; matching inventory +%s; egg counter delta=%s | %s | observed %s (net, attribution unknown) | OC equipment commands=0 | %s",
+		r.EggName, r.Status, tostring(r.RequestedQuantity), tostring(r.Quantity), tostring(r.CounterDelta or "UNKNOWN"),
+		#pets > 0 and table.concat(pets, "; ") or "No matching received pet", #balances > 0 and table.concat(balances, ", ") or "balances UNKNOWN",
+		r.Reason or "Received hatch verified; an upgrade is not guaranteed. Request ledger retained")
 end
 
 function HatchManager:GetStatus()
 	return { RequestedHatches = self.RequestedHatches, RequestCost = self.RequestCost, VerifiedHatches = self.VerifiedHatches,
-		Pending = self.Pending and { EggName = self.Pending.EggName, Count = self.Pending.Count, Deadline = self.Pending.Deadline },
-		Location = self.Location, Fault = self.Fault, LastResult = self.LastResult, BestHatch = self.BestHatch }
+		Pending = self.Pending and { EggName = self.Pending.EggName, Count = self.Pending.Count, Deadline = self.Pending.Deadline, Observed = self.Pending.Observed },
+		Location = self.Location, Fault = self.Fault, LastResult = self.LastResult, BestHatch = self.BestHatch,
+		SingleHatch = self.Once, Ended = self:Ended(), EndReason = self.EndReason }
 end
 
 return HatchManager

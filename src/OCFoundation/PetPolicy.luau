@@ -204,70 +204,153 @@ function PetPolicy.Team(config, context)
 	return report
 end
 
+function PetPolicy.HatchIsolation(config)
+	local p, h = config.PET_SETTINGS, config.HATCH_SETTINGS
+	if not p.ENABLE_PET_INTELLIGENCE or not p.AUTO_HATCH or p.AUTO_EQUIP or p.EQUIP_OWNED_TEAM_ONCE
+		or p.OBJECTIVE_CURRENCY ~= "Coins" or not h.HATCH_ONE_EGG_ONCE then return "Single hatch requires explicit isolated Coins hatch authorization; equipment OFF" end
+	if #h.SELECTED_EGGS ~= 1 or #h.ALLOWED_CURRENCIES ~= 1 or h.ALLOWED_CURRENCIES[1] ~= "Coins"
+		or h.MAXIMUM_SESSION_HATCHES ~= 1 or h.MAXIMUM_BATCH_HATCHES ~= 1 or h.MAXIMUM_EGG_COST <= 0 or h.MAXIMUM_SESSION_COST <= 0
+		or h.ENABLE_BACKGROUND_PICKUPS or not h.PRESERVE_PROGRESSION_RESERVE then return "Single hatch requires one egg, one request, positive explicit Coins ceilings, protected reserve and no background pickups" end
+	for category, keys in pairs({
+		WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
+		FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" },
+		ISLAND_SETTINGS = { "AUTO_TRAVEL_BEST_ISLAND", "AUTO_EXPLORE_UNLOCKED_ISLANDS" },
+		PICKUP_SETTINGS = { "BULK_COLLECT_PICKUPS", "STATIONARY_ISOLATED_TEST" },
+		BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
+		UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
+		PET_SETTINGS = { "AUTO_DELETE_PETS", "AUTO_CRAFT_SHINY", "AUTO_FUSE_PETS" },
+		FALL_EVENT_SETTINGS = { "ENABLE_FALL_EVENT", "AUTO_REBIRTH", "AUTO_BUY_REBIRTH_UPGRADES", "AUTO_USE_FALL_ELIXIRS", "AUTO_BUY_AUTUMN_SHOP_ITEMS" },
+	}) do
+		for _, key in ipairs(keys) do if config[category][key] then return "Single hatch requires " .. category .. "." .. key .. " OFF" end end
+	end
+	return nil
+end
+
 function PetPolicy.Egg(config, snapshot, context, team, egg)
+	local h = config.HATCH_SETTINGS
 	local r = { Name = egg.Name, Status = "UNKNOWN", Eligible = egg.Accessible == true, InRange = egg.InRange == true,
-		Distance = egg.Distance, Cost = egg.Cost, Reason = egg.Reason, ProbabilityEvidence = "CLIENT_UI_POOL_ESTIMATE",
+		Loaded = egg.Loaded, AccessStatus = egg.AccessStatus or "UNKNOWN_ACCESS", World = egg.World, Island = egg.Island,
+		Distance = egg.Distance, Range = egg.Range, Cost = egg.Cost, Reason = egg.Reason, ProbabilityEvidence = "CLIENT_UI_POOL_ESTIMATE",
 		EffectiveServerOdds = "UNKNOWN", VariantOdds = "UNKNOWN", PityGuarantee = "UNKNOWN", TotalTimeSeconds = "UNKNOWN",
-		TravelTimeSeconds = "UNKNOWN", VerificationTimeSeconds = "UNKNOWN", StorageUnit = context.StorageUnit }
+		TravelTimeSeconds = "UNKNOWN", VerificationTimeSeconds = "UNKNOWN", StorageUnit = context.StorageUnit,
+		DurationSeconds = egg.Duration, NativeBatchCapacity = context.MaxHatches, Outcomes = {},
+		SpendingStatus = not config.PET_SETTINGS.AUTO_HATCH and "DISABLED_AUTO_HATCH" or (h.MAXIMUM_EGG_COST <= 0 or h.MAXIMUM_SESSION_COST <= 0) and "DISABLED_ZERO_BUDGET"
+			or not table.find(h.SELECTED_EGGS, egg.Name) and "NOT_SELECTED" or "AUTHORIZED_CONFIG" }
 	local cost = egg.Cost
-	if not r.Eligible or not cost or cost.Type ~= "Currency" or not PetPolicy.Finite(cost.Amount) or cost.Amount <= 0 then return r end
-	local reserve, reason = PetPolicy.Reserve(config, snapshot, cost.Currency)
-	r.Reserve = reserve
-	local balance = snapshot.Balances and snapshot.Balances[cost.Currency]
-	if not reserve or not PetPolicy.Finite(balance) then r.Reason = reason or "Balance unknown" return r end
-	r.Spendable = math.max(0, balance - reserve) r.Affordable = r.Spendable >= cost.Amount
-	r.DurationSeconds, r.NativeBatchCapacity = egg.Duration, context.MaxHatches
-	if team.Status ~= "ESTIMATE" or not context.ScoreNewPet or type(egg.Pool) ~= "table" then r.Reason = "Native team/pool estimate unavailable" return r end
+	if cost and cost.Type == "Currency" and PetPolicy.Finite(cost.Amount) and cost.Amount > 0 then
+		r.Balance = snapshot.Balances and snapshot.Balances[cost.Currency]
+		r.Reserve, r.ReserveReason = PetPolicy.Reserve(config, snapshot, cost.Currency)
+		if PetPolicy.Finite(r.Balance) then r.FundsAffordable = r.Balance >= cost.Amount end
+		if r.Reserve ~= nil and PetPolicy.Finite(r.Balance) then
+			r.Spendable = math.max(0, r.Balance - r.Reserve)
+			r.ReserveAllows = r.Spendable >= cost.Amount
+		end
+		r.Affordable = r.FundsAffordable == true and r.ReserveAllows == true
+		r.FundingStatus = r.FundsAffordable == nil and "UNKNOWN_BALANCE" or not r.FundsAffordable and "INSUFFICIENT_FUNDS"
+			or r.Reserve == nil and "UNKNOWN_RESERVE" or not r.ReserveAllows and "PROTECTED_RESERVE" or "AFFORDABLE"
+		if r.SpendingStatus == "AUTHORIZED_CONFIG" then
+			r.SpendingStatus = not table.find(h.ALLOWED_CURRENCIES, cost.Currency) and "CURRENCY_NOT_AUTHORIZED"
+				or cost.Amount > h.MAXIMUM_EGG_COST and "EGG_COST_CEILING" or cost.Amount > h.MAXIMUM_SESSION_COST and "SESSION_COST_CEILING" or "AUTHORIZED_CONFIG"
+		end
+	else r.FundingStatus = "UNKNOWN_NATIVE_COST" end
+	-- Funding/configuration/access are separate from the supported pool estimate.
+	-- Never substitute the hypothetical improved owned team for the actual team.
+	if egg.Loaded == false then r.Reason = egg.Reason return r end
+	if not cost or cost.Type ~= "Currency" or not PetPolicy.Finite(cost.Amount) or cost.Amount <= 0 then r.Reason = "Native currency cost unavailable/unsupported" return r end
+	if team.Status ~= "ESTIMATE" or not context.ScoreNewPet or type(egg.Pool) ~= "table" then r.Reason = "Insufficient native team/pool evidence" return r end
 	local total = 0
 	for _, entry in ipairs(egg.Pool) do
 		if not PetPolicy.Finite(entry.Chance) then r.Reason = "Unknown pool weight" return r end
 		total += entry.Chance
 	end
 	if total <= 0 then r.Reason = "Empty native pool" return r end
-	local expected, improveChance, targetChance, outcomes = 0, 0, 0, {}
+	local expected, improveChance, targetChance = 0, 0, 0
 	for _, entry in ipairs(egg.Pool) do
 		local item = entry.Item
 		if entry.Chance == 0 then continue end
 		if not item or item.Type ~= "Pet" or not (context.Pets or {})[item.Name] then r.Reason = "Unsupported pool outcome" return r end
-		local value = context.ScoreNewPet(item.Name, team.ProposedIds)
+		local value = context.ScoreNewPet(item.Name, team.BeforeIds)
 		if not PetPolicy.Finite(value) then r.Reason = "Native pet contribution unavailable" return r end
 		local probability = entry.Chance / total -- Inspected native weighted sampler; NOT verified server RNG.
-		local gain = math.max(0, value - team.ProjectedScore)
+		local gain = math.max(0, value - team.CurrentScore)
 		expected += gain * probability
 		if gain > 1e-6 then improveChance += probability end
 		if table.find(config.PET_SETTINGS.SELECTED_PETS, item.Name) then targetChance += probability end
-		table.insert(outcomes, { Name = item.Name, ClientPoolProbability = probability, IncrementalGain = gain })
+		table.insert(r.Outcomes, { Name = item.Name, ClientPoolProbability = probability, IncrementalGain = gain })
 	end
 	r.Status, r.ExpectedIncrement, r.ClientImprovementProbability, r.ClientTargetProbability = "ESTIMATE", expected, improveChance, targetChance
-	r.ExpectedIncrementPerCost, r.Outcomes = expected / cost.Amount, outcomes
+	r.BaselineScore, r.ExpectedIncrementPerCost = team.CurrentScore, expected / cost.Amount
 	if PetPolicy.Finite(egg.Duration) and egg.Duration > 0 and PetPolicy.Finite(context.MaxHatches) and context.MaxHatches >= 1 then
-		local batch = math.min(config.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES, context.MaxHatches, context.DigitalStorage and 1 or math.huge)
-		r.EffectiveCycleSeconds = math.max(egg.Duration, config.HATCH_SETTINGS.MINIMUM_REQUEST_INTERVAL_SECONDS)
+		local batch = math.min(h.MAXIMUM_BATCH_HATCHES, context.MaxHatches, context.DigitalStorage and 1 or math.huge)
+		r.EffectiveCycleSeconds = math.max(egg.Duration, h.MINIMUM_REQUEST_INTERVAL_SECONDS)
 		r.ExpectedIncrementPerSecond = expected * batch / r.EffectiveCycleSeconds
 		if improveChance > 0 then r.EstimatedSecondsToUsefulBasePet = r.EffectiveCycleSeconds / (batch * improveChance) end
 	end
-	r.Reason = "Base-pet incremental estimate after owned-team improvement; variants, additional Secret/Infinity odds and server pity unknown; travel/verification overhead unmeasured"
+	r.Reason = expected > 1e-6 and "Useful base-pet estimate against ACTUAL equipped team" or "NO_USEFUL_IMPROVEMENT in evaluated base-pet pool"
 	return r
 end
 
+function PetPolicy.EggBlocker(egg)
+	if not egg.Eligible then return egg.AccessStatus .. ": " .. tostring(egg.Reason) end
+	if egg.Status ~= "ESTIMATE" then return "INSUFFICIENT_EVIDENCE: " .. tostring(egg.Reason) end
+	if egg.ExpectedIncrement <= 1e-6 then return "NO_USEFUL_IMPROVEMENT in evaluated base-pet pool" end
+	if egg.FundingStatus ~= "AFFORDABLE" then return egg.FundingStatus .. (egg.ReserveReason and ": " .. egg.ReserveReason or "") end
+	if egg.SpendingStatus ~= "AUTHORIZED_CONFIG" then return egg.SpendingStatus end
+	return nil
+end
+
 function PetPolicy.Analyze(config, snapshot, context)
-	local report = { Team = PetPolicy.Team(config, context), Eggs = {}, Currency = context.Currency, AccountRevision = snapshot.Revision }
+	local report = { Team = PetPolicy.Team(config, context), Eggs = {}, Currency = context.Currency, AccountRevision = snapshot.Revision, Coverage = context.EggCoverage }
 	for _, egg in ipairs(context.Eggs or {}) do table.insert(report.Eggs, PetPolicy.Egg(config, snapshot, context, report.Team, egg)) end
 	table.sort(report.Eggs, function(a, b)
+		local ac, bc = a.Cost and a.Cost.Currency or "UNKNOWN", b.Cost and b.Cost.Currency or "UNKNOWN"
+		if ac ~= bc then
+			local x, y = table.find(config.HATCH_SETTINGS.ALLOWED_CURRENCIES, ac), table.find(config.HATCH_SETTINGS.ALLOWED_CURRENCIES, bc)
+			if (x ~= nil) ~= (y ~= nil) then return x ~= nil end
+			return ac < bc -- Separate currency groups; never compare their numeric EV/cost.
+		end
 		local x = a.Status == "ESTIMATE" and a.Eligible and a.Affordable and a.ExpectedIncrementPerCost or -1
 		local y = b.Status == "ESTIMATE" and b.Eligible and b.Affordable and b.ExpectedIncrementPerCost or -1
-		if x == y then
-			local p, q = a.ExpectedIncrementPerSecond or -1, b.ExpectedIncrementPerSecond or -1
-			return p == q and a.Name < b.Name or p > q
-		end
+		if x == y then return a.Name < b.Name end
 		return x > y
 	end)
 	for _, egg in ipairs(report.Eggs) do
 		if egg.Status == "ESTIMATE" and egg.Eligible and egg.Affordable and table.find(config.HATCH_SETTINGS.ALLOWED_CURRENCIES, egg.Cost.Currency)
-			and (egg.ExpectedIncrement > 1e-6 or egg.ClientTargetProbability > 0) then report.RecommendedEgg = egg break end
+			and egg.ExpectedIncrement > 1e-6 then report.RecommendedEgg = egg break end
 	end
-	report.Comparison = "Cost efficiency is within native currency units only; currencies have no invented conversion; total travel/verification time UNKNOWN"
+	report.Comparison = "Cost efficiency within native currency only; no invented conversion. Client base odds/XP=0 estimates; final server/variant/Secret/Infinity odds and pity UNKNOWN; total travel/verification time UNKNOWN"
 	return report
+end
+
+function PetPolicy.EggPlanText(config, report, details)
+	local h, coverage = config.HATCH_SETTINGS, report.Coverage or {}
+	local lines = { string.format("%s | actual equipped native score=%s | loaded=%s; pool analyses=%s/%s limit; native definitions=%s (%s permanent); limited loaded-model coverage | AUTO_HATCH=%s; egg/session budgets=%s/%s | recommendation=%s",
+		tostring(report.Currency), tostring(report.Team.CurrentScore or "UNKNOWN"), tostring(coverage.LoadedModels or "UNKNOWN"), tostring(coverage.Evaluated or #report.Eggs),
+		tostring(coverage.Limit or h.MAXIMUM_EGGS_ANALYZED), tostring(coverage.Definitions or "UNKNOWN"), tostring(coverage.PermanentDefinitions or "UNKNOWN"),
+		tostring(config.PET_SETTINGS.AUTO_HATCH), tostring(h.MAXIMUM_EGG_COST), tostring(h.MAXIMUM_SESSION_COST), report.RecommendedEgg and report.RecommendedEgg.Name or "NONE within evaluated accessible affordable estimates") }
+	local display, seen = {}, {}
+	-- Always explain the explicitly selected candidate, even when rejected/missing.
+	for _, name in ipairs(h.SELECTED_EGGS) do for _, egg in ipairs(report.Eggs) do if egg.Name == name and not seen[name] then table.insert(display, egg) seen[name] = true end end end
+	if report.RecommendedEgg and not seen[report.RecommendedEgg.Name] then table.insert(display, report.RecommendedEgg) seen[report.RecommendedEgg.Name] = true end
+	for _, egg in ipairs(report.Eggs) do if not seen[egg.Name] then table.insert(display, egg) seen[egg.Name] = true end end
+	for index, egg in ipairs(display) do
+		if not details and index > h.MAXIMUM_PLAN_CANDIDATES then break end
+		local useful = {}
+		for _, outcome in ipairs(egg.Outcomes) do
+			if details or outcome.IncrementalGain > 1e-6 then
+				table.insert(useful, string.format("%s %.4g%% (+%.4g)", outcome.Name, outcome.ClientPoolProbability * 100, outcome.IncrementalGain))
+			end
+		end
+		local cost = egg.Cost
+		table.insert(lines, string.format("%s @ %s/%s | cost=%s %s | access=%s; funds=%s; reserve=%s; spendable=%s; funding=%s; config=%s | EV=%s native score/egg; useful odds=%s%%; cycle=%ss | %s | %s",
+			egg.Name, tostring(egg.World or "UNKNOWN"), tostring(egg.Island or "ground/unknown"), tostring(cost and cost.Amount or "UNKNOWN"), tostring(cost and cost.Currency or "UNKNOWN"),
+			egg.AccessStatus, tostring(egg.Balance or "UNKNOWN"), tostring(egg.Reserve or "UNKNOWN"), tostring(egg.Spendable or "UNKNOWN"), egg.FundingStatus, egg.SpendingStatus,
+			egg.Status == "ESTIMATE" and string.format("%.5g", egg.ExpectedIncrement) or "UNKNOWN",
+			egg.Status == "ESTIMATE" and string.format("%.5g", egg.ClientImprovementProbability * 100) or "UNKNOWN", tostring(egg.EffectiveCycleSeconds or "UNKNOWN"),
+			#useful > 0 and "useful base outcomes: " .. table.concat(useful, ", ") or "no useful supported base outcomes", PetPolicy.EggBlocker(egg) or "Useful affordable estimate; eligible for explicitly bounded request"))
+	end
+	table.insert(lines, report.Comparison)
+	return table.concat(lines, "\n")
 end
 
 return PetPolicy

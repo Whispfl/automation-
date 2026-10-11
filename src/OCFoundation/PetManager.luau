@@ -13,6 +13,12 @@ local function cloneRecords(inv)
 	return result
 end
 
+local function copyFacts(value)
+	if type(value) ~= "table" then return value end
+	local result = {} for key, entry in pairs(value) do result[key] = copyFacts(entry) end
+	return result
+end
+
 function PetManager.new(controller)
 	local self = setmetatable({ Controller = controller, Config = controller.Config, EquipCommands = 0 }, PetManager)
 	self.Hatch = HatchManager.new(controller)
@@ -71,17 +77,28 @@ end
 function PetManager:Observe()
 	local raw = self.Controller.Reader:GetLiveProfile()
 	self.Hatch:Observe(raw) -- A missing profile must still expire an outstanding acknowledgement deadline.
-	if self.Hatch.LastResult and self.Hatch.LastResult ~= self.LastHatchEvaluated and self.Hatch.LastResult.Changes then
+	if self.Hatch.LastResult and self.Hatch.LastResult ~= self.LastHatchEvaluated then
 		self.LastHatchEvaluated = self.Hatch.LastResult
 		local _, context = self:Fresh()
-		for _, change in ipairs(self.Hatch.LastResult.Changes) do
+		local inv = context.Inventory
+		local actual = inv and context.ScoreTeam and context.ScoreTeam(inv.Team)
+		self.Hatch.LastResult.UsefulnessBaselineScore = actual
+		self.Hatch.LastResult.UsefulnessBaselineIds = inv and table.clone(inv.Team)
+		for _, change in ipairs(self.Hatch.LastResult.Changes or {}) do
 			local pet = context.Inventory and context.Inventory.ById[change.Id]
 			local score = pet and context.PetScore and context.PetScore(pet)
-			if Policy.Finite(score) and (not self.Hatch.BestHatch or self.Hatch.BestHatch.Currency ~= context.Currency or score > self.Hatch.BestHatch.Score) then
+			local received = pet and context.ScoreReceivedPet and context.ScoreReceivedPet(change.Id, inv.Team)
+			if self.Hatch.LastResult.Status == "INVENTORY_GAIN_OBSERVED" and Policy.Finite(actual) and Policy.Finite(received) then
+				change.ActualIncrement = math.max(0, received - actual)
+				change.Usefulness = change.ActualIncrement > 1e-6 and "USEFUL_NATIVE_TEAM_ESTIMATE" or "NO_CURRENT_TEAM_IMPROVEMENT"
+			else change.Usefulness = "UNKNOWN" end
+			if self.Hatch.LastResult.Status == "INVENTORY_GAIN_OBSERVED" and Policy.Finite(score)
+				and (not self.Hatch.BestHatch or self.Hatch.BestHatch.Currency ~= context.Currency or score > self.Hatch.BestHatch.Score) then
 				self.Hatch.BestHatch = { Id = change.Id, Name = change.Name, Score = score, Currency = context.Currency,
 					Quantity = change.Quantity, Evidence = "Native score of actually received inventory gain; attribution qualified" }
 			end
 		end
+		self.Controller:Log("HATCH_RESULT", self.Hatch:ResultText())
 	end
 	if self.Hatch.Fault then self.Fault = self.Hatch.Fault end
 	local attempt = self.Attempt
@@ -129,6 +146,7 @@ end
 
 function PetManager:State()
 	return { Pending = self.Hatch.Pending or self.PendingEquip, Fault = self.Fault, Location = self.Hatch.Location,
+		HatchOnce = self.Hatch.Once,
 		SessionEnded = self.Hatch:Ended(), RequestCost = self.Hatch.RequestCost, RequestedHatches = self.Hatch.RequestedHatches,
 		EquipCommands = self.EquipCommands, Attempt = self.Attempt, EquipmentContinuation = self.Transaction and not self.PendingEquip and not self.Fault and not (self.Attempt and self.Attempt.Ended)
 			and { Kind = "TEAM_ADD", Transaction = self.Transaction, OwnsLocation = self.Hatch.Location ~= nil } or nil }
@@ -141,21 +159,18 @@ function PetManager:Analyze(force)
 		self.Report.Account = { Name = self.Controller.Reader.Player and self.Controller.Reader.Player.Name,
 			UserId = self.Controller.Reader.Player and self.Controller.Reader.Player.UserId }
 		self.AnalysisAt = os.clock()
-		local team, egg = self.Report.Team, self.Report.RecommendedEgg
+		local team = self.Report.Team
 		local message = team.Status == "ESTIMATE" and string.format("%s team: %d records / %d pets; equipped=%d; native score %.3f -> %.3f (estimate)",
 			tostring(team.Currency), team.RecordCount, team.Quantity, team.EquippedCount, team.CurrentScore, team.ProjectedScore)
 			or "Team analysis UNKNOWN: " .. tostring(team.Reason)
-		if egg then
-			message ..= egg.Status == "ESTIMATE" and string.format(" | %s: %s %s; expected gain %.4f; useful base odds %.4f%% (client estimate); final odds/pity UNKNOWN",
-				egg.Name, tostring(egg.Cost.Amount), egg.Cost.Currency, egg.ExpectedIncrement, egg.ClientImprovementProbability * 100)
-				or " | " .. egg.Name .. ": UNKNOWN (" .. tostring(egg.Reason) .. ")"
-			message ..= " | hatch cycle=" .. tostring(egg.EffectiveCycleSeconds or "UNKNOWN") .. "s; total time UNKNOWN"
-		else
-			message ..= " | No useful affordable egg estimate; native models=" .. tostring(#self.Report.Eggs)
-			if self.Report.Eggs[1] then message ..= "; " .. tostring(self.Report.Eggs[1].Reason) end
-		end
 		message ..= " | hatch=" .. tostring(self.Config.PET_SETTINGS.AUTO_HATCH) .. "; equip=" .. tostring(self.Config.PET_SETTINGS.AUTO_EQUIP)
 		if self.LastAnalysisMessage ~= message then self.Controller:Log("PET][ANALYSIS", message) self.LastAnalysisMessage = message end
+		local eggPlan = Policy.EggPlanText(self.Config, self.Report, false)
+		if self.LastEggPlan ~= eggPlan then
+			self.Controller:Log("EGG_PLAN", eggPlan)
+			if self.Config.HATCH_SETTINGS.LOG_EGG_DETAILS then self.Controller:Log("EGG_DETAILS", Policy.EggPlanText(self.Config, self.Report, true), true) end
+			self.LastEggPlan = eggPlan
+		end
 		local teamMessage = Policy.TeamText(team, false)
 		local details = Policy.TeamText(team, true)
 		if self.LastTeamPlan ~= details then
@@ -202,6 +217,7 @@ function PetManager:Select(plan)
 	end
 	if decision.Kind == "HATCH" then
 		self.Hatch.StartedAt = self.Hatch.StartedAt or os.clock()
+		self.Hatch.UserId = self.Hatch.UserId or self.Controller.Reader.Player.UserId
 		for _, egg in ipairs(context.Eggs) do
 			if egg.Name == decision.EggName then self.Hatch.Location = self.Hatch.Location or
 				{ EggName = egg.Name, Model = egg.Model, World = egg.World, Island = egg.Island } break end
@@ -239,6 +255,7 @@ function PetManager:Prepare(decision, token)
 		return c.State == "RUNNING" and (not token or not token:CheckCancelled())
 	end
 	if decision.Kind == "TEAM" or decision.Kind == "TEAM_ADD" then
+		if self.Hatch.Once then return nil, nil, nil, "Isolated single-hatch controller never authorizes equipment" end
 		if not config.PET_SETTINGS.AUTO_EQUIP then return nil, nil, nil, "Team changes disabled" end
 		if config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE and os.clock() < (self.NextEquipAt or -math.huge) then return nil, nil, nil, "OC equipment request pacing; no native server cooldown assumed" end
 		if config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE then
@@ -317,14 +334,21 @@ function PetManager:Prepare(decision, token)
 		return command, id
 	end
 	if decision.Kind ~= "HATCH" or not config.PET_SETTINGS.AUTO_HATCH or self.Hatch:Ended() then return nil, nil, nil, "Hatch authorization/session ended" end
+	if self.Hatch.Once then
+		local reason = Policy.HatchIsolation(config)
+		if reason then return nil, nil, nil, reason end
+	end
+	local authorization = copyFacts(config)
+	local accountId = c.Reader.Player.UserId
+	if self.Hatch.UserId and self.Hatch.UserId ~= accountId then return nil, nil, nil, "Hatch account changed; no dispatch" end
 	local report = c.Brain:AnalyzePets(snapshot, context)
 	local fresh = c.Brain:PlanPets(report, context, self:State())
 	if fresh.Kind ~= "HATCH" or fresh.EggName ~= decision.EggName then return nil, nil, nil, "Fresh useful hatch/budget decision unavailable" end
 	local egg for _, candidate in ipairs(context.Eggs) do if candidate.Name == decision.EggName then egg = candidate break end end
-	if not egg or not egg.InRange then return nil, nil, nil, "Manual approach within native 16-stud egg range required; location retained without teleport" end
+	if not egg or not egg.InRange then return nil, nil, nil, "Manual approach within native egg range required (unopened 6.5/opened 16 studs); location retained without teleport" end
 	local settings = config.HATCH_SETTINGS
 	local count = math.min(decision.Count, fresh.Count)
-	if egg.Unlocked ~= true then count = math.min(count, 1) end -- Native first hatch is one egg.
+	if egg.Opened ~= true then count = math.min(count, 1) end -- Native first hatch is one egg.
 	local time, presentation = c.Knowledge:Get("Time"), c.Knowledge:Get("HatchPresentation")
 	local scripts = c.Reader.Player and c.Reader.Player:FindFirstChild("PlayerScripts")
 	local client = scripts and scripts:FindFirstChild("ClientScript")
@@ -351,18 +375,52 @@ function PetManager:Prepare(decision, token)
 	local raw = c.Reader:GetLiveProfile()
 	if not raw or type(raw.EggsOpened) ~= "table" then return nil, nil, nil, "Native egg counter map unavailable" end
 	local counter = raw.EggsOpened[egg.Name] or 0
-	if not Policy.Finite(counter) then return nil, nil, nil, "Native egg counter unavailable" end
+	if not Policy.Finite(counter) or counter % 1 ~= 0 then return nil, nil, nil, "Native egg counter unavailable" end
 	local names = {} for _, entry in ipairs(egg.Pool) do names[entry.Item.Name] = true end
 	if not allowed() then return nil, nil, nil, "Cancelled before dispatch" end
 	local guarded, guardReason = c.Farming.Mechanics:Guard()
 	if not guarded or not allowed() then return nil, nil, nil, guardReason or "Cancelled before dispatch" end
-	-- A yielding native guard must not leave stale funds/inventory at dispatch.
-	if not Policy.SameTeam((Policy.Inventory(raw) or {}).Team, inv.Team) or raw[egg.Cost.Currency] ~= snapshot.Balances[egg.Cost.Currency]
-		then return nil, nil, nil, "Account changed during native hatch guards" end
+	-- Recheck native guards/cost after the general guard, which may yield. No
+	-- invocation, animation or cost deduction is accepted as a received pet.
+	local finalAutoOK, finalAuto = pcall(function() return status:Invoke() end)
+	local finalHatchOK, finalHatch = pcall(function() return presentation:IsHatching() end)
+	local finalTimeOK, finalTime = pcall(time.now)
+	local stats = c.Knowledge:Get("StatsUtil")
+	local worldUtil = c.Knowledge:Get("WorldUtil")
+	local costOK, finalCost = pcall(function() return stats:GetEggCost(c.Reader.Player, context.AccountFacts, egg.Name) end)
+	local worldOK, finalWorld = pcall(function() return worldUtil:GetPlayerWorld(c.Reader.Player) end)
+	local capacityOK, capacityAllows = pcall(function()
+		local facts = context.AccountFacts
+		local digital = stats:HasDigitalStorage(facts)
+		local free = stats:GetMaxPetStorage(facts) - stats:GetUsedPetStorage(facts)
+		local maxHatches = stats:GetMaxEggHatches(facts)
+		return stats:IsInventoryFull(facts) == false and type(digital) == "boolean" and Policy.Finite(maxHatches) and maxHatches >= count
+			and (digital and count == 1 or not digital and free >= count)
+	end)
+	local live = c.Reader:GetLiveProfile()
+	local finalNextAt = c.Reader.Player:GetAttribute("NextEggOpenAt")
+	local part = egg.Model.Parent and egg.Model:IsDescendantOf(workspace) and egg.Model:FindFirstChild("Root")
+	local root = c.Farming.Tracker:Root()
+	if not allowed() or self.Hatch:Ended() or self.Hatch.Pending or self.PendingEquip or self.Fault
+		or not Policy.Equal(config, authorization) or c.Reader.Player.UserId ~= accountId
+		or not live or not Policy.Equal(live, context.AccountFacts) or live[egg.Cost.Currency] ~= snapshot.Balances[egg.Cost.Currency]
+		then return nil, nil, nil, "Account/authorization changed during final hatch guards; no request" end
+	if not capacityOK or capacityAllows ~= true then return nil, nil, nil, "Native inventory capacity changed during final guards; no request" end
+	if not costOK or not Policy.Equal(finalCost, egg.Cost) or not worldOK or finalWorld ~= egg.World
+		or not part or not part:IsA("BasePart") or not root or (part.Position - root.Position).Magnitude > egg.Range
+		or egg.Model:GetAttribute("Unlocked") ~= egg.Unlocked then return nil, nil, nil, "Native egg/cost/range changed during final guards; approach manually" end
+	if not finalAutoOK or finalAuto ~= nil or not finalHatchOK or finalHatch ~= false
+		or not finalTimeOK or not Policy.Finite(finalTime) or finalNextAt ~= nil and not Policy.Finite(finalNextAt)
+		or finalNextAt and finalNextAt > finalTime then return nil, nil, nil, "Native hatch/cooldown changed during final guards; no request" end
+	if self.Hatch.Once and (count ~= 1 or Policy.HatchIsolation(config)) then return nil, nil, nil, "Single hatch authorization changed" end
+	self.Hatch.UserId = accountId
+	self.Hatch.StartedAt = self.Hatch.StartedAt or os.clock()
 	self.Hatch.RequestedHatches += count self.Hatch.RequestCost += egg.Cost.Amount * count
 	self.Hatch.NextRequestAt = os.clock() + math.max(settings.MINIMUM_REQUEST_INTERVAL_SECONDS, egg.Duration)
+	local balances = {} for _, currency in ipairs({ "Coins", "Gems", "Tickets", "Pearls" }) do if Policy.Finite(live[currency]) then balances[currency] = live[currency] end end
 	self.Hatch.Pending = { Before = cloneRecords(inv), Pool = names, Count = count, Counter = counter,
-		EggName = egg.Name, Currency = egg.Cost.Currency, BeforeBalance = raw[egg.Cost.Currency], Deadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS }
+		EggName = egg.Name, Currency = egg.Cost.Currency, BeforeBalance = live[egg.Cost.Currency], BeforeBalances = balances,
+		TeamBefore = table.clone(inv.Team), TeamIndex = inv.TeamIndex, Deadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS }
 	return "HatchEgg", egg.Name, count
 end
 
@@ -401,6 +459,7 @@ function PetManager:Halt(stopped)
 		self.Attempt = self.Attempt or { BeforeIds = {}, TargetIds = {} }
 		self:FinishAttempt("STOPPED", "Owner stopped equipment test; any dispatched request may still be received; no automatic continuation")
 	end
+	if stopped and self.Hatch.Once then self.Hatch.EndReason = "Owner stopped single-hatch test; no new request; dispatched request cannot be recalled" end
 	if self.Transaction and not self.PendingEquip and not self.Attempt then self.Transaction = nil end
 end
 function PetManager:GetStatus()

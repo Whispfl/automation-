@@ -38,7 +38,7 @@ console.log('[OC] Static bundle and configuration checks passed');
 
 const executable = process.env.LUAU_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau.exe' : 'luau');
 const compiler = process.env.LUAU_COMPILE_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau-compile.exe' : 'luau-compile');
-const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau'), path.join(root, 'examples/PickupOnly.luau'), path.join(root, 'examples/StationaryOnly.luau'), path.join(root, 'examples/CombinedFarming.luau'), path.join(root, 'examples/UpgradeTest.luau'), path.join(root, 'examples/Progression.luau'), path.join(root, 'examples/Pets.luau'), path.join(root, 'examples/PetEquipTest.luau')], { encoding: 'utf8' });
+const compile = spawnSync(compiler, ['--null', ...source.modules.map(m => path.join(root, 'src/OCFoundation', m.name + '.luau')), path.join(root, 'src/OC.luau'), path.join(root, 'dist/OC.lua'), path.join(root, 'examples/Loader.luau'), path.join(root, 'examples/PickupOnly.luau'), path.join(root, 'examples/StationaryOnly.luau'), path.join(root, 'examples/CombinedFarming.luau'), path.join(root, 'examples/UpgradeTest.luau'), path.join(root, 'examples/Progression.luau'), path.join(root, 'examples/Pets.luau'), path.join(root, 'examples/PetEquipTest.luau'), path.join(root, 'examples/EggAnalysis.luau'), path.join(root, 'examples/HatchOnceTest.luau')], { encoding: 'utf8' });
 if (compile.error) throw new Error('Official Luau CLI is required. Set LUAU_BIN and LUAU_COMPILE_BIN. ' + compile.error.message);
 process.stdout.write(compile.stdout);
 process.stderr.write(compile.stderr);
@@ -85,7 +85,7 @@ process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
 assert.equal(run.status, 0, 'Foundation behavior tests failed');
 
-for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false]]) {
+for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
   const configText = configPrefix(contents);
   if (filename === 'CombinedFarming.luau') {
@@ -118,6 +118,17 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
   }
   if (filename === 'Pets.luau') assert(configText.includes('AUTO_EQUIP = false') && configText.includes('EQUIP_OWNED_TEAM_ONCE = false'));
   if (filename === 'PetEquipTest.luau') assert(configText.includes('AUTO_EQUIP = true') && configText.includes('EQUIP_OWNED_TEAM_ONCE = true'));
+  if (filename === 'EggAnalysis.luau' || filename === 'HatchOnceTest.luau') {
+    assert(configText.includes('AUTO_EQUIP = false') && configText.includes('ENABLE_PET_INTELLIGENCE = true'));
+    for (const key of ['AUTO_DELETE_PETS', 'AUTO_CRAFT_SHINY', 'AUTO_FUSE_PETS', 'ENABLE_WORLD_PROGRESSION',
+      'AUTO_DISCOVER_ISLANDS', 'AUTO_UNLOCK_WORLDS', 'AUTO_TRAVEL_FOR_PROGRESSION', 'AUTO_FARM_UNLOCK_REQUIREMENTS',
+      'AUTO_RESOURCE_FARM', 'AUTO_TRAVEL_BEST_ISLAND', 'AUTO_BLOW_BUBBLES', 'AUTO_SELL_BUBBLES', 'ENABLE_SMART_UPGRADES',
+      'ENABLE_BACKGROUND_PICKUPS', 'BULK_COLLECT_PICKUPS']) assert(configText.includes(key + ' = false'));
+    assert(configText.includes('PRESERVE_PROGRESSION_RESERVE = true'));
+    assert(contents.includes('/phase4-hatch-' + generated.buildId + '/dist/OC.lua'), 'Hatch example must pin this tested bundle release');
+    if (filename === 'EggAnalysis.luau') assert(configText.includes('AUTO_HATCH = false') && configText.includes('MAXIMUM_EGG_COST = 0') && configText.includes('MAXIMUM_SESSION_COST = 0'));
+    else assert(configText.includes('HATCH_ONE_EGG_ONCE = true') && configText.includes('MAXIMUM_SESSION_HATCHES = 1') && configText.includes('MAXIMUM_EGG_COST = 75000') && configText.includes('MAXIMUM_SESSION_COST = 75000'));
+  }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;
   await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);
   const exampleRun = spawnSync(executable, [testPath], { encoding: 'utf8' });

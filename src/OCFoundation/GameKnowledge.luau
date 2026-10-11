@@ -47,7 +47,7 @@ function GameKnowledge:PetContract()
 		Stats = "Shared.Utils.Stats.PetUtil:GetStats; StatsUtil:GetCurrencyMultiplier/GetBubblePower on detached team projections",
 		Pool = "Client.Gui.LootPoolViewer:601-613; GetEggPool; ApplyMultiplierToPool; GetRandomWeightedItem normalizes Chance weights",
 		Probability = "CLIENT_UI_ESTIMATE; effective server Secret/Infinity/variant/pity odds UNKNOWN",
-		Hatch = "ClientScript:879,926-931,986-1025; native Root distance <=16, account cost/capacity, NextEggOpenAt; HatchEgg(name,count)",
+		Hatch = "ClientScript:569,616,879,926-931,986-1025; unopened prompt <=6.5 studs, opened egg <=16; account cost/capacity, NextEggOpenAt; HatchEgg(name,count)",
 		Equip = "Client.Gui.Frames.Inventory:2140-2192; EquipPet/UnequipPet(base ID); duplicate team IDs represent stacked copies",
 		EquipmentRules = "Inventory:2615-2637 EquipTeam exists, but this test preserves the current TeamEquipped; Locked:2229; no pet-favorite field found; no verified server cooldown",
 		Space = "StatsUtil:GetUsedPetStorage ordinary Amount counts or Digital Storage JSON bytes; IsInventoryFull native guard; digital requests limited to one egg",
@@ -137,8 +137,34 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			end
 			return best
 		end
+		-- Evaluate one actually received copy with its real XP/variant/enchants.
+		-- No synthetic inventory entry and no equipment action.
+		context.ScoreReceivedPet = function(id, ids)
+			local pet = context.Inventory.ById[id]
+			if not pet or pet.Super or not context.Pets or not context.Pets[pet.Name] then return nil end
+			local best = score(ids)
+			if not PetPolicy.Finite(best) or not PetPolicy.Finite(context.MaxEquipped) then return nil end
+			if (PetPolicy.Counts(ids)[id] or 0) >= (pet.Amount or 1) then return best end
+			for slot = 1, #ids + (#ids < context.MaxEquipped and 1 or 0) do
+				local old = context.Inventory.ById[ids[slot]]
+				if old and (old.Super or PetPolicy.Protected(self.Reader.Config, old, context.Pets[old.Name])
+					or not context.Pets[old.Name] or not context.Pets[old.Name].Rarity) then continue end
+				local proposal = table.clone(ids) proposal[slot] = id
+				local value = score(proposal)
+				if not PetPolicy.Finite(value) then return nil end
+				best = math.max(best, value)
+			end
+			return best
+		end
 	end
 	local definitions = self:Get("Eggs") or {}
+	local coverage = { Definitions = 0, PermanentDefinitions = 0, LoadedModels = 0, Evaluated = 0, Limit = self.Reader.Config.HATCH_SETTINGS.MAXIMUM_EGGS_ANALYZED,
+		Scope = "Loaded native models only; retained definitions/assets do not establish live availability", MissingSelected = {} }
+	context.EggCoverage = coverage
+	for name, def in pairs(definitions) do
+		coverage.Definitions += 1
+		if def.World and not def.Event and not def.ProductId and not def.IsAdminEgg and name ~= "Infinity Egg" then coverage.PermanentDefinitions += 1 end
+	end
 	local currentWorld = native(self:Get("WorldUtil"), "GetPlayerWorld", self.Reader.Player)
 	local root = tracker:Root()
 	local byName = {}
@@ -163,16 +189,36 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			local ok, value = pcall(pools, model.Name, poolWorld, luck, nil, nil, profile)
 			if ok then pool = value end
 		end
-		byName[model.Name] = { Name = model.Name, Model = model, World = world, Island = island, Distance = distance,
-			Accessible = accessible == true, InRange = accessible and world == currentWorld and distance ~= nil and distance <= 16,
+		local opened = model:GetAttribute("Unlocked") == true and type(profile.EggsOpened) == "table" and profile.EggsOpened[model.Name] ~= nil
+		local range = opened and 16 or 6.5
+		local access = not world and "UNKNOWN_ACCESS" or (def.Event or def.ProductId or def.IsAdminEgg or model.Name == "Infinity Egg") and "UNSUPPORTED"
+			or accessible and "ACCESSIBLE" or "LOCKED_OR_UNKNOWN_UNLOCK"
+		byName[model.Name] = { Name = model.Name, Model = model, World = world, Island = island, Distance = distance, Range = range,
+			AccessStatus = access, Loaded = true, Accessible = accessible == true, InRange = accessible and world == currentWorld and distance ~= nil and distance <= range,
 			Cost = native(stats, "GetEggCost", self.Reader.Player, profile, model.Name), Pool = pool, Luck = luck,
-			Duration = native(stats, "GetHatchDuration", profile), Unlocked = model:GetAttribute("Unlocked"),
+			Duration = native(stats, "GetHatchDuration", profile), Opened = opened, Unlocked = model:GetAttribute("Unlocked"),
 			Reason = accessible and "Scene-present native egg; account world/island access confirmed" or "Premium/event/special/locked or unknown access; no hatch action" }
 	end
 	local names = {} for name in pairs(byName) do table.insert(names, name) end table.sort(names)
+	coverage.LoadedModels = #names
+	-- Explicit selection is never lost behind the projection cap.
+	table.sort(names, function(a, b)
+		local x, y = table.find(self.Reader.Config.HATCH_SETTINGS.SELECTED_EGGS, a) ~= nil, table.find(self.Reader.Config.HATCH_SETTINGS.SELECTED_EGGS, b) ~= nil
+		return x == y and a < b or x and not y
+	end)
 	for index, name in ipairs(names) do
 		if index > self.Reader.Config.HATCH_SETTINGS.MAXIMUM_EGGS_ANALYZED then context.EggLimitReached = true break end
 		table.insert(context.Eggs, byName[name])
+	end
+	coverage.Evaluated, coverage.LimitReached = #context.Eggs, context.EggLimitReached == true
+	for _, name in ipairs(self.Reader.Config.HATCH_SETTINGS.SELECTED_EGGS) do
+		if not byName[name] then
+			table.insert(coverage.MissingSelected, name)
+			local def = definitions[name]
+			table.insert(context.Eggs, { Name = name, Loaded = false, Accessible = false, AccessStatus = def and "NOT_LOADED" or "UNKNOWN_DEFINITION",
+				World = def and def.World, Island = def and def.Island, Cost = def and def.Cost,
+				Reason = def and "Selected definition exists; original native egg model not loaded. Approach manually; no force-load or travel" or "Selected egg definition unavailable" })
+		end
 	end
 	return context
 end

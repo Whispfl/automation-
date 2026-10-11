@@ -101,10 +101,18 @@ function OCBrain:PlanPets(report, context, state)
 		return { Kind = "TEAM_ATTEMPT_START", OwnsLocation = false, Steps = steps, Team = team, RequiredCommands = commands - state.EquipCommands }
 	end
 	local equipment = self:PlanEquipmentStep(team, context, state)
+	if state.HatchOnce then
+		local reason = PetPolicy.HatchIsolation(self.Config)
+		if reason then return { Kind = "WAIT", OwnsLocation = false, Reason = reason } end
+	end
 	if equipment then return equipment end
 	if settings.AUTO_HATCH and not state.SessionEnded then
+		local blockers = {}
 		for _, egg in ipairs(report.Eggs) do
 			if state.Location and egg.Name ~= state.Location.EggName then continue end
+			if not table.find(hatch.SELECTED_EGGS, egg.Name) then continue end
+			local blocker = PetPolicy.EggBlocker(egg)
+			if blocker then table.insert(blockers, egg.Name .. ": " .. blocker) continue end
 			if not table.find(hatch.SELECTED_EGGS, egg.Name) or egg.Status ~= "ESTIMATE" or not egg.Eligible or not egg.Affordable
 				or not egg.Cost or not table.find(hatch.ALLOWED_CURRENCIES, egg.Cost.Currency) or egg.Cost.Amount > hatch.MAXIMUM_EGG_COST
 				or (egg.ExpectedIncrement <= 1e-6 and egg.ClientTargetProbability <= 0) then continue end
@@ -112,19 +120,24 @@ function OCBrain:PlanPets(report, context, state)
 			local remaining = hatch.MAXIMUM_SESSION_HATCHES - state.RequestedHatches
 			local free = PetPolicy.Finite(context.StorageCapacity) and PetPolicy.Finite(context.StorageUsed) and context.StorageCapacity - context.StorageUsed or 0
 			if type(context.DigitalStorage) ~= "boolean" or context.InventoryFull ~= false or not context.AutoDeleteKnown or context.AutoDeleteActive then
-				return { Kind = "WAIT", OwnsLocation = state.Location ~= nil, Reason = "Hatching requires native available storage and empty native AutoDelete settings" }
+				return { Kind = "WAIT", OwnsLocation = state.Location ~= nil, Reason = context.AutoDeleteActive and "NATIVE_AUTO_DELETE_ACTIVE: disable native auto-delete manually before this test; OC will not change it"
+					or not context.AutoDeleteKnown and "UNKNOWN_AUTO_DELETE_SETTINGS: no request" or "CAPACITY_UNAVAILABLE_OR_FULL: native storage guard prevents hatch" }
 			end
 			if context.DigitalStorage then free = 1 end -- Bytes are not pet slots; use native available-space guard, one egg per request.
 			local capacity = PetPolicy.Finite(context.MaxHatches) and context.MaxHatches or 0
 			local count = math.floor(math.min(remaining, hatch.MAXIMUM_BATCH_HATCHES, capacity, free,
 				egg.Spendable / egg.Cost.Amount, remainingCost / egg.Cost.Amount))
-			if count < 1 or not PetPolicy.Finite(egg.DurationSeconds) or egg.DurationSeconds <= 0 then continue end
+			if count < 1 or not PetPolicy.Finite(egg.DurationSeconds) or egg.DurationSeconds <= 0 then
+				table.insert(blockers, egg.Name .. ": remaining request budget/capacity or native hatch duration unavailable") continue
+			end
 			return { Kind = "HATCH", EggName = egg.Name, Count = count, OwnsLocation = true,
 				Reason = egg.InRange and "Authorized bounded useful hatch" or "Manual approach to selected egg required; no automatic repositioning" }
 		end
+		return { Kind = "WAIT", OwnsLocation = state.Location ~= nil,
+			Reason = #blockers > 0 and table.concat(blockers, "; ") or "Selected native egg unavailable; no fallback hatch" }
 	end
 	return { Kind = "WAIT", OwnsLocation = state.Location ~= nil and not state.SessionEnded,
-		Reason = "Pet actions disabled, bounded session ended, or no eligible useful affordable action" }
+		Reason = state.SessionEnded and "Bounded hatch authorization ended; request ledger retained; no retry" or "Pet action authorization disabled" }
 end
 
 function OCBrain:PlanProgression(snapshot, plan, context)

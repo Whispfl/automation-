@@ -206,6 +206,9 @@ return {
 		AUTO_FUSE_PETS = false, --// Reserved; the current build never submits pets to machines.
 	},
 	HATCH_SETTINGS = {
+		HATCH_ONE_EGG_ONCE = false, --// Isolated, explicitly authorized single hatch; Stop or one dispatched egg permanently consumes this controller's authorization.
+		MAXIMUM_PLAN_CANDIDATES = 3, --// Compact EGG_PLAN output; full evaluated outcomes remain in GetStatus().
+		LOG_EGG_DETAILS = false, --// Optional full evaluated client-pool outcomes, including rejected candidates.
 		SELECTED_EGGS = {}, --// Empty permits recommendations but authorizes no hatch location or spending.
 		ALLOWED_CURRENCIES = { "Coins" }, --// Only these nonpremium currencies may be spent by an explicitly enabled hatch session.
 		MAXIMUM_EGG_COST = 0, --// Explicit per-egg ceiling in native currency units; zero prevents spending.

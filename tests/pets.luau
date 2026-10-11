@@ -15,7 +15,7 @@ local function fixture(overrides)
 	s.Profile.Coins = 10000
 	s.Profile.Pets = { { Id = "weak", Name = "Weak", XP = 0 }, { Id = "strong", Name = "Strong", XP = 0, Amount = 2 } }
 	s.Profile.Teams = { { Pets = { "weak" } } } s.Profile.TeamEquipped = 1
-	s.Profile.AutoDelete, s.Profile.EggsOpened = {}, {}
+	s.Profile.AutoDelete, s.Profile.EggsOpened = {}, { ["Test Egg"] = 0 }
 	s.Ranks, s.GemRanks = { Weak = 2, Strong = 5, New = 9 }, { Weak = 20, Strong = 2, New = 1 }
 	s.MaxEquipped, s.MaxHatches, s.StorageCap, s.Digital = 2, 3, 100, false
 	s.Cost, s.Duration, s.NextAt, s.NativeActive, s.Hatching = 10, 2, nil, nil, false
@@ -126,12 +126,12 @@ test("Locked target protected unknown-definition and Super pets survive owned-te
 	end)
 end)
 
-test("Egg weights give explicitly estimated incremental benefit after owned improvements", function()
+test("Egg weights give explicitly estimated incremental benefit against actual equipped team", function()
 	simulated(function()
 		local s = fixture() local snap, ctx = s.Manager:Fresh() local r = s.Controller.Brain:AnalyzePets(snap, ctx).Eggs[1]
 		assert(r.Cost.Amount == 10 and r.Reserve == 150 and r.Spendable == 9850 and r.Affordable)
-		assert(r.ExpectedIncrement == 3 and r.ClientImprovementProbability == 0.75 and r.Outcomes[2].ClientPoolProbability == 0.75)
-		assert(r.EffectiveCycleSeconds == 5 and r.ExpectedIncrementPerSecond == 1.2)
+		assert(r.BaselineScore == 2 and r.ExpectedIncrement == 6.25 and r.ClientImprovementProbability == 1 and r.Outcomes[2].ClientPoolProbability == 0.75)
+		assert(r.EffectiveCycleSeconds == 5 and r.ExpectedIncrementPerSecond == 2.5)
 		assert(r.TotalTimeSeconds == "UNKNOWN" and r.EffectiveServerOdds == "UNKNOWN" and r.VariantOdds == "UNKNOWN" and r.PityGuarantee == "UNKNOWN") s:Close()
 	end)
 end)
@@ -142,9 +142,9 @@ test("Missing weights stats access balances and progression costs never fabricat
 		local function report() local a, b = s.Manager:Fresh() return s.Controller.Brain:AnalyzePets(a, b).Eggs[1] end
 		s.Pool[2].Chance = nil assert(report().Status == "UNKNOWN") s.Pool[2].Chance = 3
 		s.Pool[2].Item.Type = "Currency" assert(report().Status == "UNKNOWN") s.Pool[2].Item.Type = "Pet"
-		s.Dependencies.Worlds.Next.UnlockCost = nil assert(report().Status == "UNKNOWN")
+		s.Dependencies.Worlds.Next.UnlockCost = nil assert(report().Status == "ESTIMATE" and report().FundingStatus == "UNKNOWN_RESERVE" and not report().Affordable)
 		s.Dependencies.Worlds.Next.UnlockCost = { Type = "Currency", Currency = "Coins", Amount = 100 }
-		s.Profile.Coins = nil assert(report().Status == "UNKNOWN") s.Profile.Coins = 10000
+		s.Profile.Coins = nil assert(report().FundingStatus == "UNKNOWN_BALANCE" and not report().Affordable) s.Profile.Coins = 10000
 		s.Profile.AreasUnlocked["The Void"] = nil assert(not report().Eligible) s:Close()
 	end)
 end)
@@ -626,6 +626,340 @@ test("Equip-only Config rejects enabled competing farming and nonzero hatch budg
 		local bad = table.clone(isolated) bad[entry[1]] = table.clone(bad[entry[1]]) bad[entry[1]][entry[2]] = entry[3]
 		assert(not pcall(function() local instance = Controller.new(config(bad)) instance:Destroy() end))
 	end
+end)
+
+local function hatchOnce()
+	return fixture({
+		PET_SETTINGS = { AUTO_HATCH = true, AUTO_EQUIP = false },
+		HATCH_SETTINGS = { HATCH_ONE_EGG_ONCE = true, ENABLE_BACKGROUND_PICKUPS = false, MAXIMUM_EGG_COST = 10,
+			MAXIMUM_SESSION_COST = 10, MAXIMUM_BATCH_HATCHES = 1, MAXIMUM_SESSION_HATCHES = 1 },
+		WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false, AUTO_UNLOCK_WORLDS = false, AUTO_TRAVEL_FOR_PROGRESSION = false, AUTO_FARM_UNLOCK_REQUIREMENTS = false },
+		ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
+		PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false },
+		BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false, AUTO_BUY_FLAVORS = false, ENABLE_SIMULTANEOUS_BLOWING = false },
+		UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false, ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false },
+	})
+end
+local function eggReport(s)
+	local snap, ctx = s.Manager:Fresh()
+	return s.Controller.Brain:AnalyzePets(snap, ctx), ctx
+end
+
+test("Egg analysis distinguishes disabled spending and genuinely unhelpful pool", function()
+	simulated(function()
+		local s = fixture({ PET_SETTINGS = { AUTO_HATCH = false }, HATCH_SETTINGS = { MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0 } })
+		s.Profile.Teams[1].Pets = { "strong", "strong" }
+		local r = eggReport(s) assert(r.RecommendedEgg and r.Eggs[1].ExpectedIncrement == 3 and r.Eggs[1].SpendingStatus == "DISABLED_AUTO_HATCH")
+		local text = Policy.EggPlanText(s.Controller.Config, r, false) assert(text:find("budgets=0/0") and text:find("DISABLED_AUTO_HATCH") and not text:find("No useful affordable egg"))
+		s.Pool = { { Chance = 1, Item = { Type = "Pet", Name = "Weak" } } }
+		r = eggReport(s) assert(not r.RecommendedEgg and r.Eggs[1].ExpectedIncrement == 0 and Policy.EggBlocker(r.Eggs[1]):find("NO_USEFUL_IMPROVEMENT"))
+		assert(not s:Dispatch() and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Egg analysis follows changed actual equipped team without hardcoded score", function()
+	simulated(function()
+		local s = fixture() local a = eggReport(s) assert(a.Team.CurrentScore == 2 and a.Eggs[1].ExpectedIncrement == 6.25)
+		s.Profile.Teams[1].Pets = { "strong", "strong" }
+		local b = eggReport(s) assert(b.Team.CurrentScore == 9 and b.Eggs[1].ExpectedIncrement == 3 and b.Eggs[1].ClientImprovementProbability == 0.75)
+		s.Ranks.Strong = 10 b = eggReport(s) assert(b.Team.CurrentScore == 19 and b.Eggs[1].ExpectedIncrement == 0) s:Close()
+	end)
+end)
+
+test("Egg funding reports actual funds reserve and unknown evidence independently", function()
+	simulated(function()
+		local s = hatchOnce()
+		for _, pair in ipairs({ { 9, "INSUFFICIENT_FUNDS" }, { 159, "PROTECTED_RESERVE" }, { 160, "AFFORDABLE" } }) do
+			s.Profile.Coins = pair[1] local r = eggReport(s).Eggs[1]
+			assert(r.Status == "ESTIMATE" and r.FundingStatus == pair[2] and r.Reserve == 150)
+			assert(r.Affordable == (pair[2] == "AFFORDABLE"))
+		end
+		s.Dependencies.Worlds.Next.UnlockCost = nil local r = eggReport(s).Eggs[1]
+		assert(r.FundingStatus == "UNKNOWN_RESERVE" and r.Status == "ESTIMATE" and not s:Dispatch())
+		s.Profile.Coins = nil r = eggReport(s).Eggs[1] assert(r.FundingStatus == "UNKNOWN_BALANCE") s:Close()
+	end)
+end)
+
+test("Egg coverage reports loaded scope cap and prioritized selected candidate", function()
+	simulated(function()
+		local s = fixture({ HATCH_SETTINGS = { MAXIMUM_EGGS_ANALYZED = 1 } })
+		s.Dependencies.Eggs["A Egg"] = table.clone(s.Dependencies.Eggs["Test Egg"])
+		local a = table.clone(s.Egg) a.Name = "A Egg"
+		s.Controller.Knowledge.EggModels = function() return { a, s.Egg } end
+		local r = eggReport(s) assert(r.Coverage.LoadedModels == 2 and r.Coverage.Evaluated == 1 and r.Coverage.LimitReached)
+		assert(r.Eggs[1].Name == "Test Egg" and Policy.EggPlanText(s.Controller.Config, r, false):find("limited loaded%-model coverage")) s:Close()
+	end)
+end)
+
+test("Missing selected egg is distinct from a locked egg or unknown definition", function()
+	simulated(function()
+		local s = hatchOnce() s.Egg.Parent = nil local r = eggReport(s)
+		assert(r.Eggs[1].AccessStatus == "NOT_LOADED" and r.Coverage.Evaluated == 0 and not s:Dispatch())
+		s.Dependencies.Eggs["Test Egg"] = nil r = eggReport(s) assert(r.Eggs[1].AccessStatus == "UNKNOWN_DEFINITION")
+		s.Dependencies.Eggs["Test Egg"] = { World = "The Overworld", Island = "The Void" } s.Egg.Parent = true s.Profile.AreasUnlocked["The Void"] = nil
+		r = eggReport(s) assert(r.Eggs[1].AccessStatus == "LOCKED_OR_UNKNOWN_UNLOCK" and not s:Dispatch() and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Unknown native pool statistics stay separate from budget availability", function()
+	simulated(function()
+		local s = fixture({ PET_SETTINGS = { AUTO_HATCH = false }, HATCH_SETTINGS = { MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0 } })
+		s.Pool[2].Chance = nil local r = eggReport(s).Eggs[1]
+		assert(r.FundingStatus == "AFFORDABLE" and r.Status == "UNKNOWN" and Policy.EggBlocker(r):find("INSUFFICIENT_EVIDENCE"))
+		s.ScoreError = true r = eggReport(s).Eggs[1] assert(r.Status == "UNKNOWN" and not s:Dispatch() and #s.Commands == 0) s:Close()
+	end)
+end)
+
+test("Single hatch uses one explicit request and cannot enlarge its consumed ledger", function()
+	simulated(function()
+		local s = hatchOnce() s.Profile.Teams[1].Pets = { "strong", "strong" }
+		local owns, d = s.Manager:Select({}) assert(owns and d.Count == 1 and s:Dispatch(d))
+		assert(#s.Commands == 1 and s.Commands[1].Count == 1 and s.Manager.Hatch.RequestCost == 10)
+		s.Profile.Pets[3] = { Id = "new", Name = "New" } s.Profile.EggsOpened["Test Egg"] = 1 s.Manager:Observe()
+		assert(s.Manager.Hatch.VerifiedHatches == 1 and s.Manager.Hatch:Ended())
+		s.Controller.Config.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES = 20 s.Controller.Config.HATCH_SETTINGS.MAXIMUM_SESSION_COST = 1000
+		s.Controller.Config.HATCH_SETTINGS.HATCH_ONE_EGG_ONCE = false
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.RequestCost == 10) s:Close()
+	end)
+end)
+
+test("Single hatch confirms actual existing-stack amount counter variant and team benefit", function()
+	simulated(function()
+		local s = hatchOnce() s.Profile.Pets[3] = { Id = "new", Name = "New", Amount = 2, Shiny = true }
+		s.Profile.Teams[1].Pets = { "strong", "strong" } assert(s:Dispatch())
+		s.Profile.Pets[3].Amount = 3 s.Profile.EggsOpened["Test Egg"] = 1 s.Profile.Coins -= 10 s.Manager:Observe()
+		local r = s.Manager.Hatch.LastResult local c = r.Changes[1]
+		assert(r.Status == "INVENTORY_GAIN_OBSERVED" and r.CounterDelta == 1 and c.Id == "new" and c.ExistingStack and c.Variant == "Shiny" and c.Quantity == 1)
+		assert(c.Usefulness == "USEFUL_NATIVE_TEAM_ESTIMATE" and c.ActualIncrement == 4 and r.Balances.Coins.Delta == -10)
+		assert(Policy.SameTeam(r.TeamBefore, r.TeamAfter) and r.OCEquipmentCommands == 0 and s.Manager.EquipCommands == 0 and #s.Commands == 1) s:Close()
+	end)
+end)
+
+test("Received non-improving pet verifies hatch but is not reported as useful investment", function()
+	simulated(function()
+		local s = hatchOnce() s.Profile.Teams[1].Pets = { "strong", "strong" } assert(s:Dispatch())
+		s.Profile.Pets[1].Amount = 2 s.Profile.EggsOpened["Test Egg"] = 1 s.Manager:Observe()
+		local r = s.Manager.Hatch.LastResult assert(r.Status == "INVENTORY_GAIN_OBSERVED" and r.Changes[1].Usefulness == "NO_CURRENT_TEAM_IMPROVEMENT" and r.Changes[1].ActualIncrement == 0)
+		assert(s.Manager.Hatch:ResultText():find("NO_CURRENT_TEAM_IMPROVEMENT") and not s:Dispatch() and #s.Commands == 1) s:Close()
+	end)
+end)
+
+test("Received variant uses real native pet fields rather than base pet estimate", function()
+	simulated(function()
+		local s = hatchOnce() s.Profile.Teams[1].Pets = { "strong", "strong" } assert(s:Dispatch())
+		s.Profile.Pets[3] = { Id = "variant", Name = "Weak", Shiny = true, Mythic = true, XP = 75 } s.Profile.EggsOpened["Test Egg"] = 1
+		local nativeScore = s.Dependencies.StatsUtil.GetCurrencyMultiplier
+		s.Dependencies.StatsUtil.GetCurrencyMultiplier = function(self, raw, currency)
+			local n = nativeScore(self, raw, currency)
+			for _, id in ipairs(raw.Teams[raw.TeamEquipped].Pets) do for _, pet in ipairs(raw.Pets) do if pet.Id == id and pet.Shiny and pet.Mythic and pet.XP == 75 then n += 20 end end end
+			return n
+		end
+		s.Manager:Observe() local c = s.Manager.Hatch.LastResult.Changes[1]
+		assert(c.Variant == "Shiny Mythic" and c.ActualIncrement == 17 and c.Usefulness == "USEFUL_NATIVE_TEAM_ESTIMATE" and #s.Commands == 1) s:Close()
+	end)
+end)
+
+test("Single hatch rejects genuinely unhelpful pool despite selected target names", function()
+	simulated(function()
+		local s = hatchOnce() s.Profile.Teams[1].Pets = { "strong", "strong" }
+		s.Controller.Config.PET_SETTINGS.SELECTED_PETS = { "Weak" } s.Pool = { { Chance = 1, Item = { Type = "Pet", Name = "Weak" } } }
+		assert(s:Decision().Kind == "WAIT" and s:Decision().Reason:find("NO_USEFUL_IMPROVEMENT") and not s:Dispatch())
+		assert(#s.Commands == 0 and s.Manager.Hatch.RequestCost == 0) s:Close()
+	end)
+end)
+
+test("Single hatch respects native full capacity and auto-delete without changing settings", function()
+	simulated(function()
+		local s = hatchOnce() s.StorageCap = 3 assert(s:Decision().Reason:find("CAPACITY") and not s:Dispatch())
+		s.StorageCap = 100 s.Profile.AutoDelete.Weak = { Shiny = false }
+		assert(s:Decision().Reason:find("NATIVE_AUTO_DELETE_ACTIVE") and not s:Dispatch() and s.Profile.AutoDelete.Weak.Shiny == false)
+		assert(#s.Commands == 0 and s.Manager.Hatch.RequestCost == 0) s:Close()
+	end)
+end)
+
+test("Unopened egg enforces native 6.5-stud prompt while opened egg permits 16", function()
+	simulated(function()
+		local s = hatchOnce() s.Unlocked = false s.Profile.EggsOpened["Test Egg"] = nil s.EggPart.Position = s.Root.Position + Vector3.new(7,0,0)
+		assert(not s:Dispatch() and s:Decision().Kind == "HATCH" and #s.Teleports == 0)
+		s.EggPart.Position = s.Root.Position + Vector3.new(6.5,0,0) assert(s:Dispatch() and s.Commands[1].Count == 1) s:Close()
+		s = hatchOnce() s.EggPart.Position = s.Root.Position + Vector3.new(16,0,0) assert(s:Dispatch()) s:Close()
+	end)
+end)
+
+test("Leaving native range during a yielding guard never dispatches or teleports", function()
+	simulated(function()
+		local s = hatchOnce() local calls = 0
+		s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then s.Root.Position += Vector3.new(100,0,0) end return true end
+		assert(not s:Dispatch() and #s.Commands == 0 and #s.Teleports == 0 and s.Manager.Hatch.RequestCost == 0) s:Close()
+	end)
+end)
+
+test("Final hatch guard rechecks account funds auto-delete identity and authorization", function()
+	simulated(function()
+		for _, change in ipairs({ function(s) s.Profile.Coins = 0 end, function(s) s.Profile.AutoDelete.New = {} end,
+			function(s) s.Controller.Reader.Player.UserId = 456 end, function(s) s.Controller.Config.PET_SETTINGS.AUTO_HATCH = false end,
+			function(s) s.Controller.Config.HATCH_SETTINGS.SELECTED_EGGS = { "Other Egg" } end,
+			function(s) s.Controller.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM = true end }) do
+			local s = hatchOnce() local calls = 0 s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then change(s) end return true end
+			assert(not s:Dispatch() and #s.Commands == 0 and s.Manager.Hatch.RequestCost == 0) s:Close()
+		end
+	end)
+end)
+
+test("Final native guard catches cost capacity presentation cooldown and missing egg changes", function()
+	simulated(function()
+		for _, change in ipairs({ function(s) s.Cost = 11 end, function(s) s.StorageCap = 3 end,
+			function(s) s.NativeActive = "Test Egg" end, function(s) s.Hatching = true end,
+			function(s) s.NextAt = 50 end, function(s) s.Egg.Parent = nil end }) do
+			local s = hatchOnce() local calls = 0 s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then change(s) end return true end
+			assert(not s:Dispatch() and #s.Commands == 0 and s.Manager.Hatch.RequestCost == 0) s:Close()
+		end
+	end)
+end)
+
+test("Rejected or counter-only hatch times out as uncertain without blind retry", function()
+	simulated(function(clock)
+		for _, counter in ipairs({ 0, 1 }) do
+			local s = hatchOnce() assert(s:Dispatch()) s.Profile.EggsOpened["Test Egg"] = counter s.Profile.Coins -= 10
+			clock.Time += 16 s.Manager:Observe() local r = s.Manager.Hatch.LastResult
+			assert(r.Status == "UNCONFIRMED" and r.Quantity == 0 and r.CounterDelta == counter and r.Balances.Coins.Delta == -10)
+			assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.RequestCost == 10) s:Close()
+		end
+	end)
+end)
+
+test("Delayed stack counter acknowledgement stays pending and sends no duplicate", function()
+	simulated(function(clock)
+		local s = hatchOnce() assert(s:Dispatch()) s.Profile.Pets[1].Amount = 2
+		clock.Time = 10 s.Manager:Observe() assert(s.Manager.Hatch.Pending.Observed.MatchedQuantity == 1 and not s:Dispatch())
+		s.Profile.EggsOpened["Test Egg"] = 1 clock.Time = 14 s.Manager:Observe()
+		assert(s.Manager.Hatch.VerifiedHatches == 1 and not s:Dispatch() and #s.Commands == 1) s:Close()
+	end)
+end)
+
+test("Late hatch after timeout cannot reset consumed budget or enable equipment", function()
+	simulated(function(clock)
+		local s = hatchOnce() assert(s:Dispatch()) clock.Time = 16 s.Manager:Observe()
+		s.Profile.Pets[3] = { Id = "late", Name = "New" } s.Profile.EggsOpened["Test Egg"] = 1 s.Manager:Observe()
+		assert(s.Manager.Hatch.LastResult.Status == "UNCONFIRMED" and s.Manager.Hatch.RequestedHatches == 1 and s.Manager.Hatch.RequestCost == 10)
+		assert(not s:Dispatch() and not s:Dispatch({ Kind = "TEAM", AddId = "late" }) and #s.Commands == 1) s:Close()
+	end)
+end)
+
+test("Pause Resume Stop preserve pending single request and prevent duplicate spending", function()
+	simulated(function()
+		local s = hatchOnce() s.Manager:Select({}) assert(s:Dispatch())
+		s.Controller.State = "PAUSED" s.Manager:Halt() assert(not s:Dispatch()) s.Controller.State = "RUNNING" s.Manager:Select({})
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.Pending)
+		s.Manager:Halt(true) s.Profile.Pets[1].Amount = 2 s.Profile.EggsOpened["Test Egg"] = 1 s.Manager:Observe()
+		assert(s.Manager.Hatch.VerifiedHatches == 1 and s.Manager.Hatch:Ended() and not s:Dispatch() and #s.Commands == 1) s:Close()
+	end)
+end)
+
+test("Stop before first dispatch permanently ends single hatch authorization", function()
+	simulated(function()
+		local s = hatchOnce() s.Manager:Halt(true) s.Controller.State = "RUNNING"
+		s.Manager:Select({}) assert(not s:Dispatch() and #s.Commands == 0 and s.Manager.Hatch:Ended() and s.Manager.Hatch.RequestCost == 0) s:Close()
+	end)
+end)
+
+test("Cancellation after native guard consumes no hatch budget or equipment command", function()
+	simulated(function()
+		local s = hatchOnce() local cancelled = false local calls = 0
+		s.Coordinator.Mechanics.Guard = function() calls += 1 if calls == 2 then cancelled = true end return true end
+		assert(not s.Coordinator.Mechanics:PetAction(s.Manager, s:Decision(), { CheckCancelled = function() return cancelled end }))
+		assert(#s.Commands == 0 and s.Manager.EquipCommands == 0 and s.Manager.Hatch.RequestCost == 0) s:Close()
+	end)
+end)
+
+test("Single hatch uncertain remote delivery retains ledger and never retries", function()
+	simulated(function(clock)
+		local s = hatchOnce() s.RemoteError = true assert(s:Dispatch()) assert(s.Manager.Fault)
+		clock.Time = 16 s.Manager:Observe() s.Manager:Halt() s.Manager:Select({})
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.RequestedHatches == 1 and s.Manager.Hatch.RequestCost == 10) s:Close()
+	end)
+end)
+
+test("Single-hatch location prevents farming travel while manual movement never snaps back", function()
+	simulated(function()
+		local s = hatchOnce() s.EggPart.Position += Vector3.new(100,0,0) local owns, d = s.Manager:Select({})
+		assert(owns and d.Kind == "HATCH" and s.Manager.Hatch.Location and not s:Dispatch(d))
+		assert(not s.Coordinator.Mechanics:Travel({}, "The Overworld", "Zen", token, true) and #s.Teleports == 0)
+		s.Root.Position += Vector3.new(100,0,0) assert(s:Dispatch(d) and #s.Teleports == 0) s:Close()
+	end)
+end)
+
+test("Single-hatch controller refuses equipment even after runtime Config modification", function()
+	simulated(function()
+		local s = hatchOnce() s.Controller.Config.PET_SETTINGS.AUTO_EQUIP = true
+		assert(s:Decision().Kind == "WAIT" and not s:Dispatch({ Kind = "TEAM", AddId = "strong" }))
+		assert(#s.Commands == 0 and s.Manager.EquipCommands == 0) s:Close()
+	end)
+end)
+
+test("Compact egg plan and hatch result log only meaningful changes with optional detail", function()
+	simulated(function()
+		local s = hatchOnce() local logs = {} s.Controller.Log = function(_, kind, text) table.insert(logs, kind .. text) end
+		s.Manager:Analyze(true) local count = #logs s.Manager:Analyze(true) assert(#logs == count)
+		assert(table.concat(logs, " "):find("EGG_PLAN") and not table.concat(logs, " "):find("EGG_DETAILS"))
+		assert(s:Dispatch()) s.Profile.Pets[1].Amount = 2 s.Profile.EggsOpened["Test Egg"] = 1 s.Manager:Observe()
+		assert(table.concat(logs, " "):find("HATCH_RESULT")) count = #logs s.Manager:Observe() assert(#logs == count) s:Close()
+	end)
+end)
+
+test("Single hatch Config rejects competing actions multiple requests and unprotected reserves", function()
+	local safe = config({
+		PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = true, AUTO_HATCH = true, AUTO_EQUIP = false, OBJECTIVE_CURRENCY = "Coins" },
+		HATCH_SETTINGS = { HATCH_ONE_EGG_ONCE = true, SELECTED_EGGS = { "Test Egg" }, MAXIMUM_EGG_COST = 10, MAXIMUM_SESSION_COST = 10, ENABLE_BACKGROUND_PICKUPS = false },
+		WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false, AUTO_UNLOCK_WORLDS = false, AUTO_TRAVEL_FOR_PROGRESSION = false, AUTO_FARM_UNLOCK_REQUIREMENTS = false },
+		FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false },
+		ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
+		PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false },
+		BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false, AUTO_BUY_FLAVORS = false, ENABLE_SIMULTANEOUS_BLOWING = false },
+		UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false, ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false },
+	})
+	local instance = Controller.new(safe) instance:Destroy()
+	for _, entry in ipairs({ { "HATCH_SETTINGS", "MAXIMUM_SESSION_HATCHES", 2 }, { "HATCH_SETTINGS", "MAXIMUM_BATCH_HATCHES", 2 },
+		{ "HATCH_SETTINGS", "PRESERVE_PROGRESSION_RESERVE", false }, { "HATCH_SETTINGS", "HATCH_ONE_EGG_ONCE", "true" },
+		{ "HATCH_SETTINGS", "SELECTED_EGGS", { "Test Egg", "Other Egg" } }, { "HATCH_SETTINGS", "MAXIMUM_EGG_COST", 0 },
+		{ "HATCH_SETTINGS", "ENABLE_BACKGROUND_PICKUPS", true }, { "PET_SETTINGS", "AUTO_EQUIP", true },
+		{ "PICKUP_SETTINGS", "BULK_COLLECT_PICKUPS", true }, { "ISLAND_SETTINGS", "AUTO_TRAVEL_BEST_ISLAND", true },
+		{ "WORLD_SETTINGS", "AUTO_UNLOCK_WORLDS", true }, { "BUBBLE_SETTINGS", "AUTO_SELL_BUBBLES", true },
+		{ "PET_SETTINGS", "AUTO_DELETE_PETS", true }, { "PET_SETTINGS", "AUTO_CRAFT_SHINY", true } }) do
+		local c = table.clone(safe) c[entry[1]] = table.clone(safe[entry[1]]) c[entry[1]][entry[2]] = entry[3]
+		assert(not pcall(function() local object = Controller.new(c) object:Destroy() end))
+	end
+end)
+
+test("Egg plan does not rank unlike currencies by a fabricated conversion", function()
+	simulated(function()
+		local s = fixture() local snap, ctx = s.Manager:Fresh()
+		local coin = ctx.Eggs[1] local ticket = table.clone(coin)
+		ticket.Name, ticket.Cost = "Ticket Egg", { Type = "Currency", Currency = "Tickets", Amount = 0.01 }
+		snap.Balances.Tickets = 1000 ctx.Eggs = { ticket, coin }
+		local r = Policy.Analyze(s.Controller.Config, snap, ctx)
+		assert(r.Eggs[1].Name == "Test Egg" and r.RecommendedEgg.Name == "Test Egg") s:Close()
+	end)
+end)
+
+test("Summary-mode console shows egg plan and hatch result without enabling detail", function()
+	local original, output = print, {}
+	print = function(value) table.insert(output, tostring(value)) end
+	local ok, reason = xpcall(function()
+		local c = setmetatable({ Config = config({ DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false } }) }, Controller)
+		c:Log("EGG_PLAN", "Native candidate") c:Log("HATCH_RESULT", "Received stack result") c:Log("EGG_DETAILS", "hidden routine")
+		assert(#output == 2 and output[1]:find("EGG_PLAN") and output[2]:find("HATCH_RESULT"))
+	end, debug.traceback)
+	print = original assert(ok, reason)
+end)
+
+test("Partial matching inventory without hatch counter cannot become a best verified hatch", function()
+	simulated(function(clock)
+		local s = hatchOnce() assert(s:Dispatch()) s.Profile.Pets[3] = { Id = "partial", Name = "New" }
+		clock.Time = 16 s.Manager:Observe() local r = s.Manager.Hatch.LastResult
+		assert(r.Status == "UNCONFIRMED" and r.Quantity == 1 and r.Changes[1].Usefulness == "UNKNOWN" and not s.Manager.Hatch.BestHatch)
+		assert(not s:Dispatch() and #s.Commands == 1) s:Close()
+	end)
 end)
 
 print("[OC TEST] Phase 4 regressions passed: " .. tostring(tests - before) .. "; total=" .. tostring(tests) .. "; native action/gameplay verification remains owner-pending")

@@ -1,25 +1,44 @@
-# OCscript — approved baseline and Phase 4 pet intelligence candidate
+# OCscript — approved baseline and Phase 4 pet intelligence
 
-The owner authorized Phase 4 development. The first slice adds current-account
-owned-team/native egg analysis and separately configured bounded hatch/equip
-executors through the existing Brain/scheduler. Start its **action-disabled** test
-with [examples/Pets.luau](examples/Pets.luau); see [Phase 4 evidence, scope and
-remaining work](docs/PHASE4.md). Final odds/total-time unknowns are explicit;
-destructive actions remain OFF. The owner ran build `56ba58b6d0d7` on the main
-account: 19 records / 34 pets, seven equipped, native Coins score estimate
-117 -> 1,324, with equipment/hatching OFF and unchanged balances. This establishes
-account analysis, not equipment success or a measured earning-rate increase.
+Phase 4 development is authorized. The owner confirmed the owned-team equipment
+milestone at commit `d64b6c8a303d43a2eedd9846dcbeb8c630c1a15b`, build
+`90ce16e63ccd`: Test A showed correct lineups; Test B acknowledged all 12 commands,
+retained team 1 and protected Shiny Ice Kitty, and reached the frozen seven-pet
+membership with stack copies. Native score changed **117 -> 1586** (about 13.6x).
+The owner also observed the in-game Coin multiplier enter the **1k** range.
+Coins/Gems stayed unchanged during the equipment test, and one-time authorization
+ended without repeated swaps. This verifies multiplier improvement, not a precise
+Coins-per-minute rate. The optimizer and equipment adapter are preserved.
 
-The next candidate supplies exact current/proposed lineups and native swap evidence.
-**Test A** [examples/Pets.luau](examples/Pets.luau) remains analysis-only.
-**Test B** [examples/PetEquipTest.luau](examples/PetEquipTest.luau) explicitly
-authorizes one frozen, bounded owned Coins-team attempt: at most 16 acknowledged
-equip/unequip requests and 120 wall-clock seconds, with hatching, spending, farming
-and travel OFF. Fill favorite/protected IDs before running B. Full-team preflight
-blocks incomplete budgets; unexpected or timed-out results end without retry or
-automatic restoration. Pause retains deadlines/ledgers; Stop ends the attempt.
-`OC:PrintPetTeam()` exposes detailed native comparisons. Live equipment remains
-owner-pending; bounded greedy search does not guarantee the global best combination.
+The next slice explains loaded eggs against the **actual current equipped team**,
+separating access, native cost, funds, protected reserves, configuration and
+probability/stat evidence. It completes an isolated single-hatch ledger and
+verifies the real inventory/counter result, including stacks, variants and native
+usefulness. A non-improving pet can verify a hatch without being a useful upgrade.
+
+Start with [examples/EggAnalysis.luau](examples/EggAnalysis.luau): analysis ON,
+all actions OFF and zero spending budgets. The separately authorized
+[examples/HatchOnceTest.luau](examples/HatchOnceTest.luau) permits **one Crystal Egg,
+once, at most 75,000 Coins**, only if fresh runtime checks establish a useful,
+accessible, loaded and affordable candidate after reserves. This is an inspected
+native definition, not an assertion of the main account's live eligibility or
+best investment. Approach manually and read the analysis first; if another egg is
+recommended, review that plan before selecting a different spending test. No egg
+fallback or reserve release occurs. Both new examples pin the tested bundle release.
+
+The first hatch keeps equipment, pickups, farming, travel, bubbles, selling and
+purchases OFF. Native auto-hatch must be inactive and native auto-delete empty;
+OC does not change these settings. Pause preserves evidence and budgets; Stop
+permanently ends this controller's one-hatch authorization. An uncertain result
+never triggers another request. Reloading creates a new budget, so do not reload
+the active test merely to retry. [Phase 4 evidence and test checks](docs/PHASE4.md)
+records scope, limitations and the owner-confirmed final equipment lineup.
+
+`OC:PrintPetTeam()` retains the detailed owned-team comparison. Existing
+[analysis](examples/Pets.luau) and [equipment-only](examples/PetEquipTest.luau)
+examples remain available. Do not repeat the equipment test as a prerequisite to
+the hatch milestone. Final server odds, variants, pity and total-time ROI remain
+UNKNOWN; destructive actions remain OFF. The full Phase 4 checklist is open.
 
 Phase 1 and Phase 2's agreed stationary farming scope are owner-approved. Phase 3
 is explicitly authorized; the owner confirmed all five Overworld discoveries through
