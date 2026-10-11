@@ -416,6 +416,19 @@ function FarmingCoordinator:_awaitCredit(before, token, currencies, tick, stopAt
 	return after
 end
 
+function FarmingCoordinator:_worldFundingPending(decision)
+	local plan = self.Controller.Plan
+	local goal = plan and plan.Objective
+	local progression = goal and goal.Metadata and goal.Metadata.Progression
+	if decision.GoalId and decision.GoalId ~= (goal and goal.Id) then return false end
+	if not progression or progression.Node.Kind ~= "WORLD" then return true end
+	local live = self.Reader:GetLiveProfile()
+	if live and live.WorldsUnlocked and live.WorldsUnlocked[progression.Node.Name] ~= nil then return false end
+	local snapshot = table.clone(self.Reader:GetSnapshot())
+	snapshot.Balances = self.Reader:ReadBalances() -- Recheck received balances even before the next planning refresh.
+	return FarmingPolicy.Target(self.Config, snapshot, plan, {}) == decision.Currency
+end
+
 function FarmingCoordinator:_collection(decision, token)
 	if token:CheckCancelled() then return nil end
 	if decision.Mode ~= "PICKUPS" then return { Verified = false, Reason = "Currency goals permit stationary pickups only; no combined bubble task" } end
@@ -424,7 +437,7 @@ function FarmingCoordinator:_collection(decision, token)
 	if not FarmingPolicy.IsStationaryArea(self.Config, self.Tracker.Current) or self.Tracker.Current.Key ~= cluster.AreaKey then
 		return { Verified = false, Reason = "Stationary execution rejected: excluded or stale island" }
 	end
-	return self.Stationary:Collect(decision, token)
+	return self.Stationary:Collect(decision, token, function() return self:_worldFundingPending(decision) end)
 end
 
 function FarmingCoordinator:_bubble(token)
@@ -555,6 +568,9 @@ function FarmingCoordinator:Definition(decision, generation)
 				return { Verified = false, Reason = "Pickup-only mode permits selected-island travel, inspection and stationary collection only" }
 			end
 			if decision.Kind == "TRAVEL" and not FarmingPolicy.IsStationaryArea(self.Config, decision.Island) then return { Verified = false, Reason = "Travel destination excluded or stale" } end
+			if decision.Kind == "TRAVEL" and not decision.Returning and not self:_worldFundingPending(decision) then
+				return { Verified = false, Reason = "World funding shortage ended or is no longer verified; farming travel cancelled" }
+			end
 			if decision.Kind == "FARM" and decision.Mode ~= "BUBBLES" and
 				(not FarmingPolicy.IsFarmingArea(self.Config, self.Tracker.Current) or not decision.Cluster or decision.Cluster.AreaKey ~= self.Tracker.Current.Key) then
 				return { Verified = false, Reason = "Pickup execution rejected: excluded or stale island" }

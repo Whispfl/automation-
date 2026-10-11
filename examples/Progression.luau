@@ -1,4 +1,4 @@
--- Phase 3 stationary discovery experiment. Requires the test runtime's firetouchinterest.
+-- Phase 3 integrated discovery -> verified world shortage -> stationary farming.
 -- Current LocalData acknowledgement is checked; saved persistence requires an owner rejoin test.
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
@@ -11,7 +11,7 @@ local Config = {
 		ISLAND_DISCOVERY_RETRY_COOLDOWN_SECONDS = 30,
 		MAXIMUM_ISLAND_DISCOVERY_ATTEMPTS = 2,
 		SELECTED_WORLDS = {}, -- All permanent native worlds, with observed gate-origin dependencies.
-		AUTO_FARM_UNLOCK_REQUIREMENTS = false, -- Isolate discovery; existing verified-shortage farming remains available when explicitly enabled.
+		AUTO_FARM_UNLOCK_REQUIREMENTS = true, -- Farm only the active world's actual native-cost shortage.
 		AUTO_UNLOCK_WORLDS = false, -- Edit to true only when authorizing your chosen live world unlock.
 		MAXIMUM_WORLD_UNLOCK_COST = 0, -- Set an explicit authorized ceiling in native currency units, alongside AUTO_UNLOCK_WORLDS.
 		AUTO_TRAVEL_FOR_PROGRESSION = false, -- Separate opt-in for already-discovered native gate-island portal travel.
@@ -24,10 +24,10 @@ local Config = {
 		TRAVEL_STABILIZATION_SECONDS = 1,
 	},
 	BRAIN_SETTINGS = { SELECTED_WORLDS = { "The Overworld" }, ENABLE_MASTERY_RECOMMENDATIONS = false },
-	FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, FARMING_STRATEGY = "PICKUP_FIRST",
+	FARMING_SETTINGS = { AUTO_RESOURCE_FARM = true, FARMING_STRATEGY = "PICKUP_FIRST",
 		ENABLE_EFFICIENCY_COMPARISON = false, ENABLE_ACTIVITY_SWITCHING = false, AUTO_FARM_FALLBACK = false },
 	ISLAND_SETTINGS = { SELECTED_ISLANDS = { "The Void", "Zen" }, PREFERRED_FARMING_ISLAND = "",
-		AUTO_SELECT_BEST_ISLAND = true, AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
+		AUTO_SELECT_BEST_ISLAND = true, AUTO_TRAVEL_BEST_ISLAND = true, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
 	PICKUP_SETTINGS = { COLLECTION_METHOD = "STATIONARY", STATIONARY_ISOLATED_TEST = false,
 		ENABLE_NATIVE_REGISTRY_DISCOVERY = true, ENABLE_CHUNKER_DISCOVERY = true, ENABLE_CONTINUOUS_SCANNING = true,
 		BULK_COLLECT_PICKUPS = true, STATIONARY_MAXIMUM_BATCH_SIZE = 32, STATIONARY_REQUEST_COOLDOWN_SECONDS = 0.05,

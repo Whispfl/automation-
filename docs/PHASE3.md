@@ -2,7 +2,12 @@
 
 Phase 2's agreed stationary farming scope is owner-approved. The attached Phase 3
 request explicitly authorizes this work. These source inspections and synthetic
-regressions are not live unlock verification or Phase 3 approval. Phase 4 remains
+regressions are not live world-purchase verification or Phase 3 approval. The owner
+confirmed all five Overworld discoveries through actual `LocalData.AreasUnlocked`
+changes in build `78b2a278c20d`, approximately 41 seconds from a fresh zero-Coin
+account. The log then selected Minigame Paradise, native cost 1,000,000,000 Coins,
+with that full actual shortage; its isolated configuration correctly waited.
+Discovery persistence after rejoining remains pending. Phase 4 remains
 blocked; future reward, egg, Mastery, event and hybrid executors are not implemented.
 
 ## Implemented behavior
@@ -40,7 +45,13 @@ under the existing `OC_GAMEPLAY` foreground lease. No new action loop or schedul
   Resume rereads actual state. A sent server request cannot be recalled. Per-world
   attempt limits, uncertainty/backoff and controller-lifetime request limits survive controls.
 - Pending Phase 2 pickup cleanup and saved sell-return work finish through their existing
-  path before progression takes ownership. Collector modules are unchanged.
+  path before progression takes ownership. Discovery, pickup discovery, batching,
+  cleanup, pacing, deduplication and native teleportation are preserved. The integration
+  adds a funding check before starting farming travel and between pickup requests:
+  received balances satisfying the active world objective stop new dispatches, even
+  before the next planning refresh. Missing balance evidence or a changed goal also
+  holds new dispatches. Already-sent requests cannot be recalled; their actual balance
+  observation window still completes. No second executor or automation loop is added.
 
 ## Native evidence inspected through read-only Studio
 
@@ -51,7 +62,7 @@ under the existing `OC_GAMEPLAY` foreground lease. No new action loop or schedul
 | Seven Seas gate | `Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate`, World attribute `Seven Seas` | Hyperwave Island is the observed prerequisite location; Zen alone does not authorize this gate. |
 | World purchase | `ClientScript:2138-2326`: `UnlockCost`, command `UnlockWorld` with destination name, `WorldsUnlocked` subscription | Current saved definitions show 1,000,000,000 Coins for Minigame Paradise and 2,500,000,000 for Seven Seas; code does not hardcode those costs. Server-only rules unavailable. |
 | Command wrapper | `Shared.Framework.Network.Remote:90-98` | Adapter delegates through the existing cached native module. |
-| Gate activation | `Client.Activation:357-360`: horizontal distance <= Root.Size.Y / 2 and vertical difference <= 10 | No remote requests outside this observed native interaction range. |
+| Gate activation | `Client.Activation:357-360`: horizontal distance <= Root.Size.Y / 2 and vertical difference <= 10 | Zen gate Root.Size.Y=12.167879 (approximately 6.084 studs horizontal). Its Root.CanTouch=false; the world purchase panel is distance-activated, unlike island UnlockHitbox contact. No remote requests outside this observed native interaction range. |
 | Native gate UI | `Client.Gui.Unlock:16,88-90`, `GuiFrame:170-198` | Only the expected `World <Order>` Unlock panel may coexist with the request; other prompts, trading, races, fishing and WorldMap block it. |
 | Island teleport | `WorldMap:168-198`, `WorldUtil:110-115`, `ClientScript:1440-1530` | Requires discovery. No invented discovery remote or locked-island teleport. |
 | World identification | `WorldUtil:18-47`; scene island Height attributes as in native HUD | Position observations do not establish discovery; missing character stays unknown. |
@@ -64,7 +75,9 @@ Definitions in the inspected permanent catalog: Overworld islands Floating Islan
 Outer Space, Twilight, The Void, Zen; Minigame Paradise islands Dice Island,
 Minecart Forest, Robot Factory, Hyperwave Island. Seven Seas has no islands in this
 Worlds definition; its fishing-area progression/native fast travel is a separate
-contract and remains deferred. Code enumerates the runtime definitions rather than
+contract and remains deferred. No currently inspected permanent world uses Gems for
+its unlock cost; Gems routing is tested with an explicitly synthetic native-definition
+fixture, not presented as a live Gems-world requirement. Code enumerates the runtime definitions rather than
 embedding this list as a fake universal progression chain.
 
 ## Specific unsupported portions
@@ -80,7 +93,9 @@ normal game movement into the gate activation area. No pickup walking, pathfindi
 character repositioning or jump automation is present. Future movement/hatching
 coordination is not implemented. Native portal travel and gate unlocking are the
 independently supported native Phase 3 actions in this candidate; the runtime
-contact feature is explicitly experimental, not a verified native discovery API.
+contact feature remains runtime-specific rather than a normal native discovery API.
+The owner has confirmed its five Overworld account acknowledgements in a live session;
+that evidence does not establish durable saves or every server validation rule.
 
 ## Stationary island discovery experiment
 
@@ -169,16 +184,18 @@ contract plus discovery/access; `DestinationPartObserved` separately records loc
 Spawn replication. Actual travel additionally needs a local Spawn or verified live
 island-zone arrival geometry. Historical reach and server-only island states remain unknown.
 
-## One initial configuration
+## One integrated initial configuration
 
 Use [examples/Progression.luau](../examples/Progression.luau). It contains the full
 editable Config and direct unauthenticated bundle loader. Stationary discovery is
-enabled as the explicitly requested experiment. World spending and
+enabled using the owner-confirmed mechanism. World spending and
 progression portal travel are OFF, maximum world spending is 0, bubbles/selling/
 upgrades/equipment changes are OFF. AUTO_FARM_UNLOCK_REQUIREMENTS, AUTO_RESOURCE_FARM
-and AUTO_TRAVEL_BEST_ISLAND are OFF to isolate this first stationary discovery test.
-After live discovery verification, enabling those existing three controls restores
-the preserved actual-shortage stationary farming and native island travel policy.
+and AUTO_TRAVEL_BEST_ISLAND are ON, connecting completed discovery to actual-shortage
+stationary farming and native farming-island travel. AUTO_DISCOVER_ISLANDS separately
+controls discovery; AUTO_TRAVEL_FOR_PROGRESSION separately controls gate-island travel;
+AUTO_UNLOCK_WORLDS and MAXIMUM_WORLD_UNLOCK_COST separately authorize world spending.
+The initial gate-travel setting is false: disabled spending does not require a gate visit.
 Farming destinations remain only The Void and Zen in The Overworld.
 
 Developed account: completed flags are skipped; its first unfinished attainable
@@ -188,9 +205,13 @@ the three farming/travel controls are enabled. With no
 remaining progression/resource requirement it waits. It never spends on startup
 under this configuration. Fresh/partial account: the first missing Overworld island
 is tested in native order if runtime capability and live guards permit it. There is
-no movement fallback. After those discoveries, the isolated example waits on any
-resource/world requirement without moving, collecting or spending. The unchanged
-stationary collector and native The Void/Zen travel remain separately configurable.
+no movement fallback. After those discoveries, an actual Coins shortage travels
+natively to The Void; an actual Gems shortage prefers Zen. Farming continues through
+the existing scheduler until received balances meet native cost plus any configured
+reserve, Pause/Stop, or a real blocker. An affordable world waits with spending OFF.
+There is no requirement to earn a billion Coins for this live integration check:
+confirm discovery skips, GOAL, Void arrival and repeated credited batches, then stop.
+The expensive affordability/purchase branches are covered offline.
 
 For **one explicitly authorized live unlock**, edit the same Config before reloading:
 choose the intended `WORLD_SETTINGS.SELECTED_WORLDS`, set `AUTO_UNLOCK_WORLDS=true`
@@ -223,27 +244,31 @@ still skips every unlock actually confirmed by LocalData.
 
 `node scripts/build.mjs` and `node scripts/test.mjs` compile the source, actual bundled
 initializer and all examples, enforce command isolation/no navigation/no authentication,
-and run **175 deterministic regressions**: the existing 157 plus 18 stationary
-discovery cases.
+and run **186 deterministic regressions**: the existing 175 plus 11 integrated
+progression cases.
 Fresh/partial/developed states, shortages/affordability, unknown prerequisites,
 unsupported ascent, native range/UI guards, failed travel/unlock, actual flag refresh,
 reserves, request limits, cancellation and 32-ID collector compatibility are covered.
 Runtime capability absence, native discovery order, wrong-island updates, contact
 errors, no-acknowledgement/backoff, controls, stale character identities, no movement
 and explicit unverified persistence are covered. All profiles, clocks, geometry and
-server responses in these tests are synthetic.
+server responses in these tests are synthetic. The added scenarios cover a complete
+five-island discovery-to-billion-Coin funding handoff, new IDs in subsequent batches,
+Coins/Void and hypothetical Gems/Zen routing, permitted fallback and missing rewards,
+affordability during a batch or before travel, delayed credit, changed objectives,
+missing balances, Pause/Resume/Stop and billion-Coin purchase authorization/flag proof.
 `scripts/verify-public.mjs` compares public main and exact-commit bundle and both
 stationary/progression examples byte-for-byte after publishing.
 
-Files changed for the stationary discovery delivery:
+Files changed for the integrated delivery:
 
 - `README.md`, `docs/ARCHITECTURE.md`, `docs/PHASE3.md`
-- `src/OCFoundation/OCConfig.luau`, `OCController.luau`, `GameKnowledge.luau`, `GameMechanics.luau`
-- `src/OCFoundation/ProgressionGraph.luau`, `TravelPlanner.luau`, `WorldProgressionManager.luau`
-- `tests/foundation.luau` (offline runtime capability slot), new `tests/discovery.luau`
+- `src/OC.luau` (corrected obsolete radius/startup scope logs)
+- `src/OCFoundation/FarmingCoordinator.luau`, `StationaryExperiment.luau` (funding completion checks)
+- new `tests/integration.luau`
 - `examples/Progression.luau`, `scripts/test.mjs`, `dist/OC.lua`
 
-`PickupTracker`, `StationaryExperiment`, `FarmingCoordinator`, `FarmingPolicy`,
-`TaskScheduler`, the existing Phase 2 examples and their regression fixtures are
+`PickupTracker`, `GameMechanics`, `WorldProgressionManager`, `ProgressionGraph`,
+`FarmingPolicy`, `TaskScheduler`, the existing Phase 2 examples and their regression fixtures are
 unchanged. Studio received read-only calls only; no live account was modified or
 native command executed by these development tools.

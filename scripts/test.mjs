@@ -56,6 +56,7 @@ const stationaryAssertions = await readFile(path.join(root, 'tests/stationary.lu
 const goalAssertions = await readFile(path.join(root, 'tests/goal-driven.luau'), 'utf8');
 const progressionAssertions = await readFile(path.join(root, 'tests/progression.luau'), 'utf8');
 const discoveryAssertions = await readFile(path.join(root, 'tests/discovery.luau'), 'utf8');
+const integrationAssertions = await readFile(path.join(root, 'tests/integration.luau'), 'utf8');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -75,7 +76,7 @@ const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau')
 const pickupConfig = configPrefix(pickupExample);
 assertFarmingSelection(pickupConfig);
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + '\n' + progressionAssertions + '\n' + discoveryAssertions + exampleCheck + pickupCheck);
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + '\n' + progressionAssertions + '\n' + discoveryAssertions + '\n' + integrationAssertions + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
@@ -97,7 +98,9 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
   }
   if (filename === 'Progression.luau') {
     assert(configText.includes('AUTO_DISCOVER_ISLANDS = true'));
-    for (const key of ['AUTO_UNLOCK_WORLDS', 'AUTO_TRAVEL_FOR_PROGRESSION', 'AUTO_SELL_BUBBLES', 'AUTO_BLOW_BUBBLES', 'ENABLE_SMART_UPGRADES', 'AUTO_FARM_UNLOCK_REQUIREMENTS', 'AUTO_RESOURCE_FARM', 'AUTO_TRAVEL_BEST_ISLAND']) assert(configText.includes(key + ' = false'));
+    for (const key of ['AUTO_UNLOCK_WORLDS', 'AUTO_TRAVEL_FOR_PROGRESSION', 'AUTO_SELL_BUBBLES', 'AUTO_BLOW_BUBBLES', 'ENABLE_SMART_UPGRADES']) assert(configText.includes(key + ' = false'));
+    for (const key of ['AUTO_FARM_UNLOCK_REQUIREMENTS', 'AUTO_RESOURCE_FARM', 'AUTO_TRAVEL_BEST_ISLAND']) assert(configText.includes(key + ' = true'));
+    assert(configText.includes('MAXIMUM_WORLD_UNLOCK_COST = 0'));
     assertFarmingSelection(configText);
   }
   const check = `\nlocal overrides = (function()\n${configText}\nreturn Config\nend)()\noverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal instance = requireOC("OCController").new(config(overrides))\nassert(instance.Config.BUBBLE_SETTINGS.AUTO_BUY_GUM == ${enabled})\nassert(instance.Config.UPGRADE_SETTINGS.AUTO_EQUIP_OWNED_UPGRADES == ${enabled})\ninstance:Destroy()\nprint("[OC TEST] ${filename} Config validation passed")\n`;

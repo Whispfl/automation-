@@ -36,7 +36,7 @@ function StationaryExperiment:Candidate(cluster)
 	return nil, "Waiting for new genuine Coins/Gems IDs; existing requests are deduplicated"
 end
 
-function StationaryExperiment:Collect(decision, token)
+function StationaryExperiment:Collect(decision, token, canContinue)
 	local owner, settings = self.Owner, self.Owner.Config.PICKUP_SETTINGS
 	if token:CheckCancelled() then return nil end
 	local candidate, reason = self:Candidate(decision.Cluster)
@@ -75,6 +75,11 @@ function StationaryExperiment:Collect(decision, token)
 			delay = settings.STATIONARY_REQUEST_COOLDOWN_SECONDS - (os.clock() - (owner.Mechanics.LastPickupRequestAt or -math.huge))
 		end
 		if token:CheckCancelled() or areaChanged or os.clock() >= deadline then break end
+		if canContinue and not canContinue() then
+			reason = "Active world funding shortage ended or is no longer verified; no further pickup dispatch"
+			owner.Controller:Log("FARM][FUNDING", reason)
+			break
+		end
 		local requested, invocation, evidence = owner.Mechanics:CollectStationary(record, token)
 		if not requested then
 			reason = invocation

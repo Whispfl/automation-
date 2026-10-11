@@ -8,11 +8,16 @@ earning real Coins and Gems, with visual cleanup and native island travel confir
 at 2ac673d. Background combined farming is cancelled. The owner subsequently approved
 Phase 2's agreed stationary farming scope and explicitly authorized Phase 3. The new
 native progression graph, travel policy and guarded world-unlock adapter share the
-existing Brain/scheduler lease. Their live verification remains pending. The owner
+existing Brain/scheduler lease. World purchases remain pending live verification. The owner
 subsequently requested a stationary simulated-contact discovery experiment before
 climbing work: native Overworld hitboxes, optional runtime capability, bounded
 sequential attempts and actual LocalData acknowledgements share that same lease.
-Server discovery validation and saved persistence are unknown. See [PHASE3.md](PHASE3.md).
+The owner confirmed all five Overworld discoveries through actual AreasUnlocked
+updates in build 78b2a278c20d in approximately 41 seconds. Rejoin persistence and
+server-only validation rules remain unknown. The integrated example now enables
+verified-shortage farming and farming-island travel, retaining disabled world
+spending. World funding rechecks received balances between paced pickup requests
+and before starting funding travel. See [PHASE3.md](PHASE3.md).
 Phases 4–9 have no new executors; hybrid farming remains deferred to Phase 9.
 
 ## Sources and reusable layers

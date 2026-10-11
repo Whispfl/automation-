@@ -20,9 +20,9 @@ return function(customConfig)
 	local controller = OCController.new(config, player)
 	local ok, result = xpcall(function()
 		controller.Interface = OCInterface.new(controller, playerGui)
-		controller:Log("INIT", "Phase " .. tostring(controller:GetStatus().Phase) .. " initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | Phase 3 actions await owner live verification")
-		controller:Log("SCOPE", "Brain-coordinated unlocked island farming, native radius clusters, bubbles, selling and configured currency upgrades.")
-		controller:Log("FARM][BULK", "No genuine island-wide batch pickup interface found; native collection operates per ID within StatsUtil:GetPickupRange.")
+		controller:Log("INIT", "Phase " .. tostring(controller:GetStatus().Phase) .. " initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | Overworld discovery owner-confirmed in session; rejoin persistence and world purchases pending")
+		controller:Log("SCOPE", "One Brain/scheduler: configured progression and actual-shortage stationary Coins/Gems farming on The Void/Zen; bubbles require a real bubble objective.")
+		controller:Log("FARM][BULK", "Paced genuine loaded registry IDs, up to " .. tostring(config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_BATCH_SIZE) .. " per stationary batch; distances observed, server validation unchanged; only LocalData balances verify credit.")
 		if config.GENERAL_SETTINGS.AUTO_START then
 			local started, reason = controller:Start()
 			if not started then controller.Error = reason controller:Log("CONTROL", reason) controller:_notify() end
