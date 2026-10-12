@@ -206,6 +206,7 @@ return {
 		AUTO_FUSE_PETS = false, --// Reserved; the current build never submits pets to machines.
 	},
 	HATCH_SETTINGS = {
+		EGG_SELECTION_MODE = "MANUAL", --// AUTO lets the Brain rank useful eligible native eggs; MANUAL restricts actions to SELECTED_EGGS.
 		HATCH_ONE_EGG_ONCE = false, --// Isolated, explicitly authorized single hatch; Stop or one dispatched egg permanently consumes this controller's authorization.
 		MAXIMUM_PLAN_CANDIDATES = 3, --// Compact EGG_PLAN output; full evaluated outcomes remain in GetStatus().
 		LOG_EGG_DETAILS = false, --// Optional full evaluated client-pool outcomes, including rejected candidates.

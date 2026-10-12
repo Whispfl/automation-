@@ -1,16 +1,40 @@
 # Phase 4: account-aware pets and bounded native actions
 
-The owner explicitly authorized Phase 4 development in this task. Before planning
-or coding, read the complete [master roadmap](https://app.notion.com/p/3f53d7e9278d81c5a6cacfe227eb4349),
+The owner explicitly authorized Phase 4 development and the controlled AUTO
+travel/one-hatch acceptance candidate on 2026-10-12. Before planning or coding,
+the complete [master roadmap](https://app.notion.com/p/3f53d7e9278d81c5a6cacfe227eb4349),
 [Phase 3](https://app.notion.com/p/3f53d7e9278d816c8494da53650aaa10),
-[Phase 4](https://app.notion.com/p/3f53d7e9278d81a796a9d3c505076363), and latest
-owner notes. The new explicit development authorization supersedes older deferral
-notes. Current owner direction authorizes development and an analysis-only live test.
-Hatch spending and equipment require separate explicit owner authorization after
-the actual account recommendation is reviewed. Later phases remain excluded.
+[Phase 4](https://app.notion.com/p/3f53d7e9278d81a796a9d3c505076363),
+[Phase 9 reference](https://app.notion.com/p/3f53d7e9278d81e7a631d19062ab3358) and
+returned owner notes were reread. Both completed local research libraries were
+reviewed and retained. Current explicit direction supersedes the historical
+analysis-only, equipped-baseline and manual-approach-only delivery decisions below.
 No Notion checkboxes or completion claims were changed.
 
-Current validation: `node scripts/build.mjs` and `node scripts/test.mjs` pass
+Current implementation and owner checks are in
+[PHASE4-INTEGRATION.md](PHASE4-INTEGRATION.md). The editable
+[Phase4AutoOnce.luau](../examples/Phase4AutoOnce.luau) enables AUTO selection,
+controlled stable arrival and at most one Coins hatch after protected reserves,
+with one-million-Coins per-egg/session ceilings. Equipment, pickups and unrelated
+actions are OFF. The owned benchmark is a feasible bounded heuristic, not a
+global optimum; incomplete search/native projections, unknown owned records or
+unused Super units block paid selection. Frozen pre-hatch owned facts and actual
+received records support usefulness; server odds remain UNKNOWN. **New gameplay
+acceptance and the full Phase 4 checklist remain pending.**
+
+Current candidate build `890d4713edad` passes **463 main-suite offline cases**,
+official compilation, merged first-test Config isolation and bundle checks.
+All 104 completed research files remain byte-identical to the recovery baseline.
+Public artifact verification is reported with the final commit after publication;
+the owner's live test remains required.
+
+The owner's migration test confirms build `005f77211830` loaded, read Coins/Gems
+and stayed idle with actions OFF; it is not proof of this new integration.
+Playtime auto-claim failure remains outside this task. Later phases remain
+excluded, and Studio inspection remains read-only.
+
+Historical validation for the prior egg-analysis/manual-hatch release:
+`node scripts/build.mjs` and `node scripts/test.mjs` passed
 **321 offline regressions** (227 baseline + 54 existing Phase 4 + 30 hatch/egg
 cases + 10 dynamic analysis cases), official Luau compilation, existing and new complete Configs, and the
 single-bundle initializer. Public bytes and matching release tag are verified after
@@ -30,7 +54,14 @@ This is owner-confirmed equipment and multiplier improvement. It does not turn
 the rounded HUD into a measured Coins-per-minute rate. Preserve the optimizer;
 no repeat equipment or earnings experiment is required before the hatch milestone.
 
-## Explainable eggs and isolated single hatch
+## Historical explainable eggs and isolated MANUAL hatch
+
+This section preserves the earlier delivery checkpoint. Its actual-equipped
+ROI baseline, manual-only approach and instruction to seek later hatch spending
+authorization are **superseded** by the owner's 2026-10-12 request and
+[current integration](PHASE4-INTEGRATION.md). The old inactive templates remain
+available; the new AUTO first candidate is separately bounded to one hatch.
+Historical evidence and accepted equipment milestones below are retained.
 
 Master, complete Phase 4, Phase 3 and latest visible owner notes were reread before
 this task's planning/edits. Their older DEFERRED notes are superseded by current
@@ -230,6 +261,12 @@ cannot independently establish its actual PlaceId.
 
 ## Native evidence inspected before implementation
 
+This table retains the original native-inspection checkpoint. Its physical
+Prompt/Root hatch limits remain relevant. The historical manual-only execution
+boundary is superseded by the separately gated, owner-authorized controlled
+travel/stable-arrival adapter in [PHASE4-INTEGRATION.md](PHASE4-INTEGRATION.md);
+that implementation still awaits owner gameplay acceptance.
+
 | Source | Supported observation / limit |
 | --- | --- |
 | Shared.Data.Eggs/Pets and their native builders; Assets.Eggs/Pets | Native pool weights, pet definitions, cost/world/island/event/product fields. Retained event definitions do not establish a live event. |
@@ -246,7 +283,7 @@ cannot independently establish its actual PlaceId.
 Server handlers and server-only validation remain unavailable. Successful command
 invocation and hatch animation are not verification of inventory/equipment.
 
-## Implemented first slice
+## Historical implemented first slice
 
 - Opt-in native pet/egg dependencies reuse the reader cache and GameKnowledge.
   Inspect the current account afresh; previous test accounts are not a baseline.
@@ -283,7 +320,12 @@ invocation and hatch animation are not verification of inventory/equipment.
   native role stats. No automatic crafting/deletion/fusing/consumable use or
   native auto-hatch toggling. Existing compact summaries and controls remain.
 
-## First owner test
+## Historical first owner test
+
+These earlier analysis-only test instructions are retained as history. The
+current authorized AUTO one-hatch Config and owner checklist are in
+[PHASE4-INTEGRATION.md](PHASE4-INTEGRATION.md). No new confirmation of already
+authorized development/spending scope is required by this historical section.
 
 Run the complete [examples/Pets.luau](../examples/Pets.luau) configuration. It sets
 pet intelligence ON and hatch/equip OFF, with zero hatch cost budgets. Progression,

@@ -1,12 +1,18 @@
-# BGSI OC — automation- migration
+# BGSI OC — controlled Phase 4 AUTO candidate
 
-Current destination: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, branch **main**. The trailing hyphen is part of the repository name. Migration preserves the existing main ancestry, unpublished source/tests/configuration, both completed research libraries, and build **005f77211830**. No gameplay implementation or default setting was changed for migration.
+Current repository: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, branch **main**. The trailing hyphen is part of the repository name.
 
-Start with **[examples/MigrationVerify.luau](examples/MigrationVerify.luau)** in the owner's already-supported client runtime. It provides an editable Config with all gameplay actions OFF and spending budgets zero, then loads the matching immutable `migration-005f77211830` bundle without tokens or authentication. Older farming/equipment examples are opt-in action configurations; they are not the default migration check.
+The owner authorized the new [Phase 4 integration](docs/PHASE4-INTEGRATION.md). **[examples/Phase4AutoOnce.luau](examples/Phase4AutoOnce.luau)** enables an editable AUTO Config: feasible owned-team/egg analysis, a Brain-selected useful affordable egg, controlled stable arrival and at most **one hatch**, with **1,000,000 Coins** per-egg/session ceilings and the native progression reserve preserved. Equipment, pickups, farming, rewards and unrelated actions remain OFF in this first candidate. Missing access, incomplete owned/Super benchmarking or insufficient reserves means WAIT with no movement/spending. **Live acceptance is pending; Phase 4 remains open.**
+
+The loader uses the matching public pinned bundle without tokens or authentication. Its Config and final commit/build pin belong to the reviewed release; compilation, regression and public-byte checks are separate from the owner's gameplay test. The earlier owned-team equipment acceptance below is preserved.
+
+## Preserved migration baseline
+
+Migration preserved the existing ancestry, source/tests/configuration, both completed research libraries and build **005f77211830**. [examples/MigrationVerify.luau](examples/MigrationVerify.luau) remains the actions-OFF, zero-budget baseline pinned to `migration-005f77211830`. The owner's migration log confirmed correct initialization and actual Coins/Gems reads while idle. That observation does not verify the new Phase 4 travel/hatch behavior.
 
 **[dist/OC.local.lua](dist/OC.local.lua)** still embeds the entire matching bundle and downloads no code. Its initial `TEST_MODE = "NONE"` leaves all actions OFF; the previously authorized A/B/C/D isolated presets remain available without being enabled by migration. [Local instructions and limitations](docs/LOCAL_FEATURES.md), [original delivery record](docs/LOCAL_FEATURES_DELIVERY.json), and [migration coverage/exclusions](docs/MIGRATION.md) preserve the existing evidence.
 
-The owner reports **playtime auto-claim failure, awaiting investigation**. Owned-team success remains accepted; hatch/travel/reward/anti-AFK gameplay verification and Phase 3 limitations remain open. Migration completes no development phase and grants no new actions. Roblox Studio was untouched.
+The owner reports **playtime auto-claim failure, awaiting investigation**; this Phase 4 task excludes that debugging. Owned-team success remains accepted; new hatch/travel acceptance, reward/anti-AFK verification and Phase 3 limitations remain open. Migration completed no development phase. Roblox Studio inspection for development remains strictly read-only.
 
 The implementation and acceptance history below is retained. Current Notion phase gates and the owner's explicit instructions control any future work.
 
@@ -22,37 +28,33 @@ Coins/Gems stayed unchanged during the equipment test, and one-time authorizatio
 ended without repeated swaps. This verifies multiplier improvement, not a precise
 Coins-per-minute rate. The optimizer and equipment adapter are preserved.
 
-The next slice explains loaded eggs against the **actual current equipped team**,
-separating access, native cost, funds, protected reserves, configuration and
-probability/stat evidence. It completes an isolated single-hatch ledger and
-verifies the real inventory/counter result, including stacks, variants and native
-usefulness. A non-improving pet can verify a hatch without being a useful upgrade.
+The current slice corrects hatch ROI to the **feasible owned-team benchmark**,
+then ranks loaded eligible eggs for the real objective. Search bounds, unknown
+owned records/native projections and unused Super units can block paid selection;
+the optimizer does not claim a global optimum. Native client weights remain
+conditional estimates, and server odds/variants/pity remain UNKNOWN. The Brain
+passes its financially eligible model/destination to the existing travel manager,
+which confirms stable native Prompt/Root range before hatch dispatch. Frozen
+pre-hatch owned facts and actual received records establish reported usefulness;
+an animation, spending or counter alone cannot establish the result.
 
-Start with [examples/EggAnalysis.luau](examples/EggAnalysis.luau): analysis ON,
-all actions OFF, zero spending budgets and no preselected egg or assumed unlocks.
-EGG_PLAN reports actual Minigame Paradise access from LocalData, loaded available
-affordable Coins eggs, the best evaluated eligible recommendation, where to stand,
-current native price and required one-hatch budget with progression reserves.
-Manually approach the recommendation; native models/proximity and account facts
-refresh through the existing analysis interval. Unknown evidence remains UNKNOWN.
-Hatching stays OFF until the owner explicitly authorizes a spending test after
-reviewing the actual report. [examples/HatchOnceTest.luau](examples/HatchOnceTest.luau)
-is an inactive template, with no selected egg and zero budgets. It supersedes the
-earlier fixed-egg example. Both new examples pin the matching tested bundle release.
+[Phase 4 integration and owner checks](docs/PHASE4-INTEGRATION.md) describe AUTO
+and MANUAL modes, fresh reserve/capacity guards, one scheduler handoff, interrupted
+travel, result uncertainty and later equipment/pickup acceptance. The new first
+Config enables one hatch only. Native auto-hatch must be inactive and native
+auto-delete empty; OC does not change those settings. Pause preserves evidence
+and budgets; Stop permanently ends this controller's one-hatch authorization.
+An uncertain request is never retried. Reloading creates a new budget and must
+not be used as an uncertain retry.
 
-The analysis and eventual separately authorized first hatch keep equipment, pickups, farming, travel, bubbles, selling and
-purchases OFF. Native auto-hatch must be inactive and native auto-delete empty;
-OC does not change these settings. Pause preserves evidence and budgets; Stop
-permanently ends this controller's one-hatch authorization. An uncertain result
-never triggers another request. Reloading creates a new budget, so do not reload
-the active test merely to retry. [Phase 4 evidence and test checks](docs/PHASE4.md)
-records scope, limitations and the owner-confirmed final equipment lineup.
-
-`OC:PrintPetTeam()` retains the detailed owned-team comparison. Existing
-[analysis](examples/Pets.luau) and [equipment-only](examples/PetEquipTest.luau)
-examples remain available. Do not repeat the equipment test as a prerequisite to
-the hatch milestone. Final server odds, variants, pity and total-time ROI remain
-UNKNOWN; destructive actions remain OFF. The full Phase 4 checklist is open.
+The earlier [EggAnalysis.luau](examples/EggAnalysis.luau) remains actions-OFF;
+[HatchOnceTest.luau](examples/HatchOnceTest.luau) remains an inactive MANUAL
+template. Their former equipped-baseline/manual-only delivery decisions are
+annotated as superseded in [PHASE4.md](docs/PHASE4.md). `OC:PrintPetTeam()` and the
+existing [analysis](examples/Pets.luau)/[equipment-only](examples/PetEquipTest.luau)
+examples remain available. Do not repeat the accepted equipment test as a
+prerequisite. No destructive inventory action or complete Phase 4 approval is
+introduced.
 
 Phase 1 and Phase 2's agreed stationary farming scope are owner-approved. Phase 3
 is explicitly authorized; the owner confirmed all five Overworld discoveries through

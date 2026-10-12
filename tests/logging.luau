@@ -274,5 +274,17 @@ test("Summary interval validation rejects nonfinite and too-fast intervals witho
 	assert(not Defaults.DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING and Defaults.DIAGNOSTIC_SETTINGS.SUMMARY_INTERVAL_SECONDS == 15)
 end)
 
+test("Summary preserves the resource goal while showing Phase4 target received ledger and reserve blocker", function()
+	local settings = config({ PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = true } })
+	local status = { State = "RUNNING", Snapshot = { Ready = true, Balances = { Coins = 100, Gems = 50 } },
+		Plan = { Objective = { Title = "Fund next native world" } }, Scheduler = { ActiveOwner = "PETS" },
+		Pets = { Enabled = true, Decision = { Kind = "WAIT", Reason = "PROTECTED_RESERVE" },
+			Hatch = { Location = { EggName = "Synthetic Egg" }, VerifiedHatches = 0, RequestedHatches = 1 } } }
+	local output = Presentation.Summary(status, { At = 0, Balances = { Coins = 100, Gems = 50 } }, 15, settings)
+	assert(output:find("goal=Fund next native world", 1, true) and output:find("pet task=WAIT:Synthetic Egg", 1, true))
+	assert(output:find("local task=PETS", 1, true) and output:find("hatches=0/1 received/requested", 1, true))
+	assert(output:find("blocker=PROTECTED_RESERVE", 1, true))
+end)
+
 print("[OC TEST] Logging-only regressions passed: " .. tostring(tests - before) .. "; total=" .. tostring(tests) .. "; owner controls already confirmed live")
 end

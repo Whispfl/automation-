@@ -95,7 +95,16 @@ function AccountPresentation.Summary(status, previous, now, config)
 			or (world.Decision and world.Decision.Kind) or (farming.Decision and (farming.Decision.Mode or farming.Decision.Kind)) or "WAIT"),
 		"island=" .. tostring(farming.Area or "unknown") }
 	local owner = status.Scheduler and status.Scheduler.ActiveOwner
-	if owner == "REWARDS" or owner == "EGG_TRAVEL" or owner == "ANTI_AFK" then table.insert(parts, "local task=" .. owner) end
+	if owner == "REWARDS" or owner == "EGG_TRAVEL" or owner == "ANTI_AFK" or owner == "PETS" then table.insert(parts, "local task=" .. owner) end
+	local pets = status.Pets
+	if pets and pets.Enabled then
+		local hatch, decision = pets.Hatch or {}, pets.Decision or {}
+		local location, pending = hatch.Location or {}, hatch.Pending
+		local target = pending and pending.EggName or decision.EggName or location.EggName
+			or status.EggTravel and status.EggTravel.BrainIntent and status.EggTravel.BrainIntent.EggName
+		table.insert(parts, "pet task=" .. tostring(decision.Kind or "WAIT") .. ":" .. tostring(target or "no eligible egg"))
+		table.insert(parts, "hatches=" .. tostring(hatch.VerifiedHatches or 0) .. "/" .. tostring(hatch.RequestedHatches or 0) .. " received/requested")
+	end
 	if status.Rewards and status.Rewards.Pending then table.insert(parts, "reward=" .. tostring(status.Rewards.Pending.Kind) .. ":" .. tostring(status.Rewards.Pending.Status)) end
 	if status.Rewards and status.Rewards.AttributionBlocked then table.insert(parts, "farming attribution=excluded/pending reward evidence") end
 	if status.EggTravel and status.EggTravel.Enabled then table.insert(parts, "egg travel=" .. tostring(status.EggTravel.LastResult and status.EggTravel.LastResult.Status or status.EggTravel.Reason or "waiting")) end
@@ -136,6 +145,10 @@ function AccountPresentation.Summary(status, previous, now, config)
 	elseif finite(hours) then eta = string.format("%.2f days / %.1fh (short-sample estimate, not guaranteed)", hours / 24, hours) end
 	table.insert(parts, "funding ETA=" .. eta)
 	local blocker = status.Error or farming.Error or farming.CleanupBlocker
+	if not blocker and pets and pets.Enabled then
+		blocker = pets.Fault or pets.Hatch and pets.Hatch.Fault
+			or pets.Decision and (pets.Decision.Kind == "WAIT" or pets.Decision.Kind == "OBSERVE") and pets.Decision.Reason
+	end
 	if not blocker and world.Decision and world.Decision.Kind == "WAIT" then blocker = world.Decision.Reason end
 	if not blocker and farming.Decision and (farming.Decision.Kind == "WAIT" or farming.Decision.Kind == "INSPECT") then blocker = farming.Decision.Reason end
 	if not blocker then blocker = farming.CollectionBlocker end

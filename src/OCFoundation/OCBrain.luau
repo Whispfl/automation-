@@ -109,11 +109,11 @@ function OCBrain:PlanPets(report, context, state)
 	if settings.AUTO_HATCH and not state.SessionEnded then
 		local blockers = {}
 		for _, egg in ipairs(report.Eggs) do
-			if state.Location and egg.Name ~= state.Location.EggName then continue end
-			if not table.find(hatch.SELECTED_EGGS, egg.Name) then continue end
+			if state.Location and PetPolicy.SelectionMode(self.Config) ~= "AUTO" and egg.Name ~= state.Location.EggName then continue end
+			if not PetPolicy.EggSelected(self.Config, egg.Name) then continue end
 			local blocker = PetPolicy.EggBlocker(egg)
 			if blocker then table.insert(blockers, egg.Name .. ": " .. blocker) continue end
-			if not table.find(hatch.SELECTED_EGGS, egg.Name) or egg.Status ~= "ESTIMATE" or not egg.Eligible or not egg.Affordable
+			if not PetPolicy.EggSelected(self.Config, egg.Name) or egg.Status ~= "ESTIMATE" or not egg.Eligible or not egg.Affordable
 				or not egg.Cost or not table.find(hatch.ALLOWED_CURRENCIES, egg.Cost.Currency) or egg.Cost.Amount > hatch.MAXIMUM_EGG_COST
 				or (egg.ExpectedIncrement <= 1e-6 and egg.ClientTargetProbability <= 0) then continue end
 			local remainingCost = hatch.MAXIMUM_SESSION_COST - state.RequestCost
@@ -130,11 +130,14 @@ function OCBrain:PlanPets(report, context, state)
 			if count < 1 or not PetPolicy.Finite(egg.DurationSeconds) or egg.DurationSeconds <= 0 then
 				table.insert(blockers, egg.Name .. ": remaining request budget/capacity or native hatch duration unavailable") continue
 			end
-			return { Kind = "HATCH", EggName = egg.Name, Count = count, OwnsLocation = true,
-				Reason = egg.InRange and "Authorized bounded useful hatch" or "Manual approach to selected egg required; no automatic repositioning" }
+			local model
+			for _, nativeEgg in ipairs(context.Eggs or {}) do if nativeEgg.Name == egg.Name then model = nativeEgg.Model break end end
+			return { Kind = "HATCH", EggName = egg.Name, Model = model, Count = count, OwnsLocation = true,
+				DecisionSource = "BRAIN", SelectionMode = PetPolicy.SelectionMode(self.Config), Currency = context.Currency,
+				Reason = report.SelectionExplanation or (egg.InRange and "Authorized bounded useful hatch" or "Selected useful native egg requires controlled arrival or manual approach") }
 		end
-		return { Kind = "WAIT", OwnsLocation = state.Location ~= nil,
-			Reason = #blockers > 0 and table.concat(blockers, "; ") or "Selected native egg unavailable; no fallback hatch" }
+		return { Kind = "WAIT", OwnsLocation = false,
+			Reason = #blockers > 0 and table.concat(blockers, "; ") or report.SelectionExplanation or "No useful eligible native egg; no fallback hatch" }
 	end
 	return { Kind = "WAIT", OwnsLocation = state.Location ~= nil and not state.SessionEnded,
 		Reason = state.SessionEnded and "Bounded hatch authorization ended; request ledger retained; no retry" or "Pet action authorization disabled" }
@@ -441,7 +444,25 @@ end
 
 -- Scoped local additions arbitrate through the same Brain and foreground scheduler.
 -- Managers expose eligibility/state; they create no competing gameplay loops.
-function OCBrain:SelectLocalFeature(controller, plan)
+function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
+	if petDecision and self.Config.PET_SETTINGS.AUTO_HATCH then
+		-- A sent hatch/verified equipment transaction keeps its foreground authority.
+		-- Observing presentation/result cannot be preempted by travel or rewards.
+		if petDecision.Kind == "OBSERVE" or petDecision.Kind == "TEAM" or petDecision.Kind == "TEAM_ADD" then return nil end
+		if petDecision.Kind == "HATCH" and self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then
+			local owns, decision = controller.EggTravel:Select(plan, petDecision)
+			if owns then return "EGG_TRAVEL", decision end
+			if decision and decision.Kind == "HANDOFF" then return nil end
+			return "PHASE4_WAIT", decision -- Never fall through to a stale hatch or farming destination.
+		end
+		if petDecision.Kind == "WAIT" then
+			if controller.EggTravel:OwnsLocation() and not petDecision.OwnsLocation then
+				controller.EggTravel:Release(petDecision.Reason or "Hatch intent ended; no return travel", false)
+			end
+			return "PHASE4_WAIT", petDecision
+		end
+		if petOwns then return nil end
+	end
 	for _, entry in ipairs({ { "REWARDS", controller.Rewards }, { "EGG_TRAVEL", controller.EggTravel },
 		{ "ANTI_AFK", controller.AntiAFK } }) do
 		local owns, decision = entry[2]:Select(plan)

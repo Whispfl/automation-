@@ -11,7 +11,7 @@ const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8'
 const commit = git('rev-parse', 'HEAD');
 const dist = await readFile(path.join(root, 'dist/OC.lua'));
 const buildId = dist.toString('utf8').match(/-- Build: ([a-f0-9]{12})/)[1];
-const release = 'migration-' + buildId;
+const release = 'phase4-auto-' + buildId;
 const rawRoot = 'https://raw.githubusercontent.com/' + repository;
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 async function get(url) {
@@ -23,10 +23,10 @@ async function get(url) {
 const publicJSON = async suffix => JSON.parse((await get('https://api.github.com/repos/' + repository + suffix)).toString('utf8'));
 const main = await publicJSON('/git/ref/heads/main');
 assert.equal(main.object.sha, commit, 'Remote main differs from the intended local commit');
-assert.equal(git('rev-parse', release + '^{}'), commit, 'Migration release must point at the intended local commit');
+assert.equal(git('rev-parse', release + '^{}'), commit, 'Candidate release must point at the intended local commit');
 const tag = await publicJSON('/git/ref/tags/' + release);
-assert.equal(tag.object.type, 'commit', 'Expected the local lightweight migration tag');
-assert.equal(tag.object.sha, commit, 'Public migration pin differs from the intended commit');
+assert.equal(tag.object.type, 'commit', 'Expected the local lightweight candidate tag');
+assert.equal(tag.object.sha, commit, 'Public candidate pin differs from the intended commit');
 
 // Compare every published path and Git blob hash, in addition to raw-byte checks.
 const remoteTree = await publicJSON('/git/trees/' + commit + '?recursive=1');
@@ -64,7 +64,7 @@ for (const artifact of representative) {
   console.log('[OC] Anonymous main + commit raw bytes match: ' + artifact);
 }
 
-for (const artifact of ['dist/OC.lua', 'examples/EggAnalysis.luau', 'examples/HatchOnceTest.luau', 'examples/MigrationVerify.luau']) {
+for (const artifact of ['dist/OC.lua', 'examples/Phase4AutoOnce.luau']) {
   const expected = await readFile(path.join(root, artifact));
   if (artifact.startsWith('examples/')) assert(expected.toString('utf8').includes(`/${repository}/${release}/dist/OC.lua`), 'Example does not load its matching pin: ' + artifact);
   const published = await get(`${rawRoot}/${release}/${artifact}`);
@@ -72,11 +72,22 @@ for (const artifact of ['dist/OC.lua', 'examples/EggAnalysis.luau', 'examples/Ha
   checks.push({ artifact, ref: release, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
   console.log('[OC] Matching pinned raw bytes verified: ' + artifact);
 }
+// Historical action-OFF examples intentionally retain their accepted migration
+// pin. Compare its own bundle, never pretend it is the current candidate build.
+const historicalRelease = 'migration-005f77211830';
+const historicalCommit = git('rev-parse', historicalRelease + '^{}');
+for (const artifact of ['dist/OC.lua', 'examples/EggAnalysis.luau', 'examples/HatchOnceTest.luau', 'examples/MigrationVerify.luau']) {
+  const expected = execFileSync('git', ['show', `${historicalCommit}:${artifact}`], { cwd: root });
+  if (artifact.startsWith('examples/')) assert(expected.toString('utf8').includes(`/${repository}/${historicalRelease}/dist/OC.lua`), 'Historical example pin mismatch: ' + artifact);
+  const published = await get(`${rawRoot}/${historicalRelease}/${artifact}`);
+  assert(published.equals(expected), 'Historical pinned artifact differs: ' + artifact);
+  checks.push({ artifact, ref: historicalRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
+}
 const report = { dateUTC: new Date().toISOString(), repository, branch: 'main', commit, buildId, release,
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };
-const reportPath = path.join(root, '.test-output/migration-public-verification.json');
+const reportPath = path.join(root, '.test-output/phase4-public-verification.json');
 await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 console.log('[OC] Public verification PASS: ' + checks.length + ' raw content comparisons; bundle build ' + buildId);

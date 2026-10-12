@@ -802,7 +802,7 @@ function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 	if typeof(frame) ~= "CFrame" or not featureFinite(frame.Position.X) or not featureFinite(frame.Position.Y)
 		or not featureFinite(frame.Position.Z) or not fresh.RangeOrigin
 		or (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range
-		or not manager:RangeEligibleAt(fresh, frame.Position) then return false, "Validated standing transform unavailable or outside actual native hatch eligibility" end
+		or not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, "Validated standing transform unavailable or outside actual native hatch eligibility" end
 	if self.LastEggPositionLease == record.LeaseId then return false, "Direct position already attempted for this lease" end
 	if token:CheckCancelled() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled" end
 	self.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.

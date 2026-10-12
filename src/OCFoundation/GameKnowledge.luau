@@ -69,8 +69,8 @@ local function native(object, method, ...)
 	return nil
 end
 
-function GameKnowledge:EggModels()
-	if os.clock() - (self.LastEggScan or -math.huge) >= self.Reader.Config.PET_SETTINGS.ANALYSIS_INTERVAL_SECONDS then
+function GameKnowledge:EggModels(force)
+	if force or os.clock() - (self.LastEggScan or -math.huge) >= self.Reader.Config.PET_SETTINGS.ANALYSIS_INTERVAL_SECONDS then
 		self.LastEggScan, self.NativeEggModels = os.clock(), {}
 		local eggs = self:Get("Eggs") or {}
 		-- Native tags are removed by ClientScript:674. Keep original Root/Prompt/
@@ -84,6 +84,48 @@ function GameKnowledge:EggModels()
 		end
 	end
 	return self.NativeEggModels or {}
+end
+
+function GameKnowledge:NativeEggRangeEligible(egg, root, force)
+	-- Existing native physical-egg contract: unopened Prompt / opened nearest Root.
+	-- Shared fresh observation, no positioning, registry mutation or new loop.
+	local function point(v)
+		return v and type(v.X) == "number" and type(v.Y) == "number" and type(v.Z) == "number"
+			and v.X == v.X and v.Y == v.Y and v.Z == v.Z
+			and math.abs(v.X) < math.huge and math.abs(v.Y) < math.huge and math.abs(v.Z) < math.huge
+	end
+	local ok, eligible, range = pcall(function()
+		local model = egg and egg.Model
+		if not model or not model.Parent or not model:IsDescendantOf(workspace) or not root or not point(root.Position) then return false end
+		local part, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
+		if not part or not part:IsA("BasePart") or not point(part.Position) then return false end
+		local raw = self.Reader:GetLiveProfile()
+		if not raw or type(raw.EggsOpened) ~= "table" then return false end
+		local opened = model:GetAttribute("Unlocked") == true and raw.EggsOpened[model.Name] ~= nil
+		local origin, limit = part, 16
+		if not opened then
+			if not prompt or not prompt:IsA("BasePart") or not point(prompt.Position) then return false end
+			local nativePrompt = prompt:FindFirstChildOfClass("ProximityPrompt")
+			if not nativePrompt or nativePrompt.Parent ~= prompt or nativePrompt.Enabled ~= true
+				or nativePrompt.RequiresLineOfSight ~= false or not PetPolicy.Finite(nativePrompt.MaxActivationDistance)
+				or nativePrompt.MaxActivationDistance <= 0 then return false end
+			origin, limit = prompt, math.min(6.5, nativePrompt.MaxActivationDistance)
+		end
+		local record = { Range = limit, Distance = (origin.Position - root.Position).Magnitude, Opened = opened,
+			RangeOrigin = origin, RangeOriginPosition = origin.Position }
+		if record.Distance > limit then return false, record end
+		if opened then
+			local prompts = self:Get("ProximityPrompt")
+			if not prompts or prompts.Visible ~= 0 then return false, record end
+			for _, other in ipairs(self:EggModels(force)) do
+				local otherRoot = other ~= model and other.Parent and other:IsDescendantOf(workspace) and other:FindFirstChild("Root")
+				if otherRoot and otherRoot:IsA("BasePart") and point(otherRoot.Position) and other:GetAttribute("Unlocked") == true
+					and (otherRoot.Position - root.Position).Magnitude <= record.Distance + 0.05 then return false, record end
+			end
+		end
+		return true, record
+	end)
+	return ok and eligible == true, ok and range or nil
 end
 
 function GameKnowledge:PetContext(snapshot, plan, tracker)
@@ -192,14 +234,17 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			if ok then pool = value end
 		end
 		local opened = model:GetAttribute("Unlocked") == true and type(profile.EggsOpened) == "table" and profile.EggsOpened[model.Name] ~= nil
-		local range = opened and 16 or 6.5
+		local nativeRange, observedRange = self:NativeEggRangeEligible({ Model = model }, root)
+		local range = observedRange and observedRange.Range or opened and 16 or 6.5
 		local access = not world and "UNKNOWN_ACCESS" or (def.Event or def.ProductId or def.IsAdminEgg or model.Name == "Infinity Egg") and "UNSUPPORTED"
 			or accessible and "ACCESSIBLE" or "LOCKED_OR_UNKNOWN_UNLOCK"
 		local ok, path = pcall(function() return model:GetFullName() end)
 		byName[model.Name] = { Name = model.Name, Model = model, World = world, Island = island, Distance = distance, Range = range,
 			ModelPath = ok and path or nil, Position = part.Position,
 			DefinitionCurrency = def.Cost and def.Cost.Type == "Currency" and def.Cost.Currency or nil,
-			AccessStatus = access, Loaded = true, Accessible = accessible == true, InRange = accessible and world == currentWorld and distance ~= nil and distance <= range,
+			AccessStatus = access, Loaded = true, Accessible = accessible == true,
+			InRange = accessible and world == currentWorld and nativeRange, NativeRangeEligible = nativeRange,
+			RangeOrigin = observedRange and observedRange.RangeOrigin, InteractionDistance = observedRange and observedRange.Distance,
 			Cost = native(stats, "GetEggCost", self.Reader.Player, profile, model.Name), Pool = pool, Luck = luck,
 			Duration = native(stats, "GetHatchDuration", profile), Opened = opened, Unlocked = model:GetAttribute("Unlocked"),
 			Reason = accessible and "Scene-present native egg; account world/island access confirmed" or "Premium/event/special/locked or unknown access; no hatch action" }

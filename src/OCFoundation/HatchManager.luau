@@ -48,13 +48,27 @@ function HatchManager:Observe(raw)
 	pending.Observed = { CounterDelta = delta, MatchedQuantity = gained, Changes = changes, Balances = balances }
 	local confirmed = delta ~= nil and delta >= pending.Count and gained >= pending.Count
 	if confirmed or os.clock() >= pending.Deadline then
+		-- Keep the detached native projection privately. It contains the exact
+		-- pre-request owned-team benchmark; status exposes only its evidence.
+		self.ResultBaseline = pending.UsefulnessBaseline
 		self.LastResult = { Status = confirmed and "INVENTORY_GAIN_OBSERVED" or "UNCONFIRMED", EggName = pending.EggName,
 			Quantity = gained, RequestedQuantity = pending.Count, CounterBefore = pending.Counter, CounterAfter = counter, CounterDelta = delta, Changes = changes,
 			BeforeBalance = pending.BeforeBalance, AfterBalance = raw and raw[pending.Currency], Balances = balances,
 			TeamBefore = pending.TeamBefore, TeamAfter = inv and table.clone(inv.Team), TeamIndexBefore = pending.TeamIndex,
 			TeamIndexAfter = inv and inv.TeamIndex, OCEquipmentCommands = 0,
+			UsefulnessBaselineScore = pending.UsefulnessBaseline and pending.UsefulnessBaseline.Score,
+			UsefulnessBaselineIds = pending.UsefulnessBaseline and table.clone(pending.UsefulnessBaseline.Ids),
+			UsefulnessCurrency = pending.UsefulnessBaseline and pending.UsefulnessBaseline.Currency,
+			UsefulnessSearchBoundReached = pending.UsefulnessBaseline and pending.UsefulnessBaseline.SearchBoundReached,
+			UsefulnessProjectionFailures = pending.UsefulnessBaseline and pending.UsefulnessBaseline.ProjectionFailures,
+			UsefulnessEvidence = "Frozen pre-hatch best feasible owned-team native projection; bounded greedy estimate, global optimum/server modifiers unverified",
 			Attribution = "Matching received counter/inventory observations; external/manual activity cannot be excluded; balance change is separate evidence" }
-		if confirmed then self.VerifiedHatches += pending.Count
+		if confirmed then
+			self.VerifiedHatches += pending.Count
+			if delta ~= pending.Count or inv.TeamIndex ~= pending.TeamIndex or not PetPolicy.SameTeam(inv.Team, pending.TeamBefore) then
+				self.Fault = "Hatch counter/team changed beyond the frozen request; external activity unresolved. No automatic continuation or retry"
+				self.LastResult.Reason = self.Fault self.EndReason = self.Fault
+			end
 		else
 			self.Fault = "Hatch acknowledgement timed out; rejection/delay/delivery unresolved. No automatic retry; request budget retained"
 			self.LastResult.Reason = self.Fault self.EndReason = self.Fault
@@ -76,8 +90,9 @@ function HatchManager:ResultText()
 		local value = r.Balances and r.Balances[currency]
 		if value then table.insert(balances, currency .. " net=" .. (value.Delta ~= nil and string.format("%+.3f", value.Delta) or "UNKNOWN")) end
 	end
-	return string.format("%s | %s | requested=%s; matching inventory +%s; egg counter delta=%s | %s | observed %s (net, attribution unknown) | OC equipment commands=0 | %s",
+	return string.format("%s | %s | requested=%s; matching inventory +%s; egg counter delta=%s | baseline=%s %s pre-hatch owned-team estimate | %s | observed %s (net, attribution unknown) | OC equipment commands during hatch=0 | %s",
 		r.EggName, r.Status, tostring(r.RequestedQuantity), tostring(r.Quantity), tostring(r.CounterDelta or "UNKNOWN"),
+		tostring(r.UsefulnessBaselineScore or "UNKNOWN"), tostring(r.UsefulnessCurrency or "UNKNOWN"),
 		#pets > 0 and table.concat(pets, "; ") or "No matching received pet", #balances > 0 and table.concat(balances, ", ") or "balances UNKNOWN",
 		r.Reason or "Received hatch verified; an upgrade is not guaranteed. Request ledger retained")
 end

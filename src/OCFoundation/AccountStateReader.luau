@@ -509,7 +509,7 @@ function AccountStateReader:Start()
 			self:_load(name, path)
 		end
 		local pets = self.Config.PET_SETTINGS
-		if self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then self:_load("ProximityPrompt", "Client.Gui.ProximityPrompt") end
+		if self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL or pets.ENABLE_PET_INTELLIGENCE then self:_load("ProximityPrompt", "Client.Gui.ProximityPrompt") end
 		local localFeatures = self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL
 			or self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME
 			or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES

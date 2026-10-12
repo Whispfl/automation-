@@ -45,6 +45,7 @@ local function fixture(overrides)
 	d.StatsUtil.GetHatchDuration = function() return s.Duration end
 	d.GetEggPool = function(_, world, luck, secret, infinity) assert(world == "The Overworld" and luck == 2 and secret == nil and infinity == nil) return s.Pool end
 	d.WorldUtil = { GetPlayerWorld = function() return "The Overworld" end }
+	d.ProximityPrompt = { Visible = 0 }
 	d.HatchPresentation = { IsHatching = function() return s.Hatching end }
 	d.Time = { now = function() return os.clock() end }
 	d.Remote = { FireServer = function(_, command, first, second)
@@ -60,9 +61,14 @@ local function fixture(overrides)
 	s.Controller.Reader.GetSnapshot = function() return { Ready = true, Revision = 1, Balances = { Coins = s.Profile.Coins, Gems = s.Profile.Gems }, AvailableProgression = {} } end
 	s.Controller.Reader.Config = s.Controller.Config
 	local part = { Position = s.Root.Position + Vector3.new(2, 0, 0), IsA = function(_, kind) return kind == "BasePart" end }
+	local prompt = setmetatable({ IsA = function(_, kind) return kind == "BasePart" end },
+		{ __index = function(_, key) if key == "Position" then return s.PromptPosition or part.Position end end })
+	local nativePrompt = { Parent = prompt, Enabled = true, MaxActivationDistance = 6.5, RequiresLineOfSight = false }
+	prompt.FindFirstChildOfClass = function() return nativePrompt end
+	s.EggPrompt, s.NativePrompt = prompt, nativePrompt
 	s.Egg = { Name = "Test Egg", Parent = true, IsA = function(_, kind) return kind == "Model" end,
 		IsDescendantOf = function(self) return self.Parent ~= nil end,
-		FindFirstChild = function(_, name) if name == "Root" then return part end return {} end,
+		FindFirstChild = function(_, name) if name == "Root" then return part elseif name == "Prompt" then return prompt end return {} end,
 		GetAttribute = function(_, name) if name == "Unlocked" then return s.Unlocked ~= false end end }
 	s.EggPart = part
 	s.Controller.Knowledge = s.Coordinator.Knowledge
@@ -126,12 +132,12 @@ test("Locked target protected unknown-definition and Super pets survive owned-te
 	end)
 end)
 
-test("Egg weights give explicitly estimated incremental benefit against actual equipped team", function()
+test("Egg weights give explicitly estimated incremental benefit against feasible owned team", function()
 	simulated(function()
 		local s = fixture() local snap, ctx = s.Manager:Fresh() local r = s.Controller.Brain:AnalyzePets(snap, ctx).Eggs[1]
 		assert(r.Cost.Amount == 10 and r.Reserve == 150 and r.Spendable == 9850 and r.Affordable)
-		assert(r.BaselineScore == 2 and r.ExpectedIncrement == 6.25 and r.ClientImprovementProbability == 1 and r.Outcomes[2].ClientPoolProbability == 0.75)
-		assert(r.EffectiveCycleSeconds == 5 and r.ExpectedIncrementPerSecond == 2.5)
+		assert(r.BaselineScore == 9 and r.ExpectedIncrement == 3 and r.ClientImprovementProbability == 0.75 and r.Outcomes[2].ClientPoolProbability == 0.75)
+		assert(r.EffectiveCycleSeconds == 5 and r.ExpectedIncrementPerSecond == 0.6)
 		assert(r.TotalTimeSeconds == "UNKNOWN" and r.EffectiveServerOdds == "UNKNOWN" and r.VariantOdds == "UNKNOWN" and r.PityGuarantee == "UNKNOWN") s:Close()
 	end)
 end)
@@ -311,10 +317,12 @@ test("Hatch location reuses loaded ID cleanup at an otherwise excluded area with
 	simulated(function()
 		local s = fixture() s.Area.Name, s.Area.Key = "The Overworld", "The Overworld/The Overworld"
 		s.Dependencies.Eggs["Test Egg"].Island = nil s.Coordinator.Tracker.Areas[s.Area.Key] = s.Area
+		s.Controller.Plan = { Objective = { Metadata = { Cost = { Type = "Currency", Currency = "Coins" } } } }
 		s.Manager:Select({}) local record = s:Add("egg-location")
-		local original = s.Root.Position local result = s.Coordinator.Stationary:Collect({ Cluster = s.Coordinator.Tracker:Cluster("Coins"), Mode = "HATCH_PICKUPS", HatchSpending = true }, token,
+		s.OnDispatch = function() s.Profile.Coins += 10 end
+		local original = s.Root.Position local result = s.Coordinator.Stationary:Collect({ Cluster = s.Coordinator.Tracker:Cluster("Coins"), Mode = "HATCH_PICKUPS", HatchSpending = false }, token,
 			function() return s.Manager:AtOwnedLocation(s.Area) end)
-		assert(not result.Verified and #s.Calls == 1 and record.Model.Destroyed and s.Coordinator.Stationary.LastResult.Contaminated)
+		assert(result.Verified and #s.Calls == 1 and record.Model.Destroyed and not s.Coordinator.Stationary.LastResult.Contaminated)
 		assert(#s.Teleports == 0 and s.Root.Position == original and #s.Commands == 0)
 		local other = s:Add("lease-ended") s.Manager:Halt() assert(not s.Coordinator.Mechanics:CollectStationary(other, token)) s:Close()
 	end)
@@ -657,9 +665,9 @@ test("Egg analysis distinguishes disabled spending and genuinely unhelpful pool"
 	end)
 end)
 
-test("Egg analysis follows changed actual equipped team without hardcoded score", function()
+test("Egg analysis keeps owned baseline when manually changing equipped team", function()
 	simulated(function()
-		local s = fixture() local a = eggReport(s) assert(a.Team.CurrentScore == 2 and a.Eggs[1].ExpectedIncrement == 6.25)
+		local s = fixture() local a = eggReport(s) assert(a.Team.CurrentScore == 2 and a.Eggs[1].ExpectedIncrement == 3)
 		s.Profile.Teams[1].Pets = { "strong", "strong" }
 		local b = eggReport(s) assert(b.Team.CurrentScore == 9 and b.Eggs[1].ExpectedIncrement == 3 and b.Eggs[1].ClientImprovementProbability == 0.75)
 		s.Ranks.Strong = 10 b = eggReport(s) assert(b.Team.CurrentScore == 19 and b.Eggs[1].ExpectedIncrement == 0) s:Close()
@@ -725,9 +733,9 @@ end)
 
 test("Single hatch confirms actual existing-stack amount counter variant and team benefit", function()
 	simulated(function()
-		local s = hatchOnce() s.Profile.Pets[3] = { Id = "new", Name = "New", Amount = 2, Shiny = true }
+		local s = hatchOnce() s.Profile.Pets[3] = { Id = "new", Name = "New", Amount = 1, Shiny = true }
 		s.Profile.Teams[1].Pets = { "strong", "strong" } assert(s:Dispatch())
-		s.Profile.Pets[3].Amount = 3 s.Profile.EggsOpened["Test Egg"] = 1 s.Profile.Coins -= 10 s.Manager:Observe()
+		s.Profile.Pets[3].Amount = 2 s.Profile.EggsOpened["Test Egg"] = 1 s.Profile.Coins -= 10 s.Manager:Observe()
 		local r = s.Manager.Hatch.LastResult local c = r.Changes[1]
 		assert(r.Status == "INVENTORY_GAIN_OBSERVED" and r.CounterDelta == 1 and c.Id == "new" and c.ExistingStack and c.Variant == "Shiny" and c.Quantity == 1)
 		assert(c.Usefulness == "USEFUL_NATIVE_TEAM_ESTIMATE" and c.ActualIncrement == 4 and r.Balances.Coins.Delta == -10)

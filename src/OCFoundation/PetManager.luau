@@ -19,6 +19,41 @@ local function copyFacts(value)
 	return result
 end
 
+local function receivedProjection(baseline, change, inventory)
+	if not baseline or not inventory or type(baseline.ScoreTeam) ~= "function" or not Policy.Finite(baseline.Score) then
+		return nil, "Pre-hatch owned-team/native projection unavailable"
+	end
+	local pet, original = inventory.ById[change.Id], baseline.ById[change.Id]
+	if not pet or pet.Name ~= change.Name or pet.Super or not (baseline.Definitions or {})[pet.Name]
+		or not baseline.Definitions[pet.Name].Rarity or table.find(baseline.Config.PET_SETTINGS.PROTECTED_PET_IDS, pet.Id) then
+		return nil, "Actual received pet is unavailable/unsupported/protected"
+	end
+	-- Replace only this received record in the detached PRE-hatch inventory.
+	-- Unrelated later pets/stacks cannot make this hatch appear useful.
+	local pets, candidate = copyFacts(baseline.Pets), copyFacts(pet)
+	candidate.Amount = (original and (original.Amount or 1) or 0) + change.Quantity
+	if candidate.Amount > (pet.Amount or 1) then return nil, "Received stack quantity changed during evaluation" end
+	local found = false
+	for index, record in pairs(pets) do if record.Id == pet.Id then pets[index] = candidate found = true break end end
+	if not found then table.insert(pets, candidate) end
+	local unchanged = baseline.ScoreTeam(baseline.Ids, pets)
+	if not Policy.Finite(unchanged) or math.abs(unchanged - baseline.Score) > 1e-6 then
+		return nil, "Original owned-team native score changed with received record; marginal hatch attribution UNKNOWN"
+	end
+	local best = unchanged
+	if (Policy.Counts(baseline.Ids)[pet.Id] or 0) >= candidate.Amount then return best end
+	for slot = 1, #baseline.Ids + (#baseline.Ids < baseline.MaxEquipped and 1 or 0) do
+		local old = baseline.ById[baseline.Ids[slot]]
+		local definition = old and (baseline.Definitions or {})[old.Name]
+		if old and (old.Super or Policy.Protected(baseline.Config, old, definition) or not definition or not definition.Rarity) then continue end
+		local ids = table.clone(baseline.Ids) ids[slot] = pet.Id
+		local value = baseline.ScoreTeam(ids, pets)
+		if not Policy.Finite(value) then return nil, "Actual received native team projection failed" end
+		best = math.max(best, value)
+	end
+	return best
+end
+
 function PetManager.new(controller)
 	local self = setmetatable({ Controller = controller, Config = controller.Config, EquipCommands = 0 }, PetManager)
 	self.Hatch = HatchManager.new(controller)
@@ -76,28 +111,39 @@ end
 
 function PetManager:Observe()
 	local raw = self.Controller.Reader:GetLiveProfile()
+	local player = self.Controller.Reader.Player
+	if self.Hatch.UserId and (not player or player.UserId ~= self.Hatch.UserId) then
+		if not self.Fault then self:Uncertain("Hatch account identity changed; received result belongs to an unknown account; no continuation") end
+		raw = nil -- Preserve the outstanding ledger/deadline without attributing another account's inventory.
+	end
 	self.Hatch:Observe(raw) -- A missing profile must still expire an outstanding acknowledgement deadline.
 	if self.Hatch.LastResult and self.Hatch.LastResult ~= self.LastHatchEvaluated then
 		self.LastHatchEvaluated = self.Hatch.LastResult
 		local _, context = self:Fresh()
 		local inv = context.Inventory
-		local actual = inv and context.ScoreTeam and context.ScoreTeam(inv.Team)
-		self.Hatch.LastResult.UsefulnessBaselineScore = actual
-		self.Hatch.LastResult.UsefulnessBaselineIds = inv and table.clone(inv.Team)
-		for _, change in ipairs(self.Hatch.LastResult.Changes or {}) do
+		local result, baseline = self.Hatch.LastResult, self.Hatch.ResultBaseline
+		result.UsefulReceivedCopies = 0
+		for _, change in ipairs(result.Changes or {}) do
 			local pet = context.Inventory and context.Inventory.ById[change.Id]
-			local score = pet and context.PetScore and context.PetScore(pet)
-			local received = pet and context.ScoreReceivedPet and context.ScoreReceivedPet(change.Id, inv.Team)
-			if self.Hatch.LastResult.Status == "INVENTORY_GAIN_OBSERVED" and Policy.Finite(actual) and Policy.Finite(received) then
-				change.ActualIncrement = math.max(0, received - actual)
+			local score = baseline and baseline.Currency == context.Currency and pet and context.PetScore and context.PetScore(pet)
+			local received, reason
+			if result.Status == "INVENTORY_GAIN_OBSERVED" then received, reason = receivedProjection(baseline, change, inv) end
+			if Policy.Finite(received) and baseline then
+				change.ActualIncrement = math.max(0, received - baseline.Score)
+				change.UsefulnessEvaluatedCopies = 1 -- One native marginal, never multiply it by duplicate quantity.
 				change.Usefulness = change.ActualIncrement > 1e-6 and "USEFUL_NATIVE_TEAM_ESTIMATE" or "NO_CURRENT_TEAM_IMPROVEMENT"
-			else change.Usefulness = "UNKNOWN" end
-			if self.Hatch.LastResult.Status == "INVENTORY_GAIN_OBSERVED" and Policy.Finite(score)
+				if change.ActualIncrement > 1e-6 then result.UsefulReceivedCopies += 1 end
+			else change.Usefulness, change.UsefulnessReason = "UNKNOWN", reason or "Received hatch confirmation unavailable" end
+			if result.Status == "INVENTORY_GAIN_OBSERVED" and Policy.Finite(score)
 				and (not self.Hatch.BestHatch or self.Hatch.BestHatch.Currency ~= context.Currency or score > self.Hatch.BestHatch.Score) then
 				self.Hatch.BestHatch = { Id = change.Id, Name = change.Name, Score = score, Currency = context.Currency,
-					Quantity = change.Quantity, Evidence = "Native score of actually received inventory gain; attribution qualified" }
+					Quantity = change.Quantity, Variant = change.Variant, ActualIncrement = change.ActualIncrement,
+					Usefulness = change.Usefulness, Evidence = "Native score of actually received inventory gain; attribution qualified" }
 			end
 		end
+		result.Continuation = (self.Fault or self.Hatch.Fault) and "BLOCKED_UNCERTAIN" or self.Hatch.Once and "SINGLE_HATCH_ENDED_EQUIPMENT_OFF"
+			or result.UsefulReceivedCopies > 0 and self.Config.PET_SETTINGS.AUTO_EQUIP and "FRESH_OWNED_TEAM_REPLAN_REQUIRED"
+			or self.Hatch:Ended() and "BOUNDED_HATCH_SESSION_ENDED" or "FRESH_BOUNDED_HATCH_REPLAN_REQUIRED"
 		self.Controller:Log("HATCH_RESULT", self.Hatch:ResultText())
 	end
 	if self.Hatch.Fault then self.Fault = self.Hatch.Fault end
@@ -182,9 +228,33 @@ function PetManager:Analyze(force)
 	return context
 end
 
+function PetManager:NativeHatchIdle()
+	local c = self.Controller
+	local presentation = c.Knowledge:Get("HatchPresentation")
+	local scripts = c.Reader.Player and c.Reader.Player:FindFirstChild("PlayerScripts")
+	local client = scripts and scripts:FindFirstChild("ClientScript")
+	local status = client and client:FindFirstChild("GetAutoHatchStatus")
+	local ok, idle = pcall(function()
+		return presentation and type(presentation.IsHatching) == "function" and presentation:IsHatching() == false
+			and status and status:IsA("BindableFunction") and status:Invoke() == nil
+	end)
+	return ok and idle == true
+end
+
 function PetManager:Select(plan)
 	if not self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE then return false end
 	self:Observe()
+	-- Received inventory can precede the native reveal. Retain the same location
+	-- through this bounded idle observation before any new target/equipment plan.
+	if self.Hatch.RequestedHatches > 0 and not self.Hatch.Pending and not self:NativeHatchIdle() then
+		if os.clock() - (self.Hatch.StartedAt or os.clock()) >= self.Config.HATCH_SETTINGS.MAXIMUM_SESSION_SECONDS then
+			if not self.Fault then self:Uncertain("Native hatch presentation/auto-hatch did not become idle within the bounded session; no continuation or movement") end
+			self.Hatch.EndReason = self.Fault
+			self.Decision = { Kind = "WAIT", OwnsLocation = self.Hatch.Location ~= nil, Reason = self.Fault }
+		else self.Decision = { Kind = "OBSERVE", OwnsLocation = self.Hatch.Location ~= nil,
+			Reason = "Received hatch confirmed; waiting for native presentation/auto-hatch idle before replanning" } end
+		return true, self.Decision
+	end
 	if self.Hatch:Ended() and not self.Hatch.Pending then
 		local presentation = self.Controller.Knowledge:Get("HatchPresentation")
 		local ok, active = pcall(function() return presentation:IsHatching() end)
@@ -219,8 +289,14 @@ function PetManager:Select(plan)
 		self.Hatch.StartedAt = self.Hatch.StartedAt or os.clock()
 		self.Hatch.UserId = self.Hatch.UserId or self.Controller.Reader.Player.UserId
 		for _, egg in ipairs(context.Eggs) do
-			if egg.Name == decision.EggName then self.Hatch.Location = self.Hatch.Location or
-				{ EggName = egg.Name, Model = egg.Model, World = egg.World, Island = egg.Island } break end
+			if egg.Name == decision.EggName then
+				local location = self.Hatch.Location
+				if not location or location.EggName ~= egg.Name or location.Model ~= egg.Model then
+					self.Hatch.Location = { EggName = egg.Name, Model = egg.Model, World = egg.World, Island = egg.Island,
+						Currency = decision.Currency, SelectionMode = decision.SelectionMode }
+				end
+				break
+			end
 		end
 	end
 	self.Decision = decision
@@ -231,16 +307,65 @@ function PetManager:Select(plan)
 	return decision.Kind ~= "WAIT" or decision.OwnsLocation, decision
 end
 
+function PetManager:PickupCurrency()
+	local metadata = self.Controller.Plan and self.Controller.Plan.Objective and self.Controller.Plan.Objective.Metadata
+	if not metadata then return nil end
+	local requirement = metadata.Requirement
+	local currency = requirement and requirement.Currency or not requirement and metadata.Cost and metadata.Cost.Type == "Currency" and metadata.Cost.Currency
+	return (currency == "Coins" or currency == "Gems") and currency or nil
+end
+
+function PetManager:BackgroundScopeValid(area, scope)
+	local c, config, location = self.Controller, self.Config, self.Hatch.Location
+	if not location or not area or c.State ~= "RUNNING" or not config.PET_SETTINGS.AUTO_HATCH
+		or not config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE or not config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS
+		or not config.HATCH_SETTINGS.ENABLE_BACKGROUND_PICKUPS or not config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS
+		or self.Hatch:Ended() or self.Hatch.Once or self.Hatch.Pending or self.PendingEquip or self.Transaction
+		or self.Fault or self.Hatch.Fault or not self:PickupCurrency() then return false end
+	if self.Hatch.UserId and (not c.Reader.Player or c.Reader.Player.UserId ~= self.Hatch.UserId) then return false end
+	if scope and (location ~= scope.Location or self:PickupCurrency() ~= scope.Currency or area.Key ~= scope.AreaKey
+		or c.Generation ~= scope.Generation) then return false end
+	if (location.Island or location.World) ~= area.Name or location.World ~= area.World
+		or not c.Farming.Mechanics:Unlocked(area.World, area.Name) then return false end
+	if config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then
+		local lease = c.EggTravel and c.EggTravel.Lease
+		if not lease or lease.Status ~= "ARRIVED" or lease.Model ~= location.Model or lease.EggName ~= location.EggName
+			or not lease.Deadline or os.clock() >= lease.Deadline or c.EggTravel.Blocked and c.EggTravel.Blocked[lease.SelectionKey] then return false end
+	end
+	local eligible = type(c.Knowledge.NativeEggRangeEligible) == "function"
+		and c.Knowledge:NativeEggRangeEligible({ Model = location.Model }, c.Farming.Tracker:Root())
+	return eligible == true
+end
+
 function PetManager:AtOwnedLocation(area)
-	local location = self.Hatch.Location
-	if not location or not area or self.Controller.State ~= "RUNNING" or not self.Config.PET_SETTINGS.AUTO_HATCH
-		or not self.Config.HATCH_SETTINGS.ENABLE_BACKGROUND_PICKUPS or self.Hatch:Ended() and not self.Hatch.Pending then return false end
-	-- Manual movement updates eligible current area; never reposition the character.
-	local model, root = location.Model, self.Controller.Farming.Tracker:Root()
-	local part = model and model.Parent and model:IsDescendantOf(workspace) and model:FindFirstChild("Root")
-	return part ~= nil and part:IsA("BasePart") and root ~= nil and (part.Position - root.Position).Magnitude <= 16
-		and (location.Island or location.World) == area.Name and location.World == area.World
-		and self.Controller.Farming.Mechanics:Unlocked(area.World, area.Name)
+	local scope = self.BackgroundPickup
+	if not self:BackgroundScopeValid(area, scope) or not self:NativeHatchIdle() then return false end
+	-- Native idle guards may yield. Recheck the actual objective/location last;
+	-- a changed lease cannot fall back to ordinary Void/Zen collection.
+	return self:BackgroundScopeValid(self.Controller.Farming.Tracker.Current, scope)
+end
+
+function PetManager:CollectBackground(token)
+	local c, area = self.Controller, self.Controller.Farming.Tracker.Current
+	if token:CheckCancelled() or not self:AtOwnedLocation(area) then return nil end
+	local currency = self:PickupCurrency()
+	local cluster = currency and c.Farming.Tracker:Cluster(currency)
+	if not cluster then return nil end
+	local scope = { Currency = currency, Location = self.Hatch.Location, AreaKey = area.Key, Generation = c.Generation }
+	self.BackgroundPickup = scope
+	-- The shared adapter's ordinary Void/Zen path must not become a fallback if
+	-- its late provider check loses egg ownership. This scoped cancellation check
+	-- remains inside the same foreground collector and its existing paced slice.
+	local guardedToken = { CheckCancelled = function()
+		return token:CheckCancelled() or not self:NativeHatchIdle() or not self:BackgroundScopeValid(c.Farming.Tracker.Current, scope)
+	end }
+	local ok, result = pcall(function()
+		return c.Farming.Stationary:Collect({ Mode = "HATCH_PICKUPS", Currency = currency, Cluster = cluster, HatchSpending = false }, guardedToken,
+			function() return self:AtOwnedLocation(c.Farming.Tracker.Current) end)
+	end)
+	self.BackgroundPickup = nil
+	if not ok then error(result) end
+	return result
 end
 
 function PetManager:Prepare(decision, token)
@@ -254,9 +379,22 @@ function PetManager:Prepare(decision, token)
 	local function allowed()
 		return c.State == "RUNNING" and (not token or not token:CheckCancelled())
 	end
+	local function receivedHatchIdle()
+		if self.Hatch.RequestedHatches == 0 then return true end -- Preserve the owner-tested owned-team-only path.
+		local presentation = c.Knowledge:Get("HatchPresentation")
+		local scripts = c.Reader.Player and c.Reader.Player:FindFirstChild("PlayerScripts")
+		local client = scripts and scripts:FindFirstChild("ClientScript")
+		local status = client and client:FindFirstChild("GetAutoHatchStatus")
+		local ok, idle = pcall(function()
+			return presentation and type(presentation.IsHatching) == "function" and presentation:IsHatching() == false
+				and status and status:IsA("BindableFunction") and status:Invoke() == nil
+		end)
+		return ok and idle == true
+	end
 	if decision.Kind == "TEAM" or decision.Kind == "TEAM_ADD" then
 		if self.Hatch.Once then return nil, nil, nil, "Isolated single-hatch controller never authorizes equipment" end
 		if not config.PET_SETTINGS.AUTO_EQUIP then return nil, nil, nil, "Team changes disabled" end
+		if not receivedHatchIdle() then return nil, nil, nil, "Received hatch presentation/native auto-hatch active or unknown; equipment waits" end
 		if config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE and os.clock() < (self.NextEquipAt or -math.huge) then return nil, nil, nil, "OC equipment request pacing; no native server cooldown assumed" end
 		if config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE then
 			local attempt = self.Attempt
@@ -305,12 +443,14 @@ function PetManager:Prepare(decision, token)
 		if not allowed() then return nil, nil, nil, "Cancelled before dispatch" end
 		local guarded, guardReason = c.Farming.Mechanics:Guard()
 		if not guarded or not allowed() then return nil, nil, nil, guardReason or "Cancelled before dispatch" end
+		if not receivedHatchIdle() or not allowed() then return nil, nil, nil, "Hatch presentation/authorization changed before equipment dispatch" end
 		-- Guards/helpers may yield. Compare the actual account records and membership
 		-- again, with no yield between this final check, ledger creation and dispatch.
 		local live = c.Reader:GetLiveProfile()
 		local liveInv = Policy.Inventory(live)
 		local attempt = self.Attempt
 		local authorizationChanged = not config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE or not config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS
+			or Policy.Currency(config, c.Plan) ~= context.Currency
 			or config.PICKUP_SETTINGS.STATIONARY_ISOLATED_TEST or not config.PET_SETTINGS.AUTO_EQUIP
 			or table.find(config.PET_SETTINGS.PROTECTED_PET_IDS, add.Id) ~= nil
 			or command == "UnequipPet" and Policy.Protected(config, remove, context.Pets[remove.Name])
@@ -407,18 +547,45 @@ function PetManager:Prepare(decision, token)
 		then return nil, nil, nil, "Account/authorization changed during final hatch guards; no request" end
 	if not capacityOK or capacityAllows ~= true then return nil, nil, nil, "Native inventory capacity changed during final guards; no request" end
 	if not costOK or not Policy.Equal(finalCost, egg.Cost) or not worldOK or finalWorld ~= egg.World
-		or not part or not part:IsA("BasePart") or not root or (part.Position - root.Position).Magnitude > egg.Range
+		or not part or not part:IsA("BasePart") or not root
 		or egg.Model:GetAttribute("Unlocked") ~= egg.Unlocked then return nil, nil, nil, "Native egg/cost/range changed during final guards; approach manually" end
 	if not finalAutoOK or finalAuto ~= nil or not finalHatchOK or finalHatch ~= false
 		or not finalTimeOK or not Policy.Finite(finalTime) or finalNextAt ~= nil and not Policy.Finite(finalNextAt)
 		or finalNextAt and finalNextAt > finalTime then return nil, nil, nil, "Native hatch/cooldown changed during final guards; no request" end
+	if decision.Model and decision.Model ~= egg.Model or fresh.Model and fresh.Model ~= egg.Model then
+		return nil, nil, nil, "Brain-selected egg identity changed; no request"
+	end
+	if config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then
+		local eligible, rangeReason
+		if c.EggTravel then eligible, rangeReason = c.EggTravel:HatchEligible(egg) end
+		if not eligible then return nil, nil, nil, rangeReason or "Selected egg arrival lease/native range unavailable; no request" end
+	else
+		local root = c.Farming.Tracker:Root()
+		local eligible = type(c.Knowledge.NativeEggRangeEligible) == "function" and c.Knowledge:NativeEggRangeEligible(egg, root, true)
+		if not eligible then return nil, nil, nil, "Native egg prompt/nearest selection no longer eligible; manual approach required" end
+	end
 	if self.Hatch.Once and (count ~= 1 or Policy.HatchIsolation(config)) then return nil, nil, nil, "Single hatch authorization changed" end
+	-- Arrival/range observation can call native helpers. Preserve the final
+	-- account/config/cancellation barrier after that observation as well.
+	if not allowed() or c.Reader.Player.UserId ~= accountId or not Policy.Equal(authorization, config)
+		or Policy.Currency(config, c.Plan) ~= context.Currency
+		or not Policy.Equal(c.Reader:GetLiveProfile(), context.AccountFacts) then
+		return nil, nil, nil, "Account/budget/authorization changed during final arrival observation; no request"
+	end
+	local team = report.Team
+	if not team or team.Status ~= "ESTIMATE" or not Policy.Finite(team.ProjectedScore) or not team.ProposedIds
+		or not context.ScoreTeam then return nil, nil, nil, "Pre-hatch best feasible owned-team benchmark unavailable; no request" end
+	local usefulnessBaseline = { Ids = table.clone(team.ProposedIds), Score = team.ProjectedScore, Currency = context.Currency,
+		MaxEquipped = context.MaxEquipped, TeamIndex = inv.TeamIndex, Pets = copyFacts(context.AccountFacts.Pets),
+		ById = cloneRecords(inv), Definitions = context.Pets, Config = { PET_SETTINGS = copyFacts(config.PET_SETTINGS) },
+		ScoreTeam = context.ScoreTeam, SearchBoundReached = team.SearchBoundReached, ProjectionFailures = team.ProjectionFailures }
 	self.Hatch.UserId = accountId
 	self.Hatch.StartedAt = self.Hatch.StartedAt or os.clock()
 	self.Hatch.RequestedHatches += count self.Hatch.RequestCost += egg.Cost.Amount * count
 	self.Hatch.NextRequestAt = os.clock() + math.max(settings.MINIMUM_REQUEST_INTERVAL_SECONDS, egg.Duration)
 	local balances = {} for _, currency in ipairs({ "Coins", "Gems", "Tickets", "Pearls" }) do if Policy.Finite(live[currency]) then balances[currency] = live[currency] end end
 	self.Hatch.Pending = { Before = cloneRecords(inv), Pool = names, Count = count, Counter = counter,
+		UsefulnessBaseline = usefulnessBaseline,
 		EggName = egg.Name, Currency = egg.Cost.Currency, BeforeBalance = live[egg.Cost.Currency], BeforeBalances = balances,
 		TeamBefore = table.clone(inv.Team), TeamIndex = inv.TeamIndex, Deadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS }
 	return "HatchEgg", egg.Name, count
@@ -432,20 +599,15 @@ function PetManager:Definition(decision, generation)
 			if token:CheckCancelled() then return nil end
 			local owns, fresh = self:Select(c.Plan)
 			if not owns then return { Reason = "Pet intent ended" } end
+			local actionSent = false
 			if fresh.Kind == "HATCH" or fresh.Kind == "TEAM" or fresh.Kind == "TEAM_ADD" then
 				local sent, reason = c.Farming.Mechanics:PetAction(self, fresh, token)
+				actionSent = sent == true
 				self.LastAction = { Requested = sent, Reason = reason }
 				if not sent and self.LastDispatchBlocker ~= reason then c:Log("PET][BLOCKER", reason) self.LastDispatchBlocker = reason end
 			end
 			self:Observe()
-			local area = c.Farming.Tracker.Current
-			if self:AtOwnedLocation(area) and c.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS then
-				local cluster = c.Farming.Tracker:Cluster("Coins")
-				if cluster then
-					c.Farming.Stationary:Collect({ Mode = "HATCH_PICKUPS", Cluster = cluster, HatchSpending = self.Hatch.Pending ~= nil }, token,
-						function() return self:AtOwnedLocation(c.Farming.Tracker.Current) end)
-				end
-			end
+			if not actionSent then self:CollectBackground(token) end
 			if not token:CheckCancelled() then task.wait(1) end -- Cooperative slice; prevents an unconfirmed/approach hot loop.
 			return { Reason = "Pet observation/action slice; results require received account changes" }
 		end,

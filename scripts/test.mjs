@@ -62,7 +62,7 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -128,7 +128,7 @@ for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFar
       'AUTO_RESOURCE_FARM', 'AUTO_TRAVEL_BEST_ISLAND', 'AUTO_BLOW_BUBBLES', 'AUTO_SELL_BUBBLES', 'ENABLE_SMART_UPGRADES',
       'ENABLE_BACKGROUND_PICKUPS', 'BULK_COLLECT_PICKUPS']) assert(configText.includes(key + ' = false'));
     assert(configText.includes('PRESERVE_PROGRESSION_RESERVE = true'));
-    assert(contents.includes('/migration-' + generated.buildId + '/dist/OC.lua'), 'Migrated hatch examples must pin their matching bundle build');
+    assert(contents.includes('/migration-005f77211830/dist/OC.lua'), 'Historical migration examples retain their verified baseline pin');
     assert(configText.includes('AUTO_HATCH = false') && configText.includes('HATCH_ONE_EGG_ONCE = false') && configText.includes('MAXIMUM_EGG_COST = 0') && configText.includes('MAXIMUM_SESSION_COST = 0'));
     assert(configText.includes('SELECTED_EGGS = {}') && configText.includes('SELECTED_WORLDS = {}'), 'Analysis must not select a fixed egg or assume a world unlock');
   }
@@ -194,7 +194,7 @@ const migrationExample = await readFile(path.join(root, 'examples/MigrationVerif
 const migrationConfig = configPrefix(migrationExample);
 const migrationCompile = spawnSync(compiler, ['--null', path.join(root, 'examples/MigrationVerify.luau')], { encoding: 'utf8' });
 assert.equal(migrationCompile.status, 0, 'Migration verification loader must compile: ' + migrationCompile.stderr);
-assert(migrationExample.includes('/Whispfl/automation-/migration-' + generated.buildId + '/dist/OC.lua'), 'Migration loader must pin the matching destination build');
+assert(migrationExample.includes('/Whispfl/automation-/migration-005f77211830/dist/OC.lua'), 'Historical migration loader retains its known-good baseline pin');
 const migrationCheck = `
 local options = (function()
 ${migrationConfig}
@@ -230,3 +230,46 @@ const migrationRun = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(migrationRun.stdout || '');
 process.stderr.write(migrationRun.stderr || '');
 assert.equal(migrationRun.status, 0, 'Migration verification Config isolation failed');
+
+const autoOnceExample = await readFile(path.join(root, 'examples/Phase4AutoOnce.luau'), 'utf8');
+const autoOnceConfig = configPrefix(autoOnceExample);
+assert(autoOnceExample.includes('/Whispfl/automation-/phase4-auto-' + generated.buildId + '/dist/OC.lua'), 'AUTO example must pin the matching candidate');
+const autoOnceCompile = spawnSync(compiler, ['--null', path.join(root, 'examples/Phase4AutoOnce.luau')], { encoding: 'utf8' });
+assert.equal(autoOnceCompile.status, 0, 'AUTO one-hatch loader must compile: ' + autoOnceCompile.stderr);
+const autoOnceCheck = `
+local options = (function()
+${autoOnceConfig}
+return Config
+end)()
+options.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false
+local instance = requireOC("OCController").new(config(options))
+local settings = instance.Config
+assert(settings.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and settings.PET_SETTINGS.AUTO_HATCH)
+assert(settings.HATCH_SETTINGS.EGG_SELECTION_MODE == "AUTO" and #settings.HATCH_SETTINGS.SELECTED_EGGS == 0)
+assert(settings.HATCH_SETTINGS.HATCH_ONE_EGG_ONCE and settings.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES == 1 and settings.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES == 1)
+assert(settings.HATCH_SETTINGS.MAXIMUM_EGG_COST == 1000000 and settings.HATCH_SETTINGS.MAXIMUM_SESSION_COST == 1000000 and settings.HATCH_SETTINGS.PRESERVE_PROGRESSION_RESERVE)
+assert(settings.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL and settings.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL and settings.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING)
+local disabled = {
+ WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
+ FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" },
+ ISLAND_SETTINGS = { "AUTO_TRAVEL_BEST_ISLAND", "AUTO_EXPLORE_UNLOCKED_ISLANDS" },
+ PICKUP_SETTINGS = { "BULK_COLLECT_PICKUPS", "STATIONARY_ISOLATED_TEST" },
+ BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
+ UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
+ PET_SETTINGS = { "AUTO_EQUIP", "EQUIP_OWNED_TEAM_ONCE", "AUTO_DELETE_PETS", "AUTO_CRAFT_SHINY", "AUTO_FUSE_PETS" },
+ HATCH_SETTINGS = { "ENABLE_BACKGROUND_PICKUPS" },
+ PLAYTIME_SETTINGS = { "AUTO_CLAIM_PLAYTIME" },
+ MYSTERY_BOX_SETTINGS = { "AUTO_OPEN_MYSTERY_BOXES", "ENABLE_AUTOMATIC_CONTINUATION" },
+ ANTIAFK_SETTINGS = { "ENABLE_ANTI_AFK" },
+ FALL_EVENT_SETTINGS = { "ENABLE_FALL_EVENT", "AUTO_REBIRTH", "AUTO_BUY_REBIRTH_UPGRADES", "AUTO_USE_FALL_ELIXIRS", "AUTO_BUY_AUTUMN_SHOP_ITEMS" },
+}
+for category, keys in pairs(disabled) do for _, key in ipairs(keys) do assert(settings[category][key] == false, category .. "." .. key .. " must be OFF") end end
+assert(settings.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST == 0)
+instance:Destroy()
+print("[OC TEST] AUTO one-hatch Config: one request/count, protected reserves and unrelated actions OFF after default merge")
+`;
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + autoOnceCheck);
+const autoOnceRun = spawnSync(executable, [testPath], { encoding: 'utf8' });
+process.stdout.write(autoOnceRun.stdout || '');
+process.stderr.write(autoOnceRun.stderr || '');
+assert.equal(autoOnceRun.status, 0, 'AUTO one-hatch Config isolation failed');

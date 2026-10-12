@@ -92,6 +92,7 @@ local function validate(config)
 	assert(config.PICKUP_SETTINGS.ZONE_MATCH_TOLERANCE_STUDS <= 2, "Zone boundary tolerance must not exceed two studs")
 	assert(config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS < config.ISLAND_SETTINGS.PICKUP_PROBE_TIMEOUT_SECONDS, "Arrival grace must be smaller than the pickup trial timeout")
 	local pets, hatch = config.PET_SETTINGS, config.HATCH_SETTINGS
+	assert(hatch.EGG_SELECTION_MODE == "AUTO" or hatch.EGG_SELECTION_MODE == "MANUAL", "EGG_SELECTION_MODE must be AUTO or MANUAL")
 	local eggTravel, playtime, boxes, idle = config.EGG_TRAVEL_SETTINGS, config.PLAYTIME_SETTINGS,
 		config.MYSTERY_BOX_SETTINGS, config.ANTIAFK_SETTINGS
 	for _, value in ipairs({ eggTravel.ARRIVAL_TIMEOUT_SECONDS, eggTravel.STABILITY_SECONDS, eggTravel.MAXIMUM_LOCATION_SECONDS,
@@ -140,7 +141,7 @@ local function validate(config)
 		assert(hatch.MAXIMUM_EGG_COST == 0 and hatch.MAXIMUM_SESSION_COST == 0 and not hatch.ENABLE_BACKGROUND_PICKUPS, "Equip-only test requires zero hatch budgets and background collection OFF")
 	end
 	if pets.AUTO_HATCH then
-		assert(#hatch.SELECTED_EGGS > 0 and hatch.MAXIMUM_EGG_COST > 0 and hatch.MAXIMUM_SESSION_COST > 0, "Hatching requires explicit egg selection and positive spending budgets")
+		assert((hatch.EGG_SELECTION_MODE == "AUTO" or #hatch.SELECTED_EGGS > 0) and hatch.MAXIMUM_EGG_COST > 0 and hatch.MAXIMUM_SESSION_COST > 0, "Hatching requires Brain AUTO or explicit MANUAL selection and positive spending budgets")
 		assert(#hatch.ALLOWED_CURRENCIES == 1, "Each bounded hatch session must authorize exactly one currency")
 	end
 	-- Destructive and later-phase executors remain unavailable.
@@ -218,13 +219,17 @@ function OCController.new(config, player)
 				self:Log("PROGRESSION", result.Progression .. " | " .. result.ProgressionEvidence)
 				if #goal.Prerequisites > 0 then self:Log("PREREQUISITES", table.concat(goal.Prerequisites, "; ")) end
 			end
-			local localOwner, localDecision = self.Brain:SelectLocalFeature(self, result)
-			local petOwns, petDecision
-			if not localOwner then petOwns, petDecision = self.Pets:Select(result) end
+			-- Selection precedes travel: the same Brain's fresh pet decision supplies
+			-- the destination, financial guard and immutable original-model identity.
+			local petOwns, petDecision = self.Pets:Select(result)
+			local localOwner, localDecision = self.Brain:SelectLocalFeature(self, result, petOwns, petDecision)
 			local owns, decision
 			if not localOwner and not petOwns then owns, decision = self.WorldProgression:Select(result) end
 			local taskDefinition
-			if localOwner then
+			if localOwner == "PHASE4_WAIT" then
+				if self.Farming.Activity then self.Farming:Halt(true) end
+				-- WAIT is an analysis result, not a movement or paid task.
+			elseif localOwner then
 				if self.Farming.Activity then self.Farming:Halt(true) end
 				local manager = ({ REWARDS = self.Rewards, EGG_TRAVEL = self.EggTravel, ANTI_AFK = self.AntiAFK })[localOwner]
 				taskDefinition = manager:Definition(localDecision, self.Generation)

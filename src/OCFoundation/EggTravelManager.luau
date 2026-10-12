@@ -10,8 +10,16 @@ local function live(part)
 	return part ~= nil and part.Parent ~= nil and part:IsA("BasePart") and part:IsDescendantOf(workspace)
 end
 local function child(parent, name) return parent and parent:FindFirstChild(name) end
-local function selected(config)
+local function selected(config, intent)
 	local names = config.HATCH_SETTINGS and config.HATCH_SETTINGS.SELECTED_EGGS
+	local mode = config.HATCH_SETTINGS and config.HATCH_SETTINGS.EGG_SELECTION_MODE or "MANUAL"
+	if intent then
+		if intent.Kind ~= "HATCH" or intent.DecisionSource ~= "BRAIN" or intent.SelectionMode ~= mode
+			or type(intent.EggName) ~= "string" or intent.EggName == "" then return nil, "Fresh Brain hatch destination unavailable or stale" end
+		if mode == "MANUAL" and not table.find(names or {}, intent.EggName) then return nil, "Manual egg authorization changed" end
+		return intent.EggName
+	end
+	if mode == "AUTO" then return nil, "AUTO travel requires an actual useful affordable Brain decision; no random destination" end
 	if type(names) ~= "table" or #names ~= 1 or type(names[1]) ~= "string" or names[1] == "" then
 		return nil, "Egg travel requires exactly one explicitly selected egg"
 	end
@@ -29,9 +37,27 @@ function EggTravelManager:Report(message)
 	if type(self.Controller.Log) == "function" then self.Controller:Log("EGG_TRAVEL", message) end
 end
 function EggTravelManager:Key()
-	local name, reason = selected(self.Controller.Config)
+	local name, reason = selected(self.Controller.Config, self.BrainIntent)
 	if not name then return nil, reason end
-	return name .. ":" .. tostring((self:Settings() or {}).SELECTION_REVISION or 0), nil, name
+	local prefix = self.BrainIntent and self.BrainIntent.SelectionMode == "AUTO" and "AUTO:" or ""
+	return prefix .. name .. ":" .. tostring((self:Settings() or {}).SELECTION_REVISION or 0), nil, name
+end
+
+function EggTravelManager:RevalidateIntent()
+	local intent, c = self.BrainIntent, self.Controller
+	if not intent then return true end -- Preserve separately authorized manual travel-only tests.
+	if not c.Config.PET_SETTINGS.AUTO_HATCH or not c.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE
+		or not c.Reader.Player or c.Reader.Player.UserId ~= self.BrainUserId then return false, "Brain hatch authorization/account changed" end
+	if not c.Pets or type(c.Pets.Fresh) ~= "function" or type(c.Pets.State) ~= "function" then return false, "Fresh pet decision interface unavailable" end
+	local snapshot, context = c.Pets:Fresh()
+	if not snapshot or not snapshot.Ready or context.Currency ~= intent.Currency then return false, "Brain currency objective or account readiness changed" end
+	-- Received results/presentation retain location without re-authorizing movement.
+	if self.Lease and self.Lease.Status == "ARRIVED" then return true end
+	local report = c.Brain:AnalyzePets(snapshot, context)
+	local fresh = c.Brain:PlanPets(report, context, c.Pets:State())
+	if not fresh or fresh.Kind ~= "HATCH" or fresh.EggName ~= intent.EggName or fresh.Model ~= intent.Model
+		or fresh.Currency ~= intent.Currency then return false, fresh and fresh.Reason or "Fresh useful hatch/reserve decision changed; no travel" end
+	return true
 end
 
 function EggTravelManager:Resolve()
@@ -39,6 +65,8 @@ function EggTravelManager:Resolve()
 	if self.Destroyed or not settings or not settings.ENABLE_SELECTED_EGG_TRAVEL then return nil, "Selected-egg travel disabled" end
 	local key, reason, name = self:Key()
 	if not key then return nil, reason end
+	local permitted, blocker = self:RevalidateIntent()
+	if not permitted then return nil, blocker end
 	local profile, snapshot = c.Reader:GetLiveProfile(), c.Reader:GetSnapshot()
 	if not profile or not snapshot or not snapshot.Ready or type(profile.WorldsUnlocked) ~= "table"
 		or type(profile.AreasUnlocked) ~= "table" or type(profile.EggsOpened) ~= "table" then return nil, "Fresh account world/island/egg access unavailable" end
@@ -70,6 +98,7 @@ function EggTravelManager:Resolve()
 		end
 	end
 	if not model then return nil, "Selected original egg model is not loaded; no force-load or event chase" end
+	if self.BrainIntent and model ~= self.BrainIntent.Model then return nil, "Brain selected original egg model changed; no stale travel" end
 	local island = model:GetAttribute("Island") or def.Island
 	if island ~= nil and (type(island) ~= "string" or profile.AreasUnlocked[island] == nil) then
 		return nil, "Selected egg island access locked or unknown; no discovery or purchase"
@@ -100,7 +129,7 @@ function EggTravelManager:Resolve()
 			path = "Workspace.Worlds." .. world .. ".Islands." .. island .. ".Island.Portal.Spawn"
 		end
 	else
-		destination = child(child(worldModel, "FastTravel"), "Spawn") or child(worldModel, "PortalSpawn")
+		destination = child(child(worldModel, "FastTravel"), "Spawn")
 		if live(destination) then path, known = destination:GetFullName(), true end
 	end
 	if not live(destination) then destination = nil end
@@ -109,14 +138,16 @@ function EggTravelManager:Resolve()
 		World = world, Island = island, CurrentWorld = currentWorld, Range = range, Opened = opened,
 		RangeOrigin = rangeOrigin, RangeOriginPosition = rangeOrigin.Position, PromptPosition = prompt.Position, PromptVisible = visible,
 		Distance = (rangeOrigin.Position - root.Position).Magnitude, RootDistance = bestDistance,
-		NeedsNativeTravel = currentWorld ~= world or island ~= nil and math.abs(root.Position.Y - part.Position.Y) > 16,
+		-- Surface eggs also require their native area arrival when coming from an
+		-- island. Absence of an Island annotation cannot authorize a vertical jump.
+		NeedsNativeTravel = currentWorld ~= world or math.abs(root.Position.Y - part.Position.Y) > 16,
 		Destination = destination, DestinationPath = path, NativeAreaKnown = known == true }
 	local eligible, rangeBlocker = self:RangeEligibleAt(record, root.Position)
 	record.InRange, record.RangeBlocker = currentWorld == world and eligible, rangeBlocker
 	return record
 end
 
-function EggTravelManager:RangeEligibleAt(record, position)
+function EggTravelManager:RangeEligibleAt(record, position, force)
 	if not vector(position) or not live(record.RangeOrigin) then return false, "Native range geometry unavailable" end
 	local distance = (position - record.RangeOrigin.Position).Magnitude
 	if distance > record.Range then return false, "Outside the actual native egg range origin" end
@@ -125,7 +156,7 @@ function EggTravelManager:RangeEligibleAt(record, position)
 		if type(prompts) ~= "table" or prompts.Visible ~= 0 or record.Model:GetAttribute("Unlocked") ~= true then return false, "Native opened-egg scan eligibility unavailable/blocked" end
 		-- Match the native nearest-unlocked selection conservatively using original
 		-- loaded models; never read the private client registration table.
-		for _, model in ipairs(self.Controller.Knowledge:EggModels()) do
+		for _, model in ipairs(self.Controller.Knowledge:EggModels(force)) do
 			local root = model ~= record.Model and model.Parent and model:IsDescendantOf(workspace) and child(model, "Root") or nil
 			if live(root) and model:GetAttribute("Unlocked") == true and vector(root.Position)
 				and (root.Position - position).Magnitude <= distance + 0.05 then return false, "Another or equally near unlocked egg owns the native nearest-egg scan" end
@@ -140,6 +171,13 @@ function EggTravelManager:Validate(record, token)
 		or token and token:CheckCancelled() then return nil, "Egg location task cancelled or stale" end
 	local fresh, reason = self:Resolve()
 	if not fresh then return nil, reason end
+	-- A first authorized hatch can change the native initial-prompt interface to
+	-- the opened scanner. Refresh observed range only; never reposition on it.
+	if lease.Status == "ARRIVED" and not lease.Opened and fresh.Opened and self.Controller.Pets
+		and (self.Controller.Pets.Hatch.RequestedHatches or 0) > 0 then
+		lease.Opened, lease.NativePrompt, lease.RangeOrigin, lease.Range = fresh.Opened, fresh.NativePrompt, fresh.RangeOrigin, fresh.Range
+		lease.RangeOriginPosition, lease.PromptVisible = fresh.RangeOriginPosition, fresh.PromptVisible
+	end
 	if fresh.SelectionKey ~= lease.SelectionKey or fresh.Model ~= lease.Model or fresh.TargetRoot ~= lease.TargetRoot
 		or fresh.PromptPart ~= lease.PromptPart or fresh.NativePrompt ~= lease.NativePrompt or fresh.Opened ~= lease.Opened
 		or fresh.RangeOrigin ~= lease.RangeOrigin or fresh.Range ~= lease.Range
@@ -236,6 +274,20 @@ function EggTravelManager:Observe()
 end
 
 function EggTravelManager:OwnsLocation() return self.Lease ~= nil and self.Controller.State == "RUNNING" end
+function EggTravelManager:HatchEligible(egg)
+	local key, reason = self:Key()
+	if not key or self.Blocked[key] then return false, self.Blocked[key] or reason end
+	local lease = self.Lease
+	if not lease or lease.Status ~= "ARRIVED" or not egg or egg.Name ~= lease.EggName or egg.Model ~= lease.Model then
+		return false, "Selected Brain egg requires observed stable arrival of the same original model"
+	end
+	local fresh, blocker = self:Validate(lease)
+	if not fresh or not fresh.InRange or not self:RangeEligibleAt(fresh, fresh.CharacterRoot.Position, true) then
+		self:Release(blocker or "Manual departure from native range; no snap-back", true)
+		return false, blocker or "Native selected egg range changed"
+	end
+	return true
+end
 function EggTravelManager:AtOwnedLocation(area)
 	local lease = self.Lease
 	if not lease or lease.Status ~= "ARRIVED" or not area then return false end
@@ -243,7 +295,20 @@ function EggTravelManager:AtOwnedLocation(area)
 	return fresh ~= nil and fresh.InRange and area.World == lease.World and area.Name == (lease.Island or lease.World)
 end
 
-function EggTravelManager:Select(_plan)
+function EggTravelManager:Select(_plan, intent)
+	if intent then
+		local name, reason = selected(self.Controller.Config, intent)
+		if not name then return false, { Kind = "WAIT", Reason = reason } end
+		if self.Lease and self.BrainIntent and (intent.EggName ~= self.BrainIntent.EggName
+			or intent.Model ~= self.BrainIntent.Model or intent.Currency ~= self.BrainIntent.Currency) then
+			self:Release("Brain target/model/objective changed; no stale arrival or automatic restoration", true)
+			return false, { Kind = "WAIT", Reason = self.Reason }
+		end
+		if not self.BrainIntent or not self.Lease then self.BrainUserId = self.Controller.Reader.Player and self.Controller.Reader.Player.UserId end
+		self.BrainIntent = table.clone(intent)
+	elseif (self.Controller.Config.HATCH_SETTINGS.EGG_SELECTION_MODE or "MANUAL") == "AUTO" then
+		return false, { Kind = "WAIT", Reason = "AUTO travel requires a fresh Brain destination" }
+	end
 	self:Observe()
 	local settings = self:Settings()
 	if not settings or not settings.ENABLE_SELECTED_EGG_TRAVEL or self.Destroyed then return false, { Kind = "WAIT", Reason = "Selected-egg travel disabled" } end
@@ -357,7 +422,8 @@ function EggTravelManager:Destroy() if self.Destroyed then return end self:Halt(
 function EggTravelManager:GetStatus()
 	return { Enabled = self:Settings() and self:Settings().ENABLE_SELECTED_EGG_TRAVEL == true,
 		Lease = self.Lease, OwnsLocation = self:OwnsLocation(), Attempts = table.clone(self.Attempts),
-		LastResult = self.LastResult, Reason = self.Reason, HatchPermission = "SEPARATE", LiveVerification = "OWNER_PENDING" }
+		LastResult = self.LastResult, Reason = self.Reason, BrainIntent = self.BrainIntent,
+		HatchPermission = "SEPARATE", LiveVerification = "OWNER_PENDING" }
 end
 
 return EggTravelManager
