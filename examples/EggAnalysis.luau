@@ -42,6 +42,6 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/phase4-hatch-08074c7b88c3/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/migration-005f77211830/dist/OC.lua"))()(Config)
 -- Controls: OC:Pause(), OC:Resume(), OC:Stop(). Full outcomes: OC:GetStatus().Pets.Analysis
 -- OC:PrintPetTeam() retains the verified owned-team detail.

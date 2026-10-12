@@ -1,0 +1,454 @@
+--!nonstrict
+-- Narrow playtime/ordinary-box coordinator. Native commands/input remain in
+-- GameMechanics; observation uses the existing reader and scheduler only.
+local RewardsManager = {}
+RewardsManager.__index = RewardsManager
+
+local function finite(value)
+	return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+local function count(value)
+	return finite(value) and value >= 0 and value % 1 == 0
+end
+
+local function copy(value)
+	if type(value) ~= "table" then return value end
+	local result = {} for key, entry in pairs(value) do result[key] = copy(entry) end
+	return result
+end
+
+local function facts(context)
+	local raw, result = context.Raw or {}, { Balances = {}, Powerups = {}, Potions = {}, Pets = {}, Available = {} }
+	result.Available.Balances = type(context.Balances) == "table"
+	result.Available.Powerups = type(raw.Powerups) == "table"
+	result.Available.Potions = type(raw.Potions) == "table"
+	result.Available.Pets = type(raw.Pets) == "table"
+	for name, value in pairs(context.Balances or {}) do if finite(value) then result.Balances[name] = value end end
+	for name, value in pairs(type(raw.Powerups) == "table" and raw.Powerups or {}) do
+		if count(value) then result.Powerups[name] = value end
+	end
+	for name, levels in pairs(type(raw.Potions) == "table" and raw.Potions or {}) do
+		if type(levels) == "table" then
+			for level, amount in pairs(levels) do if count(amount) then result.Potions[tostring(name) .. ":" .. tostring(level)] = amount end end
+		end
+	end
+	for _, pet in pairs(type(raw.Pets) == "table" and raw.Pets or {}) do
+		if type(pet) == "table" and type(pet.Id) == "string" and type(pet.Name) == "string" and count(pet.Amount or 1) then
+			result.Pets[pet.Id] = { Name = pet.Name, Amount = pet.Amount or 1 }
+		end
+	end
+	return result
+end
+
+local function deltas(before, after)
+	local result = {}
+	for _, category in ipairs({ "Balances", "Powerups", "Potions" }) do
+		if not before.Available[category] or not after.Available[category] then continue end
+		for name, value in pairs(after[category]) do
+			local old = before[category][name]
+			-- A missing inventory key can represent a newly received item; a missing
+			-- currency baseline stays unknown, never substituted with zero.
+			if old == nil and category ~= "Balances" then old = 0 end
+			if finite(old) and value > old then table.insert(result, { Kind = category, Name = name, Amount = value - old }) end
+		end
+	end
+	for id, pet in pairs(before.Available.Pets and after.Available.Pets and after.Pets or {}) do
+		local old = before.Pets[id]
+		if not old or old.Name == pet.Name then
+			local gain = pet.Amount - (old and old.Amount or 0)
+			if gain > 0 then table.insert(result, { Kind = "Pets", Id = id, Name = pet.Name, Amount = gain }) end
+		end
+	end
+	table.sort(result, function(a, b) return a.Kind .. tostring(a.Id or a.Name) < b.Kind .. tostring(b.Id or b.Name) end)
+	return result
+end
+
+function RewardsManager.new(controller)
+	local self = setmetatable({ Controller = controller, Config = controller.Config, NextCheckAt = 0 }, RewardsManager)
+	local player = controller.Reader and controller.Reader.Player
+	self.UserId = player and player.UserId
+	if not count(self.UserId) or self.UserId == 0 or type(shared) ~= "table" then
+		self.Blocker = "Persistent account reward ledger unavailable; no reward dispatch"
+		return self
+	end
+	local root = shared.__OC_LOCAL_REWARD_LEDGER
+	if root ~= nil and (type(root) ~= "table" or root.Version ~= 1 or type(root.Accounts) ~= "table") then
+		self.Blocker = "Existing reward ledger has an unknown schema; preserved without dispatch"
+		self.UnknownBarrier = true
+		return self
+	end
+	if not root then root = { Version = 1, Accounts = {} } shared.__OC_LOCAL_REWARD_LEDGER = root end
+	local key = tostring(self.UserId)
+	local ledger = root.Accounts[key]
+	if ledger ~= nil and (type(ledger) ~= "table" or ledger.UserId ~= self.UserId or type(ledger.Sessions) ~= "table") then
+		self.Blocker = "Existing account reward ledger is inconsistent; preserved without dispatch"
+		self.UnknownBarrier = true
+		return self
+	end
+	if not ledger then
+		ledger = { UserId = self.UserId, Sessions = {}, ClaimsRequested = 0, ClaimsAcknowledged = 0, NextClaimAt = 0, NextBoxAt = 0 }
+		root.Accounts[key] = ledger
+	end
+	local pending = ledger.Pending
+	if pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
+		or type(pending.Attempted) ~= "boolean" or type(pending.BeforeFacts) ~= "table" or type(pending.BeforeFacts.Available) ~= "table"
+		or type(pending.BeforeFacts.Balances) ~= "table" or type(pending.BeforeFacts.Powerups) ~= "table"
+		or type(pending.BeforeFacts.Potions) ~= "table" or type(pending.BeforeFacts.Pets) ~= "table"
+		or pending.Kind ~= "PLAYTIME" and pending.Kind ~= "MYSTERY_BOX"
+		or pending.Kind == "PLAYTIME" and (not count(pending.Index) or pending.Index < 1 or not finite(pending.CycleStart))
+		or pending.Kind == "MYSTERY_BOX" and (pending.Count ~= 1 or not count(pending.BeforeOwned)
+			or type(pending.BeforeGiftIds) ~= "table" or type(pending.SessionKey) ~= "string"
+			or type(pending.GiftIdentityEpoch) ~= "string" or pending.GiftIdentityEpoch == "" or not count(pending.BeforeGiftRevision))) then
+		self.Blocker, self.UnknownBarrier = "Malformed pending reward ledger preserved; no action or automatic retry", true
+		return self
+	end
+	self.Ledger = ledger
+	if pending and pending.Kind == "MYSTERY_BOX" then pending.GiftIdentityCurrent = false end
+	return self
+end
+
+function RewardsManager:_context()
+	local mechanics = self.Controller.Farming and self.Controller.Farming.Mechanics
+	if not mechanics or type(mechanics.RewardsContext) ~= "function" then return nil, "Native reward context adapter unavailable" end
+	local ok, context, reason = pcall(mechanics.RewardsContext, mechanics)
+	if not ok or type(context) ~= "table" then return nil, tostring(reason or context or "Reward context unavailable") end
+	if context.UserId ~= self.UserId or type(context.Raw) ~= "table" then return nil, "Ready reward account identity unavailable or changed" end
+	return context
+end
+
+function RewardsManager:_session(key)
+	if not self.Ledger then return nil end
+	local session = self.Ledger.Sessions[key]
+	if not session then session = { Requested = 0, Consumed = 0, OutcomesObserved = 0 } self.Ledger.Sessions[key] = session end
+	return session
+end
+
+function RewardsManager:_playtime(context)
+	if not self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME then return nil end
+	if context.CanClaim ~= true or context.HasPlaytime ~= true or context.IsTradingPlaza ~= false then return nil end
+	if not finite(context.NativeNow) or type(context.PlaytimeGifts) ~= "table" then return nil end
+	local playtime = context.Raw.PlaytimeRewards
+	if type(playtime) ~= "table" or not finite(playtime.Start) or type(playtime.Claimed) ~= "table" then return nil end
+	if context.NativeNow < playtime.Start then return nil end
+	local eligible = {}
+	for index, gift in pairs(context.PlaytimeGifts) do
+		if count(index) and index >= 1 and type(gift) == "table" and finite(gift.Time) and gift.Time >= 0
+			and playtime.Claimed[tostring(index)] == nil and context.NativeNow - playtime.Start >= gift.Time then
+			table.insert(eligible, index)
+		end
+	end
+	table.sort(eligible)
+	if #eligible == 0 or os.clock() < (self.Ledger.NextClaimAt or 0) then return nil end
+	return { Kind = "PLAYTIME", Index = eligible[1], CycleStart = playtime.Start, Reason = "Eligible sparse unclaimed playtime index" }
+end
+
+function RewardsManager:_box(context)
+	local settings = self.Config.MYSTERY_BOX_SETTINGS
+	if not settings.AUTO_OPEN_MYSTERY_BOXES or context.CanOpen ~= true or context.GiftCompletionAvailable ~= true then return nil end
+	if context.GiftIdentityAvailable ~= true or type(context.GiftIdentityEpoch) ~= "string" or context.GiftIdentityEpoch == ""
+		or not count(context.GiftRevision) then return nil end
+	if context.IsTradingPlaza ~= false or not count(context.OwnedBoxes) or not count(context.GiftCount)
+		or context.GiftCount ~= 0 or not count(context.MaxGiftCount) or context.MaxGiftCount < 1 or type(context.GiftIds) ~= "table" then return nil end
+	if next(context.GiftIds) ~= nil then return nil end
+	local session = self:_session(settings.SESSION_KEY)
+	if not session or not count(session.Requested) or not count(settings.BOX_RESERVE) or not count(settings.MAXIMUM_SESSION_BOXES)
+		or not count(settings.MAXIMUM_BATCH_BOXES) or settings.MAXIMUM_BATCH_BOXES < 1 then return nil end
+	if not settings.ENABLE_AUTOMATIC_CONTINUATION and session.Requested > 0 then return nil end
+	if os.clock() < (self.Ledger.NextBoxAt or 0) then return nil end
+	-- Single boxes are the supported correlated operation. A higher maximum is
+	-- a ceiling, not permission to assume multi-gift result correlation.
+	local amount = math.min(1, context.OwnedBoxes - settings.BOX_RESERVE,
+		settings.MAXIMUM_SESSION_BOXES - session.Requested, settings.MAXIMUM_BATCH_BOXES, context.MaxGiftCount)
+	if amount < 1 then return nil end
+	return { Kind = "MYSTERY_BOX", Count = amount, SessionKey = settings.SESSION_KEY, Reason = "Owned ordinary single box within protected allowance" }
+end
+
+function RewardsManager:Observe()
+	if self.Destroyed or not self.Ledger then return end
+	local pending = self.Ledger.Pending
+	if not pending or not pending.Attempted then return end
+	local context, reason = self:_context()
+	if context then
+		pending.RewardDeltas = deltas(pending.BeforeFacts, facts(context))
+		pending.RewardObserved = #pending.RewardDeltas > 0
+		if pending.Kind == "PLAYTIME" then
+			local current = context.Raw.PlaytimeRewards
+			if type(current) == "table" and current.Start == pending.CycleStart and type(current.Claimed) == "table"
+				and current.Claimed[tostring(pending.Index)] ~= nil then
+				pending.Acknowledged = true
+				self.Ledger.ClaimsAcknowledged += 1
+				pending.Status = "CLAIM_STATE_ACKNOWLEDGED"
+				self:_finish(pending)
+				return
+			elseif type(current) == "table" and current.Start ~= pending.CycleStart then
+				pending.Reason = "Playtime cycle changed before matching claim acknowledgement; no automatic retry"
+			end
+		else
+			pending.GiftIdentityCurrent = false
+			if not pending.ConsumptionAcknowledged and count(context.OwnedBoxes) and pending.BeforeOwned - context.OwnedBoxes >= pending.Count then
+				pending.ConsumptionAcknowledged = true
+				self:_session(pending.SessionKey).Consumed += pending.Count
+			end
+			local records = type(context.GiftRecords) == "table" and context.GiftRecords or {}
+			local active = type(context.GiftIds) == "table" and context.GiftIds or nil
+			local matches = {}
+			local identityCurrent = context.GiftIdentityAvailable == true and context.GiftIdentityEpoch == pending.GiftIdentityEpoch
+				and count(context.GiftRevision) and context.GiftRevision >= pending.BeforeGiftRevision
+			if not identityCurrent then
+				pending.InputBlocker = "Gift identity observer unavailable or reader lifetime changed; retained request will not be hit or resent"
+			end
+			if active and identityCurrent then
+				for id in pairs(active) do
+					local record = records[id]
+					if type(id) == "string" and not pending.BeforeGiftIds[id] and type(record) == "table" and record.Id == id
+						and record.Name == "Mystery Box" and record.IdentityEpoch == pending.GiftIdentityEpoch
+						and count(record.Revision) and record.Revision > pending.BeforeGiftRevision and record.Revision <= context.GiftRevision then
+						table.insert(matches, id)
+					end
+				end
+			end
+			for _, id in ipairs(matches) do
+				if pending.GiftId and id ~= pending.GiftId then pending.AmbiguousGift = true end
+			end
+			if #matches > pending.Count then pending.Reason = "Multiple new ordinary gifts; request identity ambiguous; input disabled" pending.AmbiguousGift = true end
+			if not pending.GiftId and #matches == 1 and not pending.AmbiguousGift then pending.GiftId = matches[1] pending.GiftSeen = true end
+			if pending.GiftId and not pending.AmbiguousGift and table.find(matches, pending.GiftId) then pending.GiftIdentityCurrent = true end
+			-- GiftCount is the native TOTAL registry count, not the loaded subset.
+			-- A previously correlated ID may be observed gone after reload, but a
+			-- new reader epoch never authorizes another Hit or a guessed identity.
+			if pending.GiftSeen and active and context.GiftCount == 0 and active[pending.GiftId] == nil then pending.GiftFinished = true end
+			if pending.ConsumptionAcknowledged and pending.GiftFinished and pending.RewardObserved and not pending.AmbiguousGift then
+				pending.Acknowledged, pending.Status = true, "CONSUMPTION_AND_REWARD_DELTA_OBSERVED"
+				local session = self:_session(pending.SessionKey)
+				session.OutcomesObserved += 1
+				self:_finish(pending)
+				return
+			end
+		end
+	else pending.Reason = reason pending.GiftIdentityCurrent = false end
+	if os.clock() >= pending.Deadline then
+		pending.Status = "UNCONFIRMED"
+		pending.Reason = pending.Reason or (pending.ConsumptionAcknowledged and "Box consumed; completion/reward remains unknown, manual native completion may be required"
+			or "Reward acknowledgement timed out; delivery/rejection unresolved; no automatic retry")
+	end
+end
+
+function RewardsManager:_finish(pending)
+	pending.FinishedAt = os.clock()
+	pending.Attribution = "Observed in a non-pickup request window; manual/external rewards cannot be excluded; invocation is not receipt"
+	self.Ledger.LastResult = copy(pending)
+	-- Claimed acknowledgement is sufficient to advance playtime; a missing
+	-- observed reward still makes earnings attribution unresolved across reload.
+	if not pending.RewardObserved then self.Ledger.UnresolvedAttribution = true end
+	self.Ledger.Pending = nil
+	if pending.Kind == "PLAYTIME" then
+		self.Ledger.NextClaimAt = math.max(self.Ledger.NextClaimAt or 0, os.clock() + self.Config.PLAYTIME_SETTINGS.CLAIM_INTERVAL_SECONDS)
+	else
+		self.Ledger.NextBoxAt = math.max(self.Ledger.NextBoxAt or 0, os.clock() + self.Config.MYSTERY_BOX_SETTINGS.OPEN_INTERVAL_SECONDS)
+	end
+	self.NextCheckAt = 0
+	if type(self.Controller.MarkNonPickupReward) == "function" then self.Controller:MarkNonPickupReward({ Kind = "REWARD_SETTLED" }) end
+	self:_report() -- Received results remain visible even when acknowledged during Pause.
+end
+
+function RewardsManager:Select(plan)
+	if self.Destroyed then return false end
+	local enabled = self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
+	if not self.Ledger then
+		if enabled then self:_blocker(self.Blocker) end
+		return false, { Kind = "WAIT", Reason = self.Blocker }
+	end
+	if not enabled and not self.Ledger.Pending then return false, { Kind = "WAIT", Reason = "Reward actions disabled" } end
+	self:Observe()
+	local pending = self.Ledger.Pending
+	if pending then
+		return true, { Kind = "OBSERVE_REWARD", Reason = pending.Reason or "Awaiting one retained reward operation", Pending = pending }
+	end
+	local context, reason = self:_context()
+	if not context then self:_blocker(reason) return false, { Kind = "WAIT", Reason = reason } end
+	local playtime
+	if os.clock() >= self.NextCheckAt then
+		playtime = self:_playtime(context)
+		self.NextCheckAt = os.clock() + self.Config.PLAYTIME_SETTINGS.CHECK_INTERVAL_SECONDS
+	end
+	local decision = playtime or self:_box(context)
+	if decision then self.Blocker = nil
+	else
+		local blocker = context.Reason
+		if not blocker and self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME then
+			if context.HasPlaytime ~= true then blocker = "Playtime capability unavailable or not unlocked"
+			elseif context.CanClaim ~= true then blocker = "Native playtime interaction guards block claiming"
+			elseif not finite(context.NativeNow) or type(context.Raw.PlaytimeRewards) ~= "table" then blocker = "Actual playtime clock/state unavailable" end
+		end
+		if not blocker and self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES then
+			if context.GiftCompletionAvailable ~= true then blocker = "Verified native gift completion capability unavailable; no box consumed"
+			elseif context.GiftIdentityAvailable ~= true or type(context.GiftIdentityEpoch) ~= "string" or context.GiftIdentityEpoch == ""
+				or not count(context.GiftRevision) then blocker = "Public native gift identity observer unavailable; no box consumed"
+			elseif not count(context.OwnedBoxes) then blocker = "Owned ordinary box count unavailable"
+			elseif context.GiftCount ~= 0 then blocker = "Other gifts are active or gift count is unknown"
+			elseif context.OwnedBoxes <= self.Config.MYSTERY_BOX_SETTINGS.BOX_RESERVE then blocker = "No owned ordinary box above reserve" end
+		end
+		self:_blocker(blocker)
+	end
+	return decision ~= nil, decision or { Kind = "WAIT", Reason = self.Blocker or "No eligible enabled reward action" }
+end
+
+function RewardsManager:_blocker(reason)
+	self.Blocker = reason
+	if reason and reason ~= self.LastLoggedBlocker then
+		self.LastLoggedBlocker = reason
+		self.Controller:Log("REWARD][BLOCKER", reason)
+	end
+end
+
+function RewardsManager:Prepare(decision, token)
+	if self.Destroyed or not self.Ledger or self.Ledger.Pending or token:CheckCancelled() or self.Controller.State ~= "RUNNING" then return nil end
+	local context, reason = self:_context()
+	if not context then return nil, nil, nil, reason end
+	local fresh = decision.Kind == "PLAYTIME" and self:_playtime(context) or decision.Kind == "MYSTERY_BOX" and self:_box(context)
+	if not fresh or fresh.Kind ~= decision.Kind or fresh.Index ~= decision.Index or fresh.CycleStart ~= decision.CycleStart
+		or fresh.SessionKey ~= decision.SessionKey or fresh.Count ~= decision.Count then return nil, nil, nil, "Fresh reward eligibility/budget changed" end
+	if token:CheckCancelled() then return nil end
+	local settings = fresh.Kind == "PLAYTIME" and self.Config.PLAYTIME_SETTINGS or self.Config.MYSTERY_BOX_SETTINGS
+	local pending = { Kind = fresh.Kind, Index = fresh.Index, CycleStart = fresh.CycleStart, Count = fresh.Count,
+		SessionKey = fresh.SessionKey, UserId = self.UserId, BeforeFacts = facts(context), BeforeOwned = context.OwnedBoxes,
+		BeforeGiftIds = copy(context.GiftIds or {}), StartedAt = os.clock(), Deadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS,
+		GiftIdentityEpoch = context.GiftIdentityEpoch, BeforeGiftRevision = context.GiftRevision,
+		Status = "PREPARED", Attempted = false, RewardDeltas = {} }
+	self.Ledger.Pending = pending
+	if pending.Kind == "PLAYTIME" then return "ClaimPlaytime", pending.Index, nil, pending end
+	return "UseGift", "Mystery Box", pending.Count, pending
+end
+
+function RewardsManager:MarkDispatched(pending)
+	if not self.Ledger or self.Ledger.Pending ~= pending or pending.Attempted then return false end
+	if pending.Kind == "MYSTERY_BOX" then
+		local context = self:_context()
+		local fresh = context and self:_box(context)
+		if not fresh or fresh.SessionKey ~= pending.SessionKey or fresh.Count ~= pending.Count
+			or context.GiftIdentityEpoch ~= pending.GiftIdentityEpoch or context.GiftRevision ~= pending.BeforeGiftRevision then return false end
+	end
+	pending.Attempted, pending.Status = true, "AWAITING_ACKNOWLEDGEMENT"
+	if pending.Kind == "PLAYTIME" then
+		self.Ledger.ClaimsRequested += 1
+		self.Ledger.NextClaimAt = os.clock() + self.Config.PLAYTIME_SETTINGS.CLAIM_INTERVAL_SECONDS
+	else
+		self:_session(pending.SessionKey).Requested += pending.Count
+		self.Ledger.NextBoxAt = os.clock() + self.Config.MYSTERY_BOX_SETTINGS.OPEN_INTERVAL_SECONDS
+	end
+	return true
+end
+
+function RewardsManager:AbortPreparation(pending, reason)
+	if not self.Ledger or self.Ledger.Pending ~= pending or pending.Attempted then return false end
+	self.Ledger.Pending = nil
+	self:_blocker(reason or "Undispatched reward preparation released")
+	return true
+end
+
+function RewardsManager:DispatchReturned(pending, invocationOk, result)
+	if not self.Ledger or self.Ledger.Pending ~= pending then return end
+	pending.InvocationOk = invocationOk
+	-- Store a description, not a native profile/module/result handle in shared.
+	pending.InvocationResultType = type(result)
+	if not invocationOk then pending.Reason = "Reward invocation raised after attempt; delivery is uncertain; no automatic retry" end
+	self:Observe()
+end
+
+function RewardsManager:Definition(decision, generation)
+	if decision.Kind == "OBSERVE_REWARD" and decision.Pending and decision.Pending.Status == "UNCONFIRMED" then
+		return nil -- Retain the barrier; existing received-state/five-second reader updates reconcile without a hot task cycle.
+	end
+	local timeout = decision.Kind == "PLAYTIME" and self.Config.PLAYTIME_SETTINGS.CONFIRMATION_TIMEOUT_SECONDS + 2 or 3
+	return { Id = "OC_GAMEPLAY", Owner = "REWARDS", Generation = generation, Priority = 100,
+		TimeoutSeconds = timeout,
+		CanRun = function() return not self.Destroyed and self.Controller.State == "RUNNING" and self.Controller.Generation == generation end,
+		Execute = function(token)
+			if token:CheckCancelled() then return { Cancelled = true } end
+			self:Observe()
+			local mechanics = self.Controller.Farming.Mechanics
+			local pending = self.Ledger and self.Ledger.Pending
+			if not pending and decision.Kind ~= "OBSERVE_REWARD" then
+				if type(mechanics.RewardAction) ~= "function" then return { Reason = "Native reward action adapter unavailable" } end
+				mechanics:RewardAction(self, decision, token)
+				pending = self.Ledger.Pending
+			end
+			local sliceEnd = os.clock() + 1
+			while pending and pending.Attempted and pending.Kind == "MYSTERY_BOX" and pending.GiftId and not pending.AmbiguousGift
+				and pending.GiftIdentityCurrent == true
+				and pending.Status ~= "UNCONFIRMED" and self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
+				and type(mechanics.AdvanceMysteryGift) == "function" and not token:CheckCancelled() and os.clock() < sliceEnd do
+				local progressed, blocker = mechanics:AdvanceMysteryGift(pending, token)
+				if not progressed and blocker then pending.InputBlocker = blocker break end
+				self:Observe()
+				if self.Ledger.Pending ~= pending or pending.GiftFinished then break end
+				task.wait(0.1)
+			end
+			-- Controller replans after each slice. Keep unresolved observation paced
+			-- inside that same foreground lease, including the no-gift and fault paths.
+			if self.Ledger.Pending and not token:CheckCancelled() then task.wait(0.5) end
+			self:Observe()
+			return { Pending = self.Ledger.Pending ~= nil, LastResult = self.Ledger.LastResult, Reason = self.Ledger.Pending and self.Ledger.Pending.Reason }
+		end,
+		IsComplete = function(result) return type(result) == "table" end }
+end
+
+function RewardsManager:Completed(status, result, reason)
+	self:Observe()
+	self:_report()
+end
+
+function RewardsManager:_report()
+	local last = self.Ledger and self.Ledger.LastResult
+	if last and last.FinishedAt ~= self.LastLoggedResult then
+		self.LastLoggedResult = last.FinishedAt
+		local observed = {}
+		for index, change in ipairs(last.RewardDeltas or {}) do
+			if index > 10 then table.insert(observed, "additional deltas in GetStatus") break end
+			table.insert(observed, string.format("%s:%s +%.2f", change.Kind, change.Name, change.Amount))
+		end
+		self.Controller:Log("REWARD][RESULT", string.format("%s | %s | claim acknowledgement=%s; box consumption=%s; reward delta observed=%s | %s | %s",
+			last.Kind, last.Status, tostring(last.Kind == "PLAYTIME" and last.Acknowledged or false), tostring(last.ConsumptionAcknowledged or false),
+			tostring(last.RewardObserved or false), #observed > 0 and table.concat(observed, "; ") or "No observed reward delta", last.Attribution))
+	end
+	local pending = self.Ledger and self.Ledger.Pending
+	if pending and pending.Reason ~= self.LastLoggedReason then
+		self.LastLoggedReason = pending.Reason
+		if pending.Reason then self.Controller:Log("REWARD][UNCONFIRMED", pending.Reason) end
+	end
+end
+
+function RewardsManager:AttributionBlocked()
+	return self.UnknownBarrier == true or self.Ledger and (self.Ledger.Pending ~= nil or self.Ledger.UnresolvedAttribution == true) or false
+end
+
+function RewardsManager:Halt(stopped)
+	-- Cancellation releases only a preparation that provably did not dispatch.
+	-- Attempted requests, budgets and unknown outcomes survive every lifecycle.
+	local pending = self.Ledger and self.Ledger.Pending
+	if pending and not pending.Attempted then self.Ledger.Pending = nil end
+	self:Observe()
+end
+
+function RewardsManager:Destroy()
+	if self.Destroyed then return end
+	self:Halt(true)
+	self.Destroyed = true
+end
+
+function RewardsManager:GetStatus()
+	local settings = self.Config.MYSTERY_BOX_SETTINGS
+	local session = self.Ledger and self.Ledger.Sessions[settings.SESSION_KEY]
+	local pending = self.Ledger and self.Ledger.Pending
+	return { EnabledPlaytime = self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME, EnabledBoxes = settings.AUTO_OPEN_MYSTERY_BOXES,
+		SessionKey = settings.SESSION_KEY, BoxesRequested = session and session.Requested or 0, BoxesConsumed = session and session.Consumed or 0,
+		BoxOutcomesObserved = session and session.OutcomesObserved or 0, ClaimsRequested = self.Ledger and self.Ledger.ClaimsRequested or 0,
+		ClaimsAcknowledged = self.Ledger and self.Ledger.ClaimsAcknowledged or 0, AttributionBlocked = self:AttributionBlocked(), Blocker = self.Blocker,
+		Pending = pending and { Kind = pending.Kind, Index = pending.Index, Count = pending.Count, Status = pending.Status,
+			Deadline = pending.Deadline, Reason = pending.Reason, GiftId = pending.GiftId, ConsumptionAcknowledged = pending.ConsumptionAcknowledged,
+			RewardObserved = pending.RewardObserved, InputBlocker = pending.InputBlocker },
+		LastResult = self.Ledger and copy(self.Ledger.LastResult) }
+end
+
+return RewardsManager

@@ -222,6 +222,37 @@ return {
 		ENABLE_BACKGROUND_PICKUPS = true, --// Reuse existing stationary collection at the owned egg location where native area/ID evidence permits it.
 		MAXIMUM_EGGS_ANALYZED = 40, --// Bound scene-present permanent egg projections; excluded and unknown candidates remain visible.
 	},
+	EGG_TRAVEL_SETTINGS = {
+		ENABLE_SELECTED_EGG_TRAVEL = false, --// Own exactly one explicitly selected egg task; this enables no hatching or spending.
+		ENABLE_DIRECT_POSITIONING = false, --// Opt in to one guarded HRP CFrame assignment using observed safe floor geometry; not a native egg teleport.
+		ENABLE_NATIVE_ISLAND_TRAVEL = false, --// Permit verified unlocked native island/return travel for this selected egg only.
+		ARRIVAL_TIMEOUT_SECONDS = 12, --// Bound each native/final arrival stage; scheduler permits at most twice this plus two seconds, with no repeated corrections.
+		STABILITY_SECONDS = 1, --// Require continuous observed proximity after positioning; assignment alone is not arrival.
+		MAXIMUM_ATTEMPTS_PER_SELECTION = 1, --// Consume an attempt before dispatch; missing/corrected arrival requires explicit rearming.
+		MAXIMUM_LOCATION_SECONDS = 120, --// Bound an intentional egg location lease, including pauses.
+		SELECTION_REVISION = 0, --// Increment explicitly to authorize a new attempt at the same egg after manual movement or failure.
+	},
+	PLAYTIME_SETTINGS = {
+		AUTO_CLAIM_PLAYTIME = false, --// Claim only native eligible sparse unclaimed playtime indices; no other reward systems.
+		CHECK_INTERVAL_SECONDS = 10, --// Pace eligibility checks; received changes and upcoming thresholds remain relevant.
+		CLAIM_INTERVAL_SECONDS = 5, --// Minimum interval between acknowledged playtime operations; never retry an uncertain request.
+		CONFIRMATION_TIMEOUT_SECONDS = 15, --// Wait for the exact received claimed key; invocation is not a reward acknowledgement.
+	},
+	MYSTERY_BOX_SETTINGS = {
+		AUTO_OPEN_MYSTERY_BOXES = false, --// Only already-owned ordinary Mystery Boxes; no purchases, rare/event/Infinity boxes.
+		BOX_RESERVE = 0, --// Preserve this many ordinary boxes before every operation.
+		MAXIMUM_SESSION_BOXES = 1, --// First active test consumes at most one; charged requests persist across Pause/Resume/reloads.
+		MAXIMUM_BATCH_BOXES = 1, --// Conservative supported operation is one box; later continuation still uses individually verified openings.
+		OPEN_INTERVAL_SECONDS = 5, --// Pace subsequent verified ordinary openings when continuation is explicitly enabled.
+		CONFIRMATION_TIMEOUT_SECONDS = 20, --// An unconfirmed debit/spawn/reward halts without duplicate opening.
+		ENABLE_AUTOMATIC_CONTINUATION = false, --// Opt in later to more individually verified openings within the owner-selected allowance.
+		SESSION_KEY = "ORDINARY_BOX_TEST", --// Explicit consumption ledger identity; changing it cannot clear an unresolved account operation.
+	},
+	ANTIAFK_SETTINGS = {
+		ENABLE_ANTI_AFK = false, --// Periodic scheduler task only; Pause/Stop/Destroy suppress simulated input.
+		METHOD = "VIRTUAL_INPUT_SCROLL_LOCK", --// Requires runtime SendKeyEvent; rejects assigned ScrollLock, releases synchronously; no Space/R or mouse clicks.
+		INTERVAL_SECONDS = 120, --// Delay between eligible input pulses; sent input does not prove long-duration idle prevention.
+	},
 	STATUS_UI_SETTINGS = {
 		ENABLE_STATUS_UI = true, --// Display the foundation panel and OC controls.
 		SHOW_ACCOUNT_BALANCES = true, --// Show real balances and bubble capacity; missing values display unavailable.

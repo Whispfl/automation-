@@ -11,6 +11,7 @@ end
 function ResourceMetrics:Observe(balances, now)
 	local previous = self.Last
 	self.Last = { At = now, Balances = table.clone(balances) }
+	if self.AttributionBlockedProvider and self.AttributionBlockedProvider() then return {} end
 	if not previous or not self.Active then return {} end
 	local dt = math.max(0, now - previous.At)
 	local gains, spending = {}, false
@@ -36,6 +37,7 @@ function ResourceMetrics:Observe(balances, now)
 end
 
 function ResourceMetrics:AddSample(mode, scope, gains, seconds, now)
+	if self.AttributionBlockedProvider and self.AttributionBlockedProvider() then return end
 	if seconds <= 0 then return end
 	table.insert(self.Samples, { At = now, Seconds = seconds, Mode = mode, Scope = scope, Gains = table.clone(gains) })
 	self:Prune(now)
@@ -78,6 +80,10 @@ function ResourceMetrics:Rates(scope, now)
 end
 
 function ResourceMetrics:ConfirmCycle(before, after, source)
+	if self.AttributionBlockedProvider and self.AttributionBlockedProvider() then
+		self.LastConfirmation = "Non-pickup reward attribution pending/uncertain; no farming credit published"
+		return {}
+	end
 	local gains = {}
 	for currency, value in pairs(after) do
 		if type(before[currency]) == "number" and value > before[currency] then gains[currency] = value - before[currency] end

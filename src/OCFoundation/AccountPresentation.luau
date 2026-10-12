@@ -94,6 +94,12 @@ function AccountPresentation.Summary(status, previous, now, config)
 		"activity=" .. tostring(status.State ~= "RUNNING" and status.State or farming.Activity
 			or (world.Decision and world.Decision.Kind) or (farming.Decision and (farming.Decision.Mode or farming.Decision.Kind)) or "WAIT"),
 		"island=" .. tostring(farming.Area or "unknown") }
+	local owner = status.Scheduler and status.Scheduler.ActiveOwner
+	if owner == "REWARDS" or owner == "EGG_TRAVEL" or owner == "ANTI_AFK" then table.insert(parts, "local task=" .. owner) end
+	if status.Rewards and status.Rewards.Pending then table.insert(parts, "reward=" .. tostring(status.Rewards.Pending.Kind) .. ":" .. tostring(status.Rewards.Pending.Status)) end
+	if status.Rewards and status.Rewards.AttributionBlocked then table.insert(parts, "farming attribution=excluded/pending reward evidence") end
+	if status.EggTravel and status.EggTravel.Enabled then table.insert(parts, "egg travel=" .. tostring(status.EggTravel.LastResult and status.EggTravel.LastResult.Status or status.EggTravel.Reason or "waiting")) end
+	if status.AntiAFK and status.AntiAFK.Enabled then table.insert(parts, "anti-AFK=" .. tostring(status.AntiAFK.Fault or status.AntiAFK.Suppression or "guarded ScrollLock pair; effectiveness unverified")) end
 	for _, currency in ipairs({ "Coins", "Gems" }) do
 		local value, old = balances[currency], (previous.Balances or {})[currency]
 		local delta = finite(value) and finite(old) and string.format("%+.0f", value - old) or "unknown"

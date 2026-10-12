@@ -1,0 +1,43 @@
+{
+  "evidenceDate": "2026-10-11",
+  "replicatedStorageScriptObjects": 701,
+  "completeSourceReadAttempts": 701,
+  "readableMetadata": 626,
+  "unavailableSourceAttempts": 75,
+  "focusedUniqueSources": 184,
+  "focusedReplicatedStorageSources": 183,
+  "focusedExternalCallerSources": 1,
+  "manifestContributionRecords": 222,
+  "combinedUniqueRecords": 702,
+  "allReviewLevels": {
+    "METADATA_ONLY": 443,
+    "DEEP_CORE_REVIEW": 88,
+    "TARGETED_REVIEW": 56,
+    "COMPLETE_BODY_REVIEW": 38,
+    "UNAVAILABLE_SOURCE": 75,
+    "SYSTEMATIC_CATALOG_FACTS": 2
+  },
+  "replicatedStorageReviewLevels": {
+    "METADATA_ONLY": 443,
+    "DEEP_CORE_REVIEW": 88,
+    "TARGETED_REVIEW": 55,
+    "COMPLETE_BODY_REVIEW": 38,
+    "UNAVAILABLE_SOURCE": 75,
+    "SYSTEMATIC_CATALOG_FACTS": 2
+  },
+  "focusedReviewLevels": {
+    "DEEP_CORE_REVIEW": 88,
+    "TARGETED_REVIEW": 56,
+    "COMPLETE_BODY_REVIEW": 38,
+    "SYSTEMATIC_CATALOG_FACTS": 2
+  },
+  "fullNativeSourceSaved": false,
+  "clientActionsExecuted": false,
+  "meaning": "Highest review level is a union label, not a full audit certification. Scope and fidelity limits in every contribution still apply.",
+  "manifests": [
+    "catalogs/SOURCE_COVERAGE_ROOT.jsonl",
+    "catalogs/ECONOMY_SOURCE_COVERAGE.jsonl",
+    "SOURCE_COVERAGE_ARCHITECTURE_NATIVE.jsonl",
+    "NAVIGATION_FISHING_SOURCE_COVERAGE.jsonl"
+  ]
+}

@@ -1,3 +1,8 @@
 * text=auto eol=lf
 *.luau text eol=lf
 *.lua text eol=lf
+
+# Preserve archived research evidence and regression-record bytes exactly.
+docs/research/** -text -whitespace
+docs/verification/*.txt -text -whitespace
+docs/local-feature-studio-evidence/MYSTERY_GIFT_RECHECK.md -whitespace

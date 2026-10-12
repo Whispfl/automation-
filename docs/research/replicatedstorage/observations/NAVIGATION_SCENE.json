@@ -1,0 +1,1219 @@
+{
+  "capturedDate": "2026-10-11",
+  "context": "Saved Studio Edit model; geometry/catalog observation only, not live account evidence",
+  "evidence": "SOURCE_CONFIRMED",
+  "observations": [
+    {
+      "path": "Workspace.Worlds.The Overworld",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 15962.706018447876
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Barrier",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Leaderboards",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Portals",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.VIPArea",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Pickups",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.HatchZone",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.OGTrack",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Plaza",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Index",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Bubbly Britney",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Sell",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.ShopSteve",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Spawn",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.TradingPlaza",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Balloon",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.SiteEventsBoard",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.RobuxEgg",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.VIP",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Shop",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.LikeBoard",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.HatchingZone",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.SecretBounty",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Decoration",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.SpawnLocation",
+              "className": "SpawnLocation"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.AncientLeaveSpawn",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.CHRISTMAS_RightSkate",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.CHRISTMAS_SleighPartTouch",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Board",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Trampoline",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Output",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.PortalSpawn",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 20034.96542930603
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Barrier",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Ground",
+              "className": "MeshPart"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Portals",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Pickups",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Balloon",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Merchant",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Board",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.SellSign",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Activation",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Output",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.EggPlatformSpawn",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Shop",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.GumMachine",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.SpecialEgg",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.FastTravel",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Sell",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Gum Store",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Path",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Spawn",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.PortalSpawn",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {},
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Seven Seas.Islands",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Pickups",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Portals",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Barrier",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.FakeIslands",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Areas",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.OldSailor",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Base",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Output",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Seven Seas.Spawn",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Floating Island",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 412.8682498931885
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Floating Island.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Floating Island.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Outer Space",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 2650.825891494751
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Twilight",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 6852.331995010376
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.The Void",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 10131.429651260376
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Zen",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 15962.706018447876
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Dice Island",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 2862.8389644622803
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Dice Island.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Dice Island.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Minecart Forest",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 7627.57040977478
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Minecart Forest.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Minecart Forest.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 13355.15292930603
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Height": 20034.96542930603
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Stages",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island",
+              "className": "Model"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate",
+      "matches": [
+        {
+          "className": "Model",
+          "attributes": {
+            "World": "Minigame Paradise"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Build",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.TrampolineIsland",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Cover",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Part",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Barrier",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Camera",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Part",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Beam",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate",
+      "matches": [
+        {
+          "className": "Model",
+          "attributes": {
+            "World": "Seven Seas"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Build",
+              "className": "Folder"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.TrampolineIsland",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Cover",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation",
+              "className": "Model"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Part",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Camera",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Beam",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Part",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Barrier",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "-87.55770111083984, 15968.82421875, 18.21942901611328",
+            "CanCollide": false,
+            "Size": "0.001500000013038516, 12.167879104614258, 11.440932273864746",
+            "CanTouch": false,
+            "CanQuery": false
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root.Attachment2",
+              "className": "Attachment"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root.BillboardGui",
+              "className": "BillboardGui"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root.Beam",
+              "className": "Beam"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root.Attachment1",
+              "className": "Attachment"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root.Beam",
+              "className": "Beam"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Decoration.Gate.Activation.Root.Tutorial",
+              "className": "Attachment"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "9846.1669921875, 20086.103515625, 228.67446899414062",
+            "CanCollide": false,
+            "Size": "0.001500000013038516, 12.167879104614258, 11.440932273864746",
+            "CanTouch": false,
+            "CanQuery": false
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root.Attachment2",
+              "className": "Attachment"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root.Beam",
+              "className": "Beam"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root.Tutorial",
+              "className": "Attachment"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root.BillboardGui",
+              "className": "BillboardGui"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root.Attachment1",
+              "className": "Attachment"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.Gate.Activation.Root.Beam",
+              "className": "Beam"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.Mastery.Root",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "17.007770538330078, 2661.468994140625, 4.480133056640625",
+            "CanCollide": false,
+            "Size": "0.0011047841981053352, 8.961919784545898, 8.426506996154785",
+            "CanTouch": false,
+            "CanQuery": false
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.Mastery.Root.BillboardGui",
+              "className": "BillboardGui"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.Mastery.Root.Beam",
+              "className": "Beam"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.Mastery.Root.Beam",
+              "className": "Beam"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.Mastery.Root.Attachment1",
+              "className": "Attachment"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.Mastery.Root.Attachment2",
+              "className": "Attachment"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Floating Island.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "13.927935600280762, 404.5645751953125, 172.32684326171875",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Floating Island.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "13.927935600280762, 2642.522216796875, -21.623199462890625",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Outer Space.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "-61.37992477416992, 6844.0283203125, 79.18429565429688",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "15.927940368652344, 10123.1259765625, 84.57681274414062",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "-20.044095993041992, 15954.40234375, -53.089813232421875",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Dice Island.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "9886.4501953125, 2871.98876953125, 251.60536193847656",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Dice Island.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Minecart Forest.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "9890.58203125, 7636.72021484375, 242.76918029785156",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Minecart Forest.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "9887.0546875, 13364.302734375, 232.28379821777344",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.UnlockHitbox",
+      "matches": [
+        {
+          "className": "Part",
+          "attributes": {},
+          "properties": {
+            "Anchored": true,
+            "CFrame.Position": "9887.0546875, 20044.115234375, 232.28384399414062",
+            "CanCollide": false,
+            "Size": "512, 30, 512",
+            "CanTouch": true,
+            "CanQuery": true
+          },
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Hyperwave Island.Island.UnlockHitbox.[TouchTransmitter] TouchInterest",
+              "className": "Folder"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Count": 5,
+            "Area": "The Void"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.4",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.5",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.3",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.6",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.1",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.2",
+              "className": "Part"
+            }
+          ]
+        },
+        {
+          "className": "Folder",
+          "attributes": {
+            "Count": 5,
+            "Area": "The Void"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.2",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.3",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.6",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.1",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.5",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.4",
+              "className": "Part"
+            }
+          ]
+        },
+        {
+          "className": "Folder",
+          "attributes": {
+            "Count": 5,
+            "Area": "The Void"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.1",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.3",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.2",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.5",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.4",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.The Void.Island.Pickups.Zone.6",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone",
+      "matches": [
+        {
+          "className": "Folder",
+          "attributes": {
+            "Count": 5,
+            "Area": "Zen"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.4",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.2",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.5",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.1",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.6",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.3",
+              "className": "Part"
+            }
+          ]
+        },
+        {
+          "className": "Folder",
+          "attributes": {
+            "Count": 5,
+            "Area": "Zen"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.5",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.2",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.4",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.1",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.3",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.7",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Zen.Island.Pickups.Zone.6",
+              "className": "Part"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island.Sell",
+      "matches": [
+        {
+          "className": "Model",
+          "attributes": {
+            "Multiplier": 5
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island.Sell.Root",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island.Sell.Border",
+              "className": "UnionOperation"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Islands.Twilight.Island.Sell.Ring",
+              "className": "UnionOperation"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island.Sell",
+      "matches": [
+        {
+          "className": "Model",
+          "attributes": {
+            "Multiplier": 0.2,
+            "Currency": "Tickets"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island.Sell.Root",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island.Sell.Border",
+              "className": "UnionOperation"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Islands.Robot Factory.Island.Sell.Ring",
+              "className": "UnionOperation"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.The Overworld.Sell",
+      "matches": [
+        {
+          "className": "Model",
+          "attributes": {
+            "Multiplier": 2
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.The Overworld.Sell.Root",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Sell.Border",
+              "className": "UnionOperation"
+            },
+            {
+              "path": "Workspace.Worlds.The Overworld.Sell.Ring",
+              "className": "UnionOperation"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "Workspace.Worlds.Minigame Paradise.Sell",
+      "matches": [
+        {
+          "className": "Model",
+          "attributes": {
+            "Multiplier": 0.1,
+            "Currency": "Tickets"
+          },
+          "properties": {},
+          "children": [
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Sell.Border",
+              "className": "UnionOperation"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Sell.Root",
+              "className": "Part"
+            },
+            {
+              "path": "Workspace.Worlds.Minigame Paradise.Sell.Ring",
+              "className": "UnionOperation"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

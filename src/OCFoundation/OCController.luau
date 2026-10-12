@@ -7,6 +7,9 @@ local FarmingCoordinator = require(script.Parent.FarmingCoordinator)
 local GameKnowledge = require(script.Parent.GameKnowledge)
 local WorldProgressionManager = require(script.Parent.WorldProgressionManager)
 local PetManager = require(script.Parent.PetManager)
+local EggTravelManager = require(script.Parent.EggTravelManager)
+local RewardsManager = require(script.Parent.RewardsManager)
+local AntiAFKManager = require(script.Parent.AntiAFKManager)
 
 local OCController = {}
 OCController.__index = OCController
@@ -14,7 +17,8 @@ OCController.__index = OCController
 local function validate(config)
 	for _, name in ipairs({ "GENERAL_SETTINGS", "ACCOUNT_SETTINGS", "BRAIN_SETTINGS", "RESOURCE_SETTINGS",
 		"TASK_SETTINGS", "BUBBLE_SETTINGS", "FALL_EVENT_SETTINGS", "PET_SETTINGS", "STATUS_UI_SETTINGS", "DIAGNOSTIC_SETTINGS",
-		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS", "WORLD_SETTINGS", "HATCH_SETTINGS" }) do
+		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS", "WORLD_SETTINGS", "HATCH_SETTINGS",
+		"EGG_TRAVEL_SETTINGS", "PLAYTIME_SETTINGS", "MYSTERY_BOX_SETTINGS", "ANTIAFK_SETTINGS" }) do
 		assert(type(config[name]) == "table", "Missing configuration category: " .. name)
 	end
 	for category, entries in pairs(config) do
@@ -88,6 +92,20 @@ local function validate(config)
 	assert(config.PICKUP_SETTINGS.ZONE_MATCH_TOLERANCE_STUDS <= 2, "Zone boundary tolerance must not exceed two studs")
 	assert(config.ISLAND_SETTINGS.ARRIVAL_PICKUP_GRACE_SECONDS < config.ISLAND_SETTINGS.PICKUP_PROBE_TIMEOUT_SECONDS, "Arrival grace must be smaller than the pickup trial timeout")
 	local pets, hatch = config.PET_SETTINGS, config.HATCH_SETTINGS
+	local eggTravel, playtime, boxes, idle = config.EGG_TRAVEL_SETTINGS, config.PLAYTIME_SETTINGS,
+		config.MYSTERY_BOX_SETTINGS, config.ANTIAFK_SETTINGS
+	for _, value in ipairs({ eggTravel.ARRIVAL_TIMEOUT_SECONDS, eggTravel.STABILITY_SECONDS, eggTravel.MAXIMUM_LOCATION_SECONDS,
+		playtime.CHECK_INTERVAL_SECONDS, playtime.CLAIM_INTERVAL_SECONDS, playtime.CONFIRMATION_TIMEOUT_SECONDS,
+		boxes.OPEN_INTERVAL_SECONDS, boxes.CONFIRMATION_TIMEOUT_SECONDS }) do
+		assert(value >= 1, "Local feature intervals and timeouts must be at least one second")
+	end
+	assert(eggTravel.STABILITY_SECONDS < eggTravel.ARRIVAL_TIMEOUT_SECONDS, "Egg stability window must fit inside arrival timeout")
+	for _, value in ipairs({ eggTravel.MAXIMUM_ATTEMPTS_PER_SELECTION, boxes.MAXIMUM_SESSION_BOXES, boxes.MAXIMUM_BATCH_BOXES }) do
+		assert(value >= 1 and value % 1 == 0, "Local feature operation limits must be positive integers")
+	end
+	assert(boxes.BOX_RESERVE % 1 == 0 and eggTravel.SELECTION_REVISION % 1 == 0, "Box reserve and selection revision must be integers")
+	assert(type(boxes.SESSION_KEY) == "string" and #boxes.SESSION_KEY > 0 and #boxes.SESSION_KEY <= 80, "Box session key must be a bounded nonempty string")
+	assert(idle.METHOD == "VIRTUAL_INPUT_SCROLL_LOCK" and idle.INTERVAL_SECONDS >= 60, "Anti-AFK requires guarded ScrollLock method and at least sixty seconds")
 	assert(table.find({ "AUTO", "Coins", "Gems", "Bubbles", "Tickets", "Pearls" }, pets.OBJECTIVE_CURRENCY), "Unknown pet objective currency")
 	for _, value in ipairs({ pets.MAXIMUM_SESSION_EQUIP_COMMANDS, pets.MAXIMUM_TEAM_EVALUATIONS,
 		hatch.MAXIMUM_SESSION_HATCHES, hatch.MAXIMUM_BATCH_HATCHES, hatch.MAXIMUM_EGGS_ANALYZED, hatch.MAXIMUM_PLAN_CANDIDATES }) do
@@ -155,8 +173,18 @@ function OCController.new(config, player)
 	self.Farming = FarmingCoordinator.new(self, player)
 	self.WorldProgression = WorldProgressionManager.new(self)
 	self.Pets = PetManager.new(self)
+	self.EggTravel = EggTravelManager.new(self)
+	self.Rewards = RewardsManager.new(self)
+	self.AntiAFK = AntiAFKManager.new(self)
+	self.Farming.Mechanics.LocalFeatureController = self
+	self.Farming.Metrics.AttributionBlockedProvider = function() return self:RewardAttributionBlocked() end
+	self.Farming.Mechanics.PetLocationOwnerProvider = function()
+		return self.Pets.Hatch.Location ~= nil or self.EggTravel:OwnsLocation()
+	end
 	table.insert(self.Connections, self.Reader.Changed.Event:Connect(function(snapshot)
 		self.Snapshot = snapshot
+		self.Rewards:Observe()
+		self.EggTravel:Observe()
 		self:_diagnoseSnapshot(snapshot)
 		self:_notify()
 		self:_requestPlan(false)
@@ -166,7 +194,10 @@ function OCController.new(config, player)
 		if self.Destroyed or self.State ~= "RUNNING" then return end
 		if id == "OC_GAMEPLAY" then
 			if definition and definition.Generation == self.Generation then
-				if definition.Owner == "WORLD_PROGRESSION" then self.WorldProgression:Completed(status, result, reason)
+				if definition.Owner == "REWARDS" then self.Rewards:Completed(status, result, reason)
+				elseif definition.Owner == "EGG_TRAVEL" then self.EggTravel:Completed(status, result, reason)
+				elseif definition.Owner == "ANTI_AFK" then self.AntiAFK:Completed(status, result, reason)
+				elseif definition.Owner == "WORLD_PROGRESSION" then self.WorldProgression:Completed(status, result, reason)
 				elseif definition.Owner == "PETS" then self.Pets:Completed(status, result, reason)
 				else self.Farming:Completed(status, result, reason) end
 				self.Reader:Refresh()
@@ -187,11 +218,17 @@ function OCController.new(config, player)
 				self:Log("PROGRESSION", result.Progression .. " | " .. result.ProgressionEvidence)
 				if #goal.Prerequisites > 0 then self:Log("PREREQUISITES", table.concat(goal.Prerequisites, "; ")) end
 			end
-			local petOwns, petDecision = self.Pets:Select(result)
+			local localOwner, localDecision = self.Brain:SelectLocalFeature(self, result)
+			local petOwns, petDecision
+			if not localOwner then petOwns, petDecision = self.Pets:Select(result) end
 			local owns, decision
-			if not petOwns then owns, decision = self.WorldProgression:Select(result) end
+			if not localOwner and not petOwns then owns, decision = self.WorldProgression:Select(result) end
 			local taskDefinition
-			if petOwns then
+			if localOwner then
+				if self.Farming.Activity then self.Farming:Halt(true) end
+				local manager = ({ REWARDS = self.Rewards, EGG_TRAVEL = self.EggTravel, ANTI_AFK = self.AntiAFK })[localOwner]
+				taskDefinition = manager:Definition(localDecision, self.Generation)
+			elseif petOwns then
 				if self.Farming.Activity then self.Farming:Halt(true) end
 				taskDefinition = self.Pets:Definition(petDecision, self.Generation)
 			elseif owns then
@@ -224,6 +261,8 @@ function OCController:Log(kind, message, explicitDetail)
 			or kind == "ISLAND][VERIFIED" or kind == "WORLD][VERIFIED" or kind == "UPGRADE][VERIFIED" or kind == "FARM][RETURN"
 			or kind == "PET][ANALYSIS" or kind == "PET][VERIFIED" or kind == "PET][TEAM_PLAN" or kind == "PET][EQUIP_RESULT"
 			or kind == "EGG_PLAN" or kind == "HATCH_RESULT"
+			or kind == "EGG_TRAVEL" or kind == "PLAYTIME_RESULT" or kind == "BOX_RESULT" or kind == "ANTI_AFK"
+			or kind == "REWARD][RESULT" or kind == "REWARD][UNCONFIRMED"
 		if kind == "FARM][TRAVEL" then immediate = not message:match("^Request ") end
 		local blocker = kind == "FARM][FALLBACK" or kind == "WORLD][GATE_APPROACH" or kind == "DIAGNOSTIC" or kind == "UNAVAILABLE"
 			or kind:find("ERROR", 1, true) ~= nil or kind == "ISLAND][CONTACT" or kind == "PET][BLOCKER"
@@ -327,6 +366,8 @@ function OCController:GetStatus()
 	return { State = self.State, Snapshot = self.Reader:GetSnapshot(), Plan = self.Plan,
 		Scheduler = self.Scheduler:GetStatus(), Farming = self.Farming:GetStatus(), WorldProgression = self.WorldProgression:GetStatus(),
 		Pets = self.Pets and self.Pets:GetStatus(), Error = self.Error,
+		EggTravel = self.EggTravel and self.EggTravel:GetStatus(), Rewards = self.Rewards and self.Rewards:GetStatus(),
+		AntiAFK = self.AntiAFK and self.AntiAFK:GetStatus(),
 		Phase = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and 4 or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and 3 or 2 }
 end
 
@@ -376,6 +417,7 @@ function OCController:Start()
 	self.Generation += 1
 	self.State = "RUNNING"
 	self.Error = nil
+	self.AntiAFK:Resume()
 	self.Brain:Reset()
 	self.LastObjectiveId = nil
 	self.Reader:Refresh()
@@ -395,6 +437,9 @@ function OCController:Pause()
 	self.Farming:Halt(true)
 	self.WorldProgression:Halt()
 	self.Pets:Halt()
+	self.EggTravel:Halt(false)
+	self.Rewards:Halt(false)
+	self.AntiAFK:Halt("Paused")
 	self:_notify()
 	self:Log("CONTROL", "PAUSE | recommendations paused; read-only account updates remain visible")
 	return true
@@ -404,6 +449,7 @@ function OCController:Resume()
 	if self.Destroyed or self.State ~= "PAUSED" then return false, "OC is not paused" end
 	self.Generation += 1
 	self.State = "RUNNING"
+	self.AntiAFK:Resume()
 	self.Reader:Refresh()
 	self.Scheduler:Resume()
 	self:_requestPlan(true)
@@ -421,6 +467,10 @@ function OCController:Stop()
 	self.Farming:Halt()
 	self.WorldProgression:Halt()
 	self.Pets:Halt(true)
+	self.EggTravel:Halt(true)
+	self.Rewards:Halt(true)
+	self.Farming.Mechanics:CancelRewardTransport()
+	self.AntiAFK:Halt("Stopped")
 	self.Plan = nil
 	self.Error = nil
 	self.Brain:Reset()
@@ -439,9 +489,31 @@ function OCController:Destroy()
 	for _, connection in ipairs(self.Connections) do connection:Disconnect() end
 	self.Reader:Destroy()
 	self.Farming:Destroy()
+	self.EggTravel:Destroy()
+	self.Rewards:Destroy()
+	self.AntiAFK:Destroy()
 	self.Scheduler:Destroy()
 	self.Changed:Destroy()
 	self:Log("CONTROL", "DESTROY | panel, subscriptions, and reader cleaned up")
+end
+
+function OCController:MarkNonPickupReward(pending)
+	self.RewardAttributionEpoch = (self.RewardAttributionEpoch or 0) + 1
+	self.RewardQuietUntil = math.max(self.RewardQuietUntil or 0, os.clock() + 10)
+	self.LastNonPickupReward = pending and pending.Kind or "REWARD_OPERATION"
+	-- Discard overlapping models. Known pending/settling credits never become pickup income; later external grants remain uncertain.
+	self.Farming.Metrics.Samples = {}
+	self.Farming.Metrics.Active = nil
+	self.Farming.Metrics.Last = { At = os.clock(), Balances = self.Reader:ReadBalances() }
+	self.Farming.PickupEvidence = {}
+	self.Farming.Cycle = nil
+	self.Farming.Stationary.LastSampleAt = nil
+	self.Farming.Stationary.LastSampleArea = nil
+end
+
+function OCController:RewardAttributionBlocked()
+	return os.clock() < (self.RewardQuietUntil or 0)
+		or self.Rewards and self.Rewards.AttributionBlocked and self.Rewards:AttributionBlocked() == true
 end
 
 return OCController

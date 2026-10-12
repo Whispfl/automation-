@@ -1,0 +1,893 @@
+{
+  "date": "2026-10-11",
+  "status": "LOCAL_CODE_BUILT_READY_FOR_OWNER_TEST",
+  "buildId": "005f77211830",
+  "supersedesBuildId": "a4e17c439309",
+  "localArtifact": {
+    "path": "C:\\Users\\rmger\\Documents\\ChatGPT\\roblox app\\dist\\OC.local.lua",
+    "bytes": 534213,
+    "sha256": "1126779130e6d11e2336bed6f9aba16e25148e5b97eda39798a4d5a8974822cc",
+    "embeddedInitializerBundleSha256": "d8fe5f16a6d9559c8605f92a9985ebfd0c7a1ee349a90a894b0d2ac6ecf4cc41",
+    "defaultTestMode": "NONE",
+    "modes": [
+      "NONE",
+      "A_TRAVEL",
+      "B_PLAYTIME",
+      "C_ONE_BOX",
+      "D_ANTI_AFK"
+    ],
+    "downloadsCode": false,
+    "antiAFKMethod": "VIRTUAL_INPUT_SCROLL_LOCK",
+    "firstBoxLimit": 1,
+    "automaticBoxContinuationDefault": false
+  },
+  "baseline": {
+    "manifestPath": "C:/Users/rmger/.codex/visualizations/2026/10/11/01a12b06-ec19-7d22-bb8a-4abf8f6bbcf2/OC_local_four_features_baseline_59e6fcd740f5414d96cade2618bb8c0d.json",
+    "archive": "C:\\Users\\rmger\\.codex\\visualizations\\2026\\10\\11\\01a12b06-ec19-7d22-bb8a-4abf8f6bbcf2\\OC_local_four_features_baseline_59e6fcd740f5414d96cade2618bb8c0d.zip",
+    "archiveSha256": "91f95ee25473137fee6581685c8084cd744432b6c60ff3d19a7a62d90cb24c42",
+    "includesGitHistoryAndUncommittedFiles": true,
+    "nonGitArchiveEntryHashesVerified": 192
+  },
+  "preStudioCorrectionBaseline": {
+    "manifestPath": "C:/Users/rmger/.codex/visualizations/2026/10/11/01a12b06-ec19-7d22-bb8a-4abf8f6bbcf2/OC_before_studio_recheck_fix_a4e17c439309.json",
+    "archive": "C:/Users/rmger/.codex/visualizations/2026/10/11/01a12b06-ec19-7d22-bb8a-4abf8f6bbcf2/OC_before_studio_recheck_fix_a4e17c439309.zip",
+    "archiveSha256": "7a87925f6e9b2b53c28bea286243c177cc68f6291ecd7556acbcdfa7c9baf781",
+    "includesGitHistoryAndUncommittedFiles": true,
+    "nonGitArchiveEntryHashesVerified": 213,
+    "hashBasis": "Exact non-Git entry bytes in the recoverable ZIP; source snapshot taken before follow-up code edits"
+  },
+  "preservation": {
+    "headBefore": "114caa4e18e05ba8881a4a93e83470b993273ecc",
+    "headAfter": "114caa4e18e05ba8881a4a93e83470b993273ecc",
+    "headUnchanged": true,
+    "researchFilesCompared": 104,
+    "stage1Files": 60,
+    "stage2Files": 44,
+    "changedResearch": [],
+    "gitDiffCheck": "PASS",
+    "existingRegressionCasesRetained": 321
+  },
+  "tests": {
+    "commands": [
+      "node scripts/build.mjs",
+      "node scripts/test.mjs"
+    ],
+    "result": "PASS",
+    "officialLuauCompilation": "PASS",
+    "mainSuiteCases": 409,
+    "existingCases": 321,
+    "localFeatureCases": 88,
+    "additionalCasesSinceInitialDelivery": 29,
+    "groups": {
+      "eggTravel": 17,
+      "rewards": 33,
+      "antiAFK": 25,
+      "integration": 13
+    },
+    "existingExampleConfigs": "PASS",
+    "localSelectableConfigs": 5,
+    "localConfigIsolation": "PASS",
+    "actualInitializer": "PASS",
+    "reloadFailedReleaseBarrier": "PASS",
+    "pasteHeaderAndEmbeddedBundleEquivalence": "PASS",
+    "noDownloadCallCheck": "PASS",
+    "logPath": "C:\\Users\\rmger\\Documents\\ChatGPT\\roblox app\\.test-output\\local-features-studio-recheck-regression.log",
+    "logSha256": "384bbf8f093fabf4109ace66092b9fc71b7788266167246e656afc8e5d0978c2",
+    "offlineOnly": true
+  },
+  "notion": {
+    "readScope": "Fresh enhanced Markdown fetches with discussion indicators; relevant owner/feature/optimization/lifecycle sections read. Phase 5 separately reread after output truncation. Not every historical footer/discussion.",
+    "pages": [
+      {
+        "id": "3f53d7e9278d81c5a6cacfe227eb4349",
+        "name": "Master roadmap",
+        "lastEditedUTC": "2026-10-11T01:03:50.410Z",
+        "verification": "unverified"
+      },
+      {
+        "id": "3f53d7e9278d81a796a9d3c505076363",
+        "name": "Phase 4",
+        "lastEditedUTC": "2026-10-11T01:03:52.185Z",
+        "verification": "unverified"
+      },
+      {
+        "id": "3f53d7e9278d8109bd34fb0cd2a5ea05",
+        "name": "Phase 5",
+        "lastEditedUTC": "2026-10-11T01:03:53.709Z",
+        "verification": "unverified"
+      },
+      {
+        "id": "3f53d7e9278d81e7a631d19062ab3358",
+        "name": "Phase 9",
+        "lastEditedUTC": "2026-10-11T01:03:56.636Z",
+        "verification": "unverified"
+      }
+    ]
+  },
+  "studio": {
+    "initialImplementationDiscovery": {
+      "studios": []
+    },
+    "followupDiscovery": {
+      "studios": [
+        {
+          "id": "681d6e17-4b4e-443e-8997-73c126b5e682",
+          "name": "place 85896571713843 Bubble Gum Simulator INFINITY.rbxl"
+        }
+      ]
+    },
+    "observedMode": "Edit",
+    "availableDataModels": [
+      "Edit"
+    ],
+    "labelDoesNotVerifyLivePlaceId": true,
+    "sourceScope": {
+      "playtime": "2 complete semantic source reads; encoded bytecode excluded",
+      "rewards": "4 complete fetches; 2 complete semantic module reviews and 2 relevant complete caller/function reviews",
+      "travel": "5 scripts / 13 source reads, 2 targeted tree searches, 2 saved-scene Root/Prompt inspections",
+      "antiAFK": "23 targeted source excerpts across 15 paths and a literal-key search record; not exhaustive game input review"
+    },
+    "evidenceFiles": [
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_KEY_SEARCH.source.txt",
+        "sha256": "da9a002db908b7d0d997dad2b7c91fc85dfbf33ee3315cfba1c8a616a9408c38",
+        "bytes": 1068,
+        "nativeSourcePath": null
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_226-276.source.txt",
+        "sha256": "a0715743d9d01c5e4bbd19521f31036278e5429a50519d0345ac3716cbe02d91",
+        "bytes": 1961,
+        "nativeSourcePath": "ReplicatedStorage.Client.AFKReport"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_527-552.source.txt",
+        "sha256": "6f51f1f99e022923d39e7ed795cfe17b7f95bfb8d9defd7556d4d2d64a2b5623",
+        "bytes": 1353,
+        "nativeSourcePath": "ReplicatedStorage.Client.AFKReport"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_550-605.source.txt",
+        "sha256": "1567e141b915112d7f8770e53717a3515415e83c0ce97456ada96d0968dde985",
+        "bytes": 3000,
+        "nativeSourcePath": "ReplicatedStorage.Client.AFKReport"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_6-58.source.txt",
+        "sha256": "f6d403df29e05a3fb81d8a0bcb79b2e43da9986613e11c5c26b6708c0f2a39ce",
+        "bytes": 3388,
+        "nativeSourcePath": "ReplicatedStorage.Client.AFKReport"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_605-685.source.txt",
+        "sha256": "d2200ea9b193f574d74f472ba754ff504787ddb78d1e5d812c24598e38a9cc03",
+        "bytes": 2192,
+        "nativeSourcePath": "ReplicatedStorage.Client.AFKReport"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Effects_HatchEgg_1780-1835.source.txt",
+        "sha256": "57c4b8bf62c91ef5eda1846391eaa6770e9b23785e4c8e3a56147247fbdb9264",
+        "bytes": 2240,
+        "nativeSourcePath": "ReplicatedStorage.Client.Effects.HatchEgg"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Effects_HatchEgg_6-95.source.txt",
+        "sha256": "99b5a706091c728b8d041c7351279918f2982bb63203fbcf054758c87a992cf1",
+        "bytes": 6491,
+        "nativeSourcePath": "ReplicatedStorage.Client.Effects.HatchEgg"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Effects_HatchEgg_830-852.source.txt",
+        "sha256": "d7b90241859da8c7c60c7c99c60f9e8311ad2f8a3e7ae8f8788029f08b5fa962",
+        "bytes": 1177,
+        "nativeSourcePath": "ReplicatedStorage.Client.Effects.HatchEgg"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Framework_Utilities_UserInput_1-complete.source.txt",
+        "sha256": "11376fb5a849ea34307bf6a7a680f96e938625e129ba6dfe4213acb5e8a4a3e6",
+        "bytes": 5458,
+        "nativeSourcePath": "ReplicatedStorage.Client.Framework.Utilities.UserInput"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_Dialog_260-315.source.txt",
+        "sha256": "866ad99821880ff9993270c809b8a0f4f9a624c2fee92cc4fe15eddf94930370",
+        "bytes": 2577,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.Dialog"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_Frames_Settings_315-375.source.txt",
+        "sha256": "db7b9e5948b23c0ae1b8df4988ea6534f7c1fd582972b8ee0c98424c07469de9",
+        "bytes": 3795,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.Frames.Settings"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_Frames_WorldMap_950-985.source.txt",
+        "sha256": "a4839b703989c6e007f9842b2a610dda7b43ac6ed913e85dd358a943e261107d",
+        "bytes": 1747,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.Frames.WorldMap"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_GuiFrame_54-198.source.txt",
+        "sha256": "51201354b42a1c74a18ef7bedc02dc65f6a3c99b153a957a3665f19146ec2e6f",
+        "bytes": 5299,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.GuiFrame"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_HUD_2825-2875.source.txt",
+        "sha256": "28cbc2575d9271a78de443a2f5e4a91848c4d95684b72bfbbbdf547bb6eb068a",
+        "bytes": 2403,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.HUD"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_HookKeybind_1-complete.source.txt",
+        "sha256": "f81e4bc4f8e0ebd760015683399574469b98e728d38143c30111ae2dd0d69a64",
+        "bytes": 6840,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.HookKeybind"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_LootPoolViewer_1438-1601.source.txt",
+        "sha256": "853614a0923b44ffc6b8087d3123e2d11885a550da48fbdd573bbec3c6a5dccf",
+        "bytes": 7219,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.LootPoolViewer"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Shared_Data_Settings_38-75.source.txt",
+        "sha256": "677ce73d5ae76202861d238d5ed50db2ff8f50dc69d36965c62563e9399ddf73",
+        "bytes": 3789,
+        "nativeSourcePath": "ReplicatedStorage.Shared.Data.Settings"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Shared_Data_Settings_6-45.source.txt",
+        "sha256": "e9f3859f98f888abf78419d7cd9b90f4b52bff11a38a66861550217aa351f7f1",
+        "bytes": 4439,
+        "nativeSourcePath": "ReplicatedStorage.Shared.Data.Settings"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_AFK_1-complete.source.txt",
+        "sha256": "0b6603f4558011ae68e4acd9d4e6e3735ed34b1a776e665594dab0eb7dfebd84",
+        "bytes": 11310,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.AFK"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_ClientScript_780-835.source.txt",
+        "sha256": "6e1cb0404dd9ad2554e1cab5ae55b9aa71b92cd5eddbb5980610d91bf3c23617",
+        "bytes": 2274,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_ClientScript_945-1040.source.txt",
+        "sha256": "e95b82641f9ba513fd176151bda70570d3f744b1be9271c96824a3e956b1948d",
+        "bytes": 6346,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_Gamepad_6-68.source.txt",
+        "sha256": "5cf401a9b7c79e5a6c017dfe9d13c5220ef21e363f2bc3e6ccab1a4c57e67d65",
+        "bytes": 3689,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.Gamepad"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_ProximityPrompt_133-178.source.txt",
+        "sha256": "8c26d4d122e57a17f0ae1fd839292574993a375ffe4365b37477541a8b1f0b48",
+        "bytes": 2416,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ProximityPrompt"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/COMMON_EGG_PROMPT_GEOMETRY.json",
+        "sha256": "c7dde75de55ad557f3f4cd329f6340684703c2961c71147deb1b3d0d115344ba",
+        "bytes": 1263,
+        "nativeSourcePath": null
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/ClientScript.RenderGifts.source.txt",
+        "sha256": "629d7573847ec8d6fe318c920bfad2429597ab4fd9fb9fb3c39dd9ea674dc010",
+        "bytes": 1079,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/EGG_AUTO_HATCH_GUARDS.source.txt",
+        "sha256": "627695e3d5d6c6294b99666e6f13ac4846a233a3756c22e2d0ed60267f86953d",
+        "bytes": 3979,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/EGG_LOCATION_ANNOTATION.source.txt",
+        "sha256": "e563a11fdb287fe4b61c6299af2d06091f437ed6d014fc65c398873ec6565203",
+        "bytes": 622,
+        "nativeSourcePath": "ReplicatedStorage.Shared.Data.Eggs"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/EGG_RANGE_AND_UNLOCK.source.txt",
+        "sha256": "f61de896ce750f0d47fc68ad4de0f2f9a177997f2a56cfd15dc9b46aacb8d0c2",
+        "bytes": 3290,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/EGG_RENDER_AND_MODEL_REGISTRATION.source.txt",
+        "sha256": "6bd7b2e3c9051d2095d7565daabbcf1d1bc08a26d27d1b2d562c09c2440ab887",
+        "bytes": 2756,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/Inventory.AutoMysteryBox.source.txt",
+        "sha256": "bc6f4af542fc7a55721d9a584b4a0c7ffabca49a2e2e8d9e30b59d6bfbef43f0",
+        "bytes": 5239,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.Frames.Inventory"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/MYSTERY_GIFT_RECHECK.md",
+        "sha256": "56f742fd64ff4ce9b2c2d9b51f994e0a4a69c8064fc5dc1ab43f8c398dfdba0b",
+        "bytes": 6643,
+        "nativeSourcePath": null
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/PORTAL_PATH_BINDINGS.source.txt",
+        "sha256": "f06de583c327b21112cdc115e6179f4e54c1e2c3b2c825eb78f6358f95f2ed32",
+        "bytes": 1704,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/PORTAL_TRIGGER_CALLER.source.txt",
+        "sha256": "64e0af613708a73df660f95809cb7ea495342f89f9adaa55ba1240e25111d233",
+        "bytes": 4448,
+        "nativeSourcePath": "StarterPlayer.StarterPlayerScripts.ClientScript"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/PROXIMITY_PROMPT.source.txt",
+        "sha256": "158e2e637a2076c18ed03bc01031a26a34c3eb3119d32cbb962565408fc25434",
+        "bytes": 3914,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.ProximityPrompt"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/PhysicalItem.Gift.source.txt",
+        "sha256": "dc5dbf4d59fc8013e046e74c2e8b0bb7b976e6e9dc5ea9a2be517e5e28a0b535",
+        "bytes": 14144,
+        "nativeSourcePath": "ReplicatedStorage.Client.Effects.PhysicalItem.Gift"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/PhysicalItem.source.txt",
+        "sha256": "8ad6927a1bb7dc1a102a60a95f34083dfcb9da5785ec0a8a4c250bcc237e902e",
+        "bytes": 12399,
+        "nativeSourcePath": "ReplicatedStorage.Client.Effects.PhysicalItem"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/Playtime.client.source.txt",
+        "sha256": "975a60a3d4c07bec5f5ca0292e25a3deeb908adbee36a0f43e21fe9784d65490",
+        "bytes": 22638,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.Frames.Playtime"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/Playtime.data.source.txt",
+        "sha256": "21abf4dc9be4d35dd22d421d7c05cd8d29196be45971d1ce11236297e1fbec9e",
+        "bytes": 3465,
+        "nativeSourcePath": "ReplicatedStorage.Shared.Data.Playtime"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/WORLD_MAP_TRAVEL.source.txt",
+        "sha256": "e134db98b9604d486dd374084ff4050afb1712b066990875c6375113d1a8d909",
+        "bytes": 3192,
+        "nativeSourcePath": "ReplicatedStorage.Client.Gui.Frames.WorldMap"
+      },
+      {
+        "path": "docs/local-feature-studio-evidence/WORLD_UTIL.source.txt",
+        "sha256": "435746c553904c04b0a73a9477d62397e9a1815f14875c10d18125a4924e9097",
+        "bytes": 4453,
+        "nativeSourcePath": "ReplicatedStorage.Shared.Utils.WorldUtil"
+      }
+    ],
+    "mutations": 0,
+    "executions": 0,
+    "moduleRequires": 0,
+    "inputs": 0,
+    "navigation": 0,
+    "playStateChanges": 0,
+    "liveServerBehaviorVerified": false
+  },
+  "operationalAttestations": {
+    "basis": "Observed tool history for this local implementation and focused follow-up",
+    "githubFetches": 0,
+    "githubPulls": 0,
+    "githubPushes": 0,
+    "githubUploads": 0,
+    "publications": 0,
+    "gitRemoteChanges": 0,
+    "vercelActions": 0,
+    "notionWrites": 0,
+    "liveGameplayTests": 0,
+    "localCommits": 0
+  },
+  "corrections": [
+    "Native BasePart / no component.Name gift representation joined to received RenderGifts IDs with reader epoch/revision; total registry count, exact native InRange and retained pending lease",
+    "Unopened actual Prompt origin and opened Root/global-counter/nearest-unlocked eligibility, with guarded final range observation",
+    "Guarded unassigned ScrollLock down/up replaces native-ignored mouse movement, with AFK report/reveal/keybind/unloaded-gift suppression and uncertain input cleanup barrier across reload"
+  ],
+  "changedFiles": [
+    {
+      "status": " M",
+      "path": "README.md",
+      "sha256": "243683ebd1b4a4b3e0b131e831a8607c5fb8f21d762475c7ce94eae33a3f2fb7",
+      "initialBaselineSha256": "10f379ae7f9686e9fc53511f8f682eb314a7c0d5cd4164b387a9cb90a77754b1",
+      "preRecheckBaselineSha256": "d35ac7696cbb4c13d249fbdbc20afe7788e9b9a302074ace3595bab4fde6db87"
+    },
+    {
+      "status": " M",
+      "path": "dist/OC.lua",
+      "sha256": "d8fe5f16a6d9559c8605f92a9985ebfd0c7a1ee349a90a894b0d2ac6ecf4cc41",
+      "initialBaselineSha256": "4cdb5eda83d6d5e7a83b47555d3da34a5e5d3b69b4fe1da5f3c8c3d92776fcb6",
+      "preRecheckBaselineSha256": "79d9526382f3ab58991ed9077e94fe754d802542e6c385a61cfb738e162a2b67"
+    },
+    {
+      "status": " M",
+      "path": "scripts/build.mjs",
+      "sha256": "3a5bf7b1d750832c54f7004a1d749edae4d8a13ca283bb1d160a10f991c9174a",
+      "initialBaselineSha256": "7dabe030462343057a4c88012e399ee826aa88d425ac268310186332f682a840",
+      "preRecheckBaselineSha256": "3a5bf7b1d750832c54f7004a1d749edae4d8a13ca283bb1d160a10f991c9174a"
+    },
+    {
+      "status": " M",
+      "path": "scripts/test.mjs",
+      "sha256": "43b77ca41c458d21a1fc956825b4af693435d4b8efa15845f69fbd4052cca36b",
+      "initialBaselineSha256": "9c0c76fcd6b804389206cc393985f3a22d5495ed7918cce8ed2c9bb4dbd4f195",
+      "preRecheckBaselineSha256": "50e87bb44df2f8e98bd24a1dea73a183605903b1d9b0c51ddb365f30a229d783"
+    },
+    {
+      "status": " M",
+      "path": "src/OC.luau",
+      "sha256": "b31cca0f8d37e87c022e21530fff6c1ae672997d477589b276a155cef1547643",
+      "initialBaselineSha256": "a3a1e09e3f7df9c5add4cea705d03ad85b128e3d1e84d72026bc0ae758fe418d",
+      "preRecheckBaselineSha256": "02b06f0eaa7c8030bda3cd4f5349014a0fa923fba7b29054f5e0ba45c1df4d57"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/AccountPresentation.luau",
+      "sha256": "93c74e2c538fc45a1cccf59e1283d5dfaa8c195fef0af0521fa42498d572269f",
+      "initialBaselineSha256": "ece070042b9cc3f9b5c1109633f624217b84487b583c4fb3a51c9ab6686c40b5",
+      "preRecheckBaselineSha256": "8c43a8447905ce49629b3117f36353d15c5c6b6f563d09b70372df12a670c60c"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/AccountStateReader.luau",
+      "sha256": "bea7d4439d9689dba42f45fa1a5d6d5f6a45a1d6725c25872316a5cf1bc42c38",
+      "initialBaselineSha256": "9e0a88e4088b8fdc693acc84965ed1842e2f5a963745b83c4b33f4d6a7d94583",
+      "preRecheckBaselineSha256": "67ee5bdb7dccbe156ef9c018fbf391337673acddd186267b09d323c48843c44b"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/FarmingCoordinator.luau",
+      "sha256": "733bb5d9662211f2fa342a0e85dbde6e8f5a80d23cedb3e6ff758efd77590331",
+      "initialBaselineSha256": "cf160af510a2b153bd9b8e0134d40e7b0a6285b4ddff75c761debabf25eff943",
+      "preRecheckBaselineSha256": "733bb5d9662211f2fa342a0e85dbde6e8f5a80d23cedb3e6ff758efd77590331"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/GameKnowledge.luau",
+      "sha256": "c5a111a913d598a416e4d9db9362d0dabe4f2a7d03877f58e3c625889929308e",
+      "initialBaselineSha256": "81ac00612f2a45587e218646017748a65336f841e93cc91eed47de1151bb5d5c",
+      "preRecheckBaselineSha256": "c5a111a913d598a416e4d9db9362d0dabe4f2a7d03877f58e3c625889929308e"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/GameMechanics.luau",
+      "sha256": "b33a4fdc25c37ba557d4a3ec4628aa6d847ff963cc14dd7077cb4c9361b73d2e",
+      "initialBaselineSha256": "67097043648642e718a70aa482113e54f79f640626ad01b91ee3cc909ff1b63a",
+      "preRecheckBaselineSha256": "907b9afe7fb549f477c94bb0126db8d31bb1e3cec3ccf4594c889fd9a749f06d"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/OCBrain.luau",
+      "sha256": "063e119b8d95c74f1de1cc6795cb9177d61a359c46b1ad941ca402d57f9b06c4",
+      "initialBaselineSha256": "c6957bf98f101a8f7631ef39a2300b84cb2d215b5a23fb4675454a2e6b777e1d",
+      "preRecheckBaselineSha256": "063e119b8d95c74f1de1cc6795cb9177d61a359c46b1ad941ca402d57f9b06c4"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/OCConfig.luau",
+      "sha256": "1f51551a40ff7d1f1fb93aaec15f5d1285e18f49e8359bc2b9216f029af33e17",
+      "initialBaselineSha256": "3219a67bed9e436e8f3f2c8242127b838bd51ef6de43eba4eb3f917df614bf6f",
+      "preRecheckBaselineSha256": "bb7bb5af96762606bb2f476192addf42df181b6483292146b759c38cd643f791"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/OCController.luau",
+      "sha256": "c59d61a82b43b2c1e0ef4a46d8a10c301cc8ba2a2e0329b461dde286bfbd0b4e",
+      "initialBaselineSha256": "9b3a53e9f18c204a011747bea10f0a4a391cb97d5857914b1f4f8c800f9ecf90",
+      "preRecheckBaselineSha256": "b8ac4357e8182ff988198d45ca0b27cc1fd3af4882b51f4a371960de11869423"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/ResourceMetrics.luau",
+      "sha256": "8555c13955fc50b5271493e3074dfb4640ef9a7b33099561fc79ad7789dc9057",
+      "initialBaselineSha256": "a4ef2d938fb1abb43cb113d5502ab82f6ee44dbca0be403ecfa8857d36ec848f",
+      "preRecheckBaselineSha256": "8555c13955fc50b5271493e3074dfb4640ef9a7b33099561fc79ad7789dc9057"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/StationaryExperiment.luau",
+      "sha256": "a43f8dd90b8f2bfc3e5b264cae2a70f1dfa0c5a3964d1e624e59d62ca16daea4",
+      "initialBaselineSha256": "c40f07d341153513571d473ec3c73549dda9d9c2e4fb96193af3f1a5e86211be",
+      "preRecheckBaselineSha256": "a43f8dd90b8f2bfc3e5b264cae2a70f1dfa0c5a3964d1e624e59d62ca16daea4"
+    },
+    {
+      "status": " M",
+      "path": "src/OCFoundation/TaskScheduler.luau",
+      "sha256": "e2cc5aae005ff78acf839c9a892d04b213e5217f048c52bf14e5e6c8b258fcda",
+      "initialBaselineSha256": "c34407ed296c019f09a93c677e55c7a6d1611e39befae6a7acdb0145ef1dcc91",
+      "preRecheckBaselineSha256": "e2cc5aae005ff78acf839c9a892d04b213e5217f048c52bf14e5e6c8b258fcda"
+    },
+    {
+      "status": "??",
+      "path": "dist/OC.local.lua",
+      "sha256": "1126779130e6d11e2336bed6f9aba16e25148e5b97eda39798a4d5a8974822cc",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "a3ce5a1e223b48c35374c24fca06200af9fec0d3049266ed14a36b5540545f46"
+    },
+    {
+      "status": "??",
+      "path": "docs/LOCAL_FEATURES.md",
+      "sha256": "8e7ea161f3011cfab07f1d0b2c7878a367377eac5a79edfcd6d3ac665a788712",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "64135a6051bc464e8037cb492c9945e4d4d39c9c968133689b4c04e79b6a993b"
+    },
+    {
+      "status": "??",
+      "path": "docs/LOCAL_FEATURES_STUDIO_RECHECK.md",
+      "sha256": "9d9a043e85e38a9bb34d9f978ce832081d49eab3c81cfc74628aa7f6f3ce74f0",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_KEY_SEARCH.source.txt",
+      "sha256": "da9a002db908b7d0d997dad2b7c91fc85dfbf33ee3315cfba1c8a616a9408c38",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_226-276.source.txt",
+      "sha256": "a0715743d9d01c5e4bbd19521f31036278e5429a50519d0345ac3716cbe02d91",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_527-552.source.txt",
+      "sha256": "6f51f1f99e022923d39e7ed795cfe17b7f95bfb8d9defd7556d4d2d64a2b5623",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_550-605.source.txt",
+      "sha256": "1567e141b915112d7f8770e53717a3515415e83c0ce97456ada96d0968dde985",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_6-58.source.txt",
+      "sha256": "f6d403df29e05a3fb81d8a0bcb79b2e43da9986613e11c5c26b6708c0f2a39ce",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_AFKReport_605-685.source.txt",
+      "sha256": "d2200ea9b193f574d74f472ba754ff504787ddb78d1e5d812c24598e38a9cc03",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Effects_HatchEgg_1780-1835.source.txt",
+      "sha256": "57c4b8bf62c91ef5eda1846391eaa6770e9b23785e4c8e3a56147247fbdb9264",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Effects_HatchEgg_6-95.source.txt",
+      "sha256": "99b5a706091c728b8d041c7351279918f2982bb63203fbcf054758c87a992cf1",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Effects_HatchEgg_830-852.source.txt",
+      "sha256": "d7b90241859da8c7c60c7c99c60f9e8311ad2f8a3e7ae8f8788029f08b5fa962",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Framework_Utilities_UserInput_1-complete.source.txt",
+      "sha256": "11376fb5a849ea34307bf6a7a680f96e938625e129ba6dfe4213acb5e8a4a3e6",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_Dialog_260-315.source.txt",
+      "sha256": "866ad99821880ff9993270c809b8a0f4f9a624c2fee92cc4fe15eddf94930370",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_Frames_Settings_315-375.source.txt",
+      "sha256": "db7b9e5948b23c0ae1b8df4988ea6534f7c1fd582972b8ee0c98424c07469de9",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_Frames_WorldMap_950-985.source.txt",
+      "sha256": "a4839b703989c6e007f9842b2a610dda7b43ac6ed913e85dd358a943e261107d",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_GuiFrame_54-198.source.txt",
+      "sha256": "51201354b42a1c74a18ef7bedc02dc65f6a3c99b153a957a3665f19146ec2e6f",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_HUD_2825-2875.source.txt",
+      "sha256": "28cbc2575d9271a78de443a2f5e4a91848c4d95684b72bfbbbdf547bb6eb068a",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_HookKeybind_1-complete.source.txt",
+      "sha256": "f81e4bc4f8e0ebd760015683399574469b98e728d38143c30111ae2dd0d69a64",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Client_Gui_LootPoolViewer_1438-1601.source.txt",
+      "sha256": "853614a0923b44ffc6b8087d3123e2d11885a550da48fbdd573bbec3c6a5dccf",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Shared_Data_Settings_38-75.source.txt",
+      "sha256": "677ce73d5ae76202861d238d5ed50db2ff8f50dc69d36965c62563e9399ddf73",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_ReplicatedStorage_Shared_Data_Settings_6-45.source.txt",
+      "sha256": "e9f3859f98f888abf78419d7cd9b90f4b52bff11a38a66861550217aa351f7f1",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_AFK_1-complete.source.txt",
+      "sha256": "0b6603f4558011ae68e4acd9d4e6e3735ed34b1a776e665594dab0eb7dfebd84",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_ClientScript_780-835.source.txt",
+      "sha256": "6e1cb0404dd9ad2554e1cab5ae55b9aa71b92cd5eddbb5980610d91bf3c23617",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_ClientScript_945-1040.source.txt",
+      "sha256": "e95b82641f9ba513fd176151bda70570d3f744b1be9271c96824a3e956b1948d",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_Gamepad_6-68.source.txt",
+      "sha256": "5cf401a9b7c79e5a6c017dfe9d13c5220ef21e363f2bc3e6ccab1a4c57e67d65",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/AntiAFK_StarterPlayer_StarterPlayerScripts_ProximityPrompt_133-178.source.txt",
+      "sha256": "8c26d4d122e57a17f0ae1fd839292574993a375ffe4365b37477541a8b1f0b48",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/COMMON_EGG_PROMPT_GEOMETRY.json",
+      "sha256": "c7dde75de55ad557f3f4cd329f6340684703c2961c71147deb1b3d0d115344ba",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/ClientScript.RenderGifts.source.txt",
+      "sha256": "629d7573847ec8d6fe318c920bfad2429597ab4fd9fb9fb3c39dd9ea674dc010",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "629d7573847ec8d6fe318c920bfad2429597ab4fd9fb9fb3c39dd9ea674dc010"
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/EGG_AUTO_HATCH_GUARDS.source.txt",
+      "sha256": "627695e3d5d6c6294b99666e6f13ac4846a233a3756c22e2d0ed60267f86953d",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/EGG_LOCATION_ANNOTATION.source.txt",
+      "sha256": "e563a11fdb287fe4b61c6299af2d06091f437ed6d014fc65c398873ec6565203",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/EGG_RANGE_AND_UNLOCK.source.txt",
+      "sha256": "f61de896ce750f0d47fc68ad4de0f2f9a177997f2a56cfd15dc9b46aacb8d0c2",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/EGG_RENDER_AND_MODEL_REGISTRATION.source.txt",
+      "sha256": "6bd7b2e3c9051d2095d7565daabbcf1d1bc08a26d27d1b2d562c09c2440ab887",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/Inventory.AutoMysteryBox.source.txt",
+      "sha256": "bc6f4af542fc7a55721d9a584b4a0c7ffabca49a2e2e8d9e30b59d6bfbef43f0",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "bc6f4af542fc7a55721d9a584b4a0c7ffabca49a2e2e8d9e30b59d6bfbef43f0"
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/MYSTERY_GIFT_RECHECK.md",
+      "sha256": "56f742fd64ff4ce9b2c2d9b51f994e0a4a69c8064fc5dc1ab43f8c398dfdba0b",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/PORTAL_PATH_BINDINGS.source.txt",
+      "sha256": "f06de583c327b21112cdc115e6179f4e54c1e2c3b2c825eb78f6358f95f2ed32",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/PORTAL_TRIGGER_CALLER.source.txt",
+      "sha256": "64e0af613708a73df660f95809cb7ea495342f89f9adaa55ba1240e25111d233",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/PROXIMITY_PROMPT.source.txt",
+      "sha256": "158e2e637a2076c18ed03bc01031a26a34c3eb3119d32cbb962565408fc25434",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/PhysicalItem.Gift.source.txt",
+      "sha256": "dc5dbf4d59fc8013e046e74c2e8b0bb7b976e6e9dc5ea9a2be517e5e28a0b535",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "dc5dbf4d59fc8013e046e74c2e8b0bb7b976e6e9dc5ea9a2be517e5e28a0b535"
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/PhysicalItem.source.txt",
+      "sha256": "8ad6927a1bb7dc1a102a60a95f34083dfcb9da5785ec0a8a4c250bcc237e902e",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "8ad6927a1bb7dc1a102a60a95f34083dfcb9da5785ec0a8a4c250bcc237e902e"
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/Playtime.client.source.txt",
+      "sha256": "975a60a3d4c07bec5f5ca0292e25a3deeb908adbee36a0f43e21fe9784d65490",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "975a60a3d4c07bec5f5ca0292e25a3deeb908adbee36a0f43e21fe9784d65490"
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/Playtime.data.source.txt",
+      "sha256": "21abf4dc9be4d35dd22d421d7c05cd8d29196be45971d1ce11236297e1fbec9e",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "21abf4dc9be4d35dd22d421d7c05cd8d29196be45971d1ce11236297e1fbec9e"
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/WORLD_MAP_TRAVEL.source.txt",
+      "sha256": "e134db98b9604d486dd374084ff4050afb1712b066990875c6375113d1a8d909",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "docs/local-feature-studio-evidence/WORLD_UTIL.source.txt",
+      "sha256": "435746c553904c04b0a73a9477d62397e9a1815f14875c10d18125a4924e9097",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": null
+    },
+    {
+      "status": "??",
+      "path": "examples/LocalFeatureTests.luau",
+      "sha256": "25396071db495e0c1fd35f748eb9ec23cf770c1eeb40edb88714a47e0fa3132b",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "0920aff2f28ac66a2774149c448ff8a982409aeed2e66d55f46be05cf9dea103"
+    },
+    {
+      "status": "??",
+      "path": "src/OCFoundation/AntiAFKManager.luau",
+      "sha256": "f0ad91f5edd2321be3a6212eb7cc8be1e529b586aa6e8e194f5a1139ee7395ee",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "dc873ec1c503c5c0ce8a86c9b15eef3661ca42dd6dca0a093ad42cbbed3da47c"
+    },
+    {
+      "status": "??",
+      "path": "src/OCFoundation/EggTravelManager.luau",
+      "sha256": "ce06000be38db4c8d4f12355e248f36389f81a4acfadae743d63acb690d39b2f",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "9ae2b7e228660a56dff54a4dd61ae54ef3a0f70c8f7c1d30e8950617304bacdf"
+    },
+    {
+      "status": "??",
+      "path": "src/OCFoundation/RewardsManager.luau",
+      "sha256": "13139134750a53f320af040e8b31adeabff5a5e9d5146d11d3be4f348ef5ee89",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "817448e51d474d8f019f3e6a2c59cc7585edcf0882969dd25b8cf68fcc712173"
+    },
+    {
+      "status": "??",
+      "path": "tests/anti-afk.luau",
+      "sha256": "340844f695da053f53050e44231ecfe92bbe385c9b850f96ebba90de027e4241",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "8769fd2f645c92d494ea1ee63ee21ebfc15e830783ea82653b3f5643640fed85"
+    },
+    {
+      "status": "??",
+      "path": "tests/egg-travel.luau",
+      "sha256": "8477baba36d810441769c91fd80c131a14a57ed2ba45ee70f52a0be9d14b539a",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "3204646efffea67a34352ba5a51310b0c7c24dae169e98bbd762e3ca4b606737"
+    },
+    {
+      "status": "??",
+      "path": "tests/local-features.luau",
+      "sha256": "bf8072ac97cf3267503e9b89cb058e6662bf3de429f474b2b6785242b1e81ca4",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "1801e1f96385b3d75c250893faf5426306b37cd7c172d4d0847f12c4157cbeae"
+    },
+    {
+      "status": "??",
+      "path": "tests/rewards.luau",
+      "sha256": "f4f82a94be40eda3a6929271283f260ccf657ce0a2cd01b233d1818b701dc2ca",
+      "initialBaselineSha256": null,
+      "preRecheckBaselineSha256": "28e943aa258fcbcec0ba93799cfca44cb0e08fb57a0cdd6ffb1c7c9d1dcbbc5d"
+    }
+  ],
+  "selfHashExclusion": "This report is excluded from its own changed-file hashes. Unchanged preexisting research files are separately compared to the initial baseline.",
+  "scopeLimits": [
+    "Saved Edit client source is not current live server/player state or gameplay verification.",
+    "Special/event/premium/Infinity egg travel lacks a verified adapter and requires manual approach.",
+    "Missing/conflicting/replayed gift identity or another reader epoch blocks input/continuation and never authorizes another uncertain consumption.",
+    "After authorized native eighth Hit, deferred Collect can complete after OC Pause; native callbacks/accepted server requests cannot be recalled.",
+    "ScrollLock runtime permission/release/native input reception and long-duration idle prevention require owner tests. Inspected bindings are not universal Roblox/OS/external-script binding proof.",
+    "Known non-pickup rewards are quarantined from metrics; late/manual/external grants cannot be categorically attributed.",
+    "Individual eligible Playtime claims only; bulk native server rules remain unused."
+  ],
+  "ownerLiveVerification": "PENDING"
+}

@@ -1,4 +1,16 @@
-# OCscript — approved baseline and Phase 4 pet intelligence
+# BGSI OC — automation- migration
+
+Current destination: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, branch **main**. The trailing hyphen is part of the repository name. Migration preserves the existing main ancestry, unpublished source/tests/configuration, both completed research libraries, and build **005f77211830**. No gameplay implementation or default setting was changed for migration.
+
+Start with **[examples/MigrationVerify.luau](examples/MigrationVerify.luau)** in the owner's already-supported client runtime. It provides an editable Config with all gameplay actions OFF and spending budgets zero, then loads the matching immutable `migration-005f77211830` bundle without tokens or authentication. Older farming/equipment examples are opt-in action configurations; they are not the default migration check.
+
+**[dist/OC.local.lua](dist/OC.local.lua)** still embeds the entire matching bundle and downloads no code. Its initial `TEST_MODE = "NONE"` leaves all actions OFF; the previously authorized A/B/C/D isolated presets remain available without being enabled by migration. [Local instructions and limitations](docs/LOCAL_FEATURES.md), [original delivery record](docs/LOCAL_FEATURES_DELIVERY.json), and [migration coverage/exclusions](docs/MIGRATION.md) preserve the existing evidence.
+
+The owner reports **playtime auto-claim failure, awaiting investigation**. Owned-team success remains accepted; hatch/travel/reward/anti-AFK gameplay verification and Phase 3 limitations remain open. Migration completes no development phase and grants no new actions. Roblox Studio was untouched.
+
+The implementation and acceptance history below is retained. Current Notion phase gates and the owner's explicit instructions control any future work.
+
+# Preserved implementation and owner acceptance record
 
 Phase 4 development is authorized. The owner confirmed the owned-team equipment
 milestone at commit `d64b6c8a303d43a2eedd9846dcbeb8c630c1a15b`, build
@@ -92,7 +104,7 @@ The example supplies an editable Config and this unauthenticated entry:
 
 ```lua
 local OC = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
+    "https://raw.githubusercontent.com/Whispfl/automation-/migration-005f77211830/dist/OC.lua"
 ))()(Config)
 ```
 

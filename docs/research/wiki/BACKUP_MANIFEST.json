@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-11",
+  "kind": "External local backup descriptor",
+  "sourceRoot": "C:/Users/rmger/Documents/ChatGPT/roblox app/docs/research",
+  "includedTrees": [
+    "replicatedstorage/",
+    "wiki/"
+  ],
+  "archivePath": "C:/Users/rmger/.codex/visualizations/2026/10/11/01a12b06-ec19-7d22-bb8a-4abf8f6bbcf2/BGSI_OC_Research_Stage1_Stage2_2026-10-11.zip",
+  "verificationManifestPath": "C:/Users/rmger/.codex/visualizations/2026/10/11/01a12b06-ec19-7d22-bb8a-4abf8f6bbcf2/BGSI_OC_Research_Stage1_Stage2_2026-10-11.verification.json",
+  "verificationScope": "The accompanying external manifest records actual archive SHA256, entry count and per-file content hash comparisons. Read its result for completion evidence.",
+  "selfReferenceRule": "This descriptor is included in the archive; archive hash and final verification are stored externally to avoid a circular self-hash.",
+  "authorization": "User requested a backup outside the repository; destination is an available writable root. No upload/publishing."
+}

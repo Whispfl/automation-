@@ -19,6 +19,7 @@ end
 function TaskScheduler:GetStatus()
 	return {
 		ActiveTask = self.Active and self.Active.Definition.Id or nil,
+		ActiveOwner = self.Active and self.Active.Definition.Owner or nil,
 		CancellationPending = self.Active ~= nil and self.Active.Token.Cancelled,
 		PendingCount = #self.Queue,
 		Enabled = self.Enabled,

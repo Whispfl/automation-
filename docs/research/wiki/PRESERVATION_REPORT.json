@@ -1,0 +1,800 @@
+{
+  "date": "2026-10-11",
+  "scope": "Local research only; file hashes and local Git state, not live gameplay",
+  "baselineHead": "114caa4e18e05ba8881a4a93e83470b993273ecc",
+  "finalHead": "114caa4e18e05ba8881a4a93e83470b993273ecc",
+  "headUnchanged": true,
+  "stage1Files": 60,
+  "protectedBaselineFiles": 50,
+  "totalHashesCompared": 110,
+  "changedFiles": [],
+  "newStage1Files": [],
+  "gitStatusShort": "?? docs/research/",
+  "trackedChangesPresent": false,
+  "checks": [
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/catalogs/CURRENCY_FACTS.jsonl",
+      "baselineSha256": "a77791bf04a6dca7b97dc46dd3a624bcbc66fd3643b6da039768a44849618ebf",
+      "finalSha256": "a77791bf04a6dca7b97dc46dd3a624bcbc66fd3643b6da039768a44849618ebf",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/catalogs/ECONOMY_SOURCE_COVERAGE.jsonl",
+      "baselineSha256": "fd7cfeeefd0952ea4b5261342e5cf0126cc1069a29eaa6478070a0fa10b45b3e",
+      "finalSha256": "fd7cfeeefd0952ea4b5261342e5cf0126cc1069a29eaa6478070a0fa10b45b3e",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/catalogs/EGG_FACTS.jsonl",
+      "baselineSha256": "5e117b21a5ab5ceec24fd51a29f9d205ce478478441796283c160305d09bdc9f",
+      "finalSha256": "5e117b21a5ab5ceec24fd51a29f9d205ce478478441796283c160305d09bdc9f",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/catalogs/PET_BASE_STATS.jsonl",
+      "baselineSha256": "872ec8dc4c607f8eaafbdf467a4dc71654aaa4480c0ff27aca0c90c37556facb",
+      "finalSha256": "872ec8dc4c607f8eaafbdf467a4dc71654aaa4480c0ff27aca0c90c37556facb",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/catalogs/README.md",
+      "baselineSha256": "7ee64a71feb076893ed3954d8498d98993c072c1c6e4c15f33c2fd6da1aea8b4",
+      "finalSha256": "7ee64a71feb076893ed3954d8498d98993c072c1c6e4c15f33c2fd6da1aea8b4",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/catalogs/SOURCE_COVERAGE_ROOT.jsonl",
+      "baselineSha256": "ced87b54b550877e1bc2bc16bf4cef2c9dabecd150aca02bf6d5b50900b2bd7b",
+      "finalSha256": "ced87b54b550877e1bc2bc16bf4cef2c9dabecd150aca02bf6d5b50900b2bd7b",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/DATA_SCHEMAS.md",
+      "baselineSha256": "1e4737e18e8847aa7da4e0e95a8542b46a6c18fa7a338db47c25fe8a9d61d072",
+      "finalSha256": "1e4737e18e8847aa7da4e0e95a8542b46a6c18fa7a338db47c25fe8a9d61d072",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/DOCUMENTATION_VALIDATION.json",
+      "baselineSha256": "01752fc4722d4470a7bdde7aa12a74724c34a40bb55656229506056ba07b005e",
+      "finalSha256": "01752fc4722d4470a7bdde7aa12a74724c34a40bb55656229506056ba07b005e",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/ECONOMY_AND_ROI.md",
+      "baselineSha256": "18ac09f607af9a58e81348111fe239015f46896e0f5358ff140f192ae24655b9",
+      "finalSha256": "18ac09f607af9a58e81348111fe239015f46896e0f5358ff140f192ae24655b9",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/ECONOMY_REVIEW_NOTES.md",
+      "baselineSha256": "4d5c7264d44d696c25b03cc8bdddb96bfed1cd48f5c82a414baa83bfe4da2d7b",
+      "finalSha256": "4d5c7264d44d696c25b03cc8bdddb96bfed1cd48f5c82a414baa83bfe4da2d7b",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/ECONOMY_SOURCE_LEDGER.md",
+      "baselineSha256": "3ccca24135894427c423a650a43962e1d5dfbe5c8c38976c3ff35005f5022845",
+      "finalSha256": "3ccca24135894427c423a650a43962e1d5dfbe5c8c38976c3ff35005f5022845",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/EGGS_AND_PETS.md",
+      "baselineSha256": "9cfbeffd6f2c8263677dbd8e218e57f8cdebe1fee4a1e7415a16d138824f98b5",
+      "finalSha256": "9cfbeffd6f2c8263677dbd8e218e57f8cdebe1fee4a1e7415a16d138824f98b5",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/FISHING_AND_MINIGAMES.md",
+      "baselineSha256": "15fc57652157b3dc16946591141e555225fbeda09bd0a12b7626ed519a2e1d8a",
+      "finalSha256": "15fc57652157b3dc16946591141e555225fbeda09bd0a12b7626ed519a2e1d8a",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/FISHING_MINIGAMES_SOURCE_LEDGER.md",
+      "baselineSha256": "3a33f4c2b036b16ec17487940518d8859ec6c5129454de6eae272d3e90d19d06",
+      "finalSha256": "3a33f4c2b036b16ec17487940518d8859ec6c5129454de6eae272d3e90d19d06",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/Assets.jsonl",
+      "baselineSha256": "2c61da4388f1246bb3bf2c9f87d2ae24a31200499caabea098f95ce6f37e2fbb",
+      "finalSha256": "2c61da4388f1246bb3bf2c9f87d2ae24a31200499caabea098f95ce6f37e2fbb",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/Client.jsonl",
+      "baselineSha256": "558d5caeac4e847d74f31d651e783d34f805bd69c1fc1c866d8ce37b4f8fee84",
+      "finalSha256": "558d5caeac4e847d74f31d651e783d34f805bd69c1fc1c866d8ce37b4f8fee84",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/DEPENDENCY_REFERENCES.jsonl",
+      "baselineSha256": "7a7b8c4f19e09c6de4922dcf62ba85f12a5dca270534574c1aa16a64112bc6fc",
+      "finalSha256": "7a7b8c4f19e09c6de4922dcf62ba85f12a5dca270534574c1aa16a64112bc6fc",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/FastFlags.jsonl",
+      "baselineSha256": "d34580d832c363723630721a67ef4db5f0d08893689fe32f7982a8f53a2c8707",
+      "finalSha256": "d34580d832c363723630721a67ef4db5f0d08893689fe32f7982a8f53a2c8707",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/REMAINING_SEMANTIC_REVIEW.jsonl",
+      "baselineSha256": "78f5573401892efe3c162f3dafa1f92ea84392e2906c62c327805ea6d2d50cc7",
+      "finalSha256": "78f5573401892efe3c162f3dafa1f92ea84392e2906c62c327805ea6d2d50cc7",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/Remotes.jsonl",
+      "baselineSha256": "c813a678b9091947006e0deadf5032044cf34795b28fcf99a68af60072f3abe4",
+      "finalSha256": "c813a678b9091947006e0deadf5032044cf34795b28fcf99a68af60072f3abe4",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/Shared.jsonl",
+      "baselineSha256": "90322fcbc0f95472ee3317a4ddfc34213da50d477889b4e1e8b7c230c2fc8427",
+      "finalSha256": "90322fcbc0f95472ee3317a4ddfc34213da50d477889b4e1e8b7c230c2fc8427",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_001-100.jsonl",
+      "baselineSha256": "8852fc89c28c5b562cb29ca997849b83700050219db7d2a1557f88bc5ff8a0c8",
+      "finalSha256": "8852fc89c28c5b562cb29ca997849b83700050219db7d2a1557f88bc5ff8a0c8",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_101-200.jsonl",
+      "baselineSha256": "15baa973f929eb47da9bec250c329189313a40faecbb4a881e88d777c467e260",
+      "finalSha256": "15baa973f929eb47da9bec250c329189313a40faecbb4a881e88d777c467e260",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_201-300.jsonl",
+      "baselineSha256": "09cb272aae9f2c2d917dfb961fa98c31971fbb77a9355f8da1a99a457f87da81",
+      "finalSha256": "09cb272aae9f2c2d917dfb961fa98c31971fbb77a9355f8da1a99a457f87da81",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_301-400.jsonl",
+      "baselineSha256": "2e41e6c5fbf5fe95dd0225833ed7358087cec2dc11334180631087e16f58dcff",
+      "finalSha256": "2e41e6c5fbf5fe95dd0225833ed7358087cec2dc11334180631087e16f58dcff",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_401-500.jsonl",
+      "baselineSha256": "746f5cb493a3c3ce52cc795088f2c22e665a74b5d728660266698414f4c02a79",
+      "finalSha256": "746f5cb493a3c3ce52cc795088f2c22e665a74b5d728660266698414f4c02a79",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_501-600.jsonl",
+      "baselineSha256": "93912f321447132283c7d41b1cace6fd6277c5af620dc190dd7d22c3bf1579d0",
+      "finalSha256": "93912f321447132283c7d41b1cace6fd6277c5af620dc190dd7d22c3bf1579d0",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_601-700.jsonl",
+      "baselineSha256": "04303ed48b0246b3d1363ebe4c7385bdf67f3a7408fc9ee4f12a14ba1a76ac7c",
+      "finalSha256": "04303ed48b0246b3d1363ebe4c7385bdf67f3a7408fc9ee4f12a14ba1a76ac7c",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/source_metadata_701-701.jsonl",
+      "baselineSha256": "d298e1a86a546dc808513a84e95da1306fe1a513c89cce02b6522be1e55ae358",
+      "finalSha256": "d298e1a86a546dc808513a84e95da1306fe1a513c89cce02b6522be1e55ae358",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/inventory/SOURCE_METADATA_METHOD.md",
+      "baselineSha256": "d6a672382ed7950ff628508d8e39e046815d76557ee2a595582ab1d4f865d015",
+      "finalSha256": "d6a672382ed7950ff628508d8e39e046815d76557ee2a595582ab1d4f865d015",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/INVENTORY_METHOD.md",
+      "baselineSha256": "894a02afc4b136db50269f15594371114116728a94574b1e8d84c679e12aca06",
+      "finalSha256": "894a02afc4b136db50269f15594371114116728a94574b1e8d84c679e12aca06",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/LOCAL_ARCHITECTURE_EVIDENCE.md",
+      "baselineSha256": "b00cd9cd27d6aaa9d2809c2a92918685bc80e02dce697e0070ef28e5e004bcfe",
+      "finalSha256": "b00cd9cd27d6aaa9d2809c2a92918685bc80e02dce697e0070ef28e5e004bcfe",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/MASTERY_AND_UPGRADES.md",
+      "baselineSha256": "f92fecb28f66b33af804d7ac4a70ae5bc0be983181eed073047ac0067ec4e6e7",
+      "finalSha256": "f92fecb28f66b33af804d7ac4a70ae5bc0be983181eed073047ac0067ec4e6e7",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/MODULE_INDEX.md",
+      "baselineSha256": "33c82fb966c54814aaf9086d03bd2c18d61ef79b70c88a12aa8261fba79ff467",
+      "finalSha256": "33c82fb966c54814aaf9086d03bd2c18d61ef79b70c88a12aa8261fba79ff467",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md",
+      "baselineSha256": "ea83cc17af4a8832c4c1c55203e140d18ae4274027dae1874fed25811a015c76",
+      "finalSha256": "ea83cc17af4a8832c4c1c55203e140d18ae4274027dae1874fed25811a015c76",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS_NAVIGATION.md",
+      "baselineSha256": "8f8ae7f37e1ce2e61b973d163a5f6489b80915aea99b5d17ac6a0f8c4df579f2",
+      "finalSha256": "8f8ae7f37e1ce2e61b973d163a5f6489b80915aea99b5d17ac6a0f8c4df579f2",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/NAVIGATION_FISHING_SOURCE_COVERAGE.jsonl",
+      "baselineSha256": "0f12eb9e9f973fef994aa9463ad05cefed5e5b564034b12f19e6b83d1d108d41",
+      "finalSha256": "0f12eb9e9f973fef994aa9463ad05cefed5e5b564034b12f19e6b83d1d108d41",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/NAVIGATION_SOURCE_LEDGER.md",
+      "baselineSha256": "d8ad69e1dcc27570d7008428f5a175e76843d3560b031e44152391f6b1f41e83",
+      "finalSha256": "d8ad69e1dcc27570d7008428f5a175e76843d3560b031e44152391f6b1f41e83",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/observations/FISHING_CATALOG_FACTS.json",
+      "baselineSha256": "5d6ff609594ff0dfc7dab87eb9203ddc4b161a0a83893ad8c0c9a1803e878f4b",
+      "finalSha256": "5d6ff609594ff0dfc7dab87eb9203ddc4b161a0a83893ad8c0c9a1803e878f4b",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/observations/FISHING_MINIGAMES_SCENE.json",
+      "baselineSha256": "5ccc0fbf21ea05d937019820d01bbd3f4096912b9550f61d0931a27667a8fcf1",
+      "finalSha256": "5ccc0fbf21ea05d937019820d01bbd3f4096912b9550f61d0931a27667a8fcf1",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/observations/MINIGAME_AND_OBBY_WEIGHT_FACTS.json",
+      "baselineSha256": "858b0c1f24a4015ffd0d57ed7db8cc1d4be04453a3b3c610c859ca31c110c29e",
+      "finalSha256": "858b0c1f24a4015ffd0d57ed7db8cc1d4be04453a3b3c610c859ca31c110c29e",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/observations/NAVIGATION_SCENE.json",
+      "baselineSha256": "137026c4a4652b5060e3c2b7d76d4a108530e5aa54ffcf29a1a928206185a016",
+      "finalSha256": "137026c4a4652b5060e3c2b7d76d4a108530e5aa54ffcf29a1a928206185a016",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/observations/OBBY_SCENE.json",
+      "baselineSha256": "0dbb3a4fa68b362f975e098c7ddadacf2021a38d289b3e06ce04cb6a38509546",
+      "finalSha256": "0dbb3a4fa68b362f975e098c7ddadacf2021a38d289b3e06ce04cb6a38509546",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/OC_BRAIN_INTEGRATION_MAP.md",
+      "baselineSha256": "d48a6470d3d0f8e6521ac2c4b983371fb79cff5adb98498fe949b82dfc7f3d4d",
+      "finalSha256": "d48a6470d3d0f8e6521ac2c4b983371fb79cff5adb98498fe949b82dfc7f3d4d",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/PRESERVATION_BASELINE.json",
+      "baselineSha256": "b456d27f4bdc78ef3b8b7f6f0c64f6b3400a06afc1a21c3e419f1620906bb53b",
+      "finalSha256": "b456d27f4bdc78ef3b8b7f6f0c64f6b3400a06afc1a21c3e419f1620906bb53b",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/README.md",
+      "baselineSha256": "1a3a99408fc29445e46c77d5ea7f071363b48aa4b5b0adac48f67144e7769e86",
+      "finalSha256": "1a3a99408fc29445e46c77d5ea7f071363b48aa4b5b0adac48f67144e7769e86",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/RESEARCH_PROGRESS.md",
+      "baselineSha256": "74eee1880906b8b56989aba0a65ce870c9888cd7e5735ab7c749011861f132df",
+      "finalSha256": "74eee1880906b8b56989aba0a65ce870c9888cd7e5735ab7c749011861f132df",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/REWARDS_QUESTS_AND_EVENTS.md",
+      "baselineSha256": "fbc5ed0528dfdf3f9f5c3bed0ce09f711fe587fc923d3f45c290dc421d7c4e73",
+      "finalSha256": "fbc5ed0528dfdf3f9f5c3bed0ce09f711fe587fc923d3f45c290dc421d7c4e73",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/ROOT_SOURCE_LEDGER.md",
+      "baselineSha256": "15e1b3ce1efe7b0856a5925adae99a233679e827f06d75b992b531f334bfc0c1",
+      "finalSha256": "15e1b3ce1efe7b0856a5925adae99a233679e827f06d75b992b531f334bfc0c1",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SHOPS_QUESTS_AND_CONSUMABLES.md",
+      "baselineSha256": "f720cec90484ce68b1385cfe64c0a4d05e79e5443cce775b7095304d2d3c0899",
+      "finalSha256": "f720cec90484ce68b1385cfe64c0a4d05e79e5443cce775b7095304d2d3c0899",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SOURCE_COVERAGE.jsonl",
+      "baselineSha256": "4bd90af08a41f0c08ac9bb0670d1108341ec976acd1ed11d21a6b9d1e1b2f6fd",
+      "finalSha256": "4bd90af08a41f0c08ac9bb0670d1108341ec976acd1ed11d21a6b9d1e1b2f6fd",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SOURCE_COVERAGE_ARCHITECTURE_NATIVE.jsonl",
+      "baselineSha256": "99a7a778db664aa3dbbb13fce01ef4f2029650c5b210a59641c259c5e81bf640",
+      "finalSha256": "99a7a778db664aa3dbbb13fce01ef4f2029650c5b210a59641c259c5e81bf640",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SOURCE_COVERAGE_METHOD.md",
+      "baselineSha256": "3782db9a399bc6e79bd2da0e0ffea3d0df9fa5f1fd1069b11a524718553dc150",
+      "finalSha256": "3782db9a399bc6e79bd2da0e0ffea3d0df9fa5f1fd1069b11a524718553dc150",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SOURCE_COVERAGE_SUMMARY.json",
+      "baselineSha256": "5c0b8c45fa50c305f49e1249a68a8caf939b127965d339fffe6571d57cbef80a",
+      "finalSha256": "5c0b8c45fa50c305f49e1249a68a8caf939b127965d339fffe6571d57cbef80a",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SPECIALTY_AND_SEASONAL_SYSTEMS.md",
+      "baselineSha256": "c669568cf0fb331c3d515fdde0c8b59e623d717cd00b5e5202d0f25d63e1c2ab",
+      "finalSha256": "c669568cf0fb331c3d515fdde0c8b59e623d717cd00b5e5202d0f25d63e1c2ab",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SPECIALTY_SOURCE_LEDGER.md",
+      "baselineSha256": "f6bee0d36594003769e30ad2b90b784abfaf2b70383d7c38a501cef9c89d1deb",
+      "finalSha256": "f6bee0d36594003769e30ad2b90b784abfaf2b70383d7c38a501cef9c89d1deb",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/STAT_DEPENDENCY_EXTENSIONS.md",
+      "baselineSha256": "d89380964c598d3dbd7c3cca70f7614c52ac3bff7111e531d8b3e037b6baec6a",
+      "finalSha256": "d89380964c598d3dbd7c3cca70f7614c52ac3bff7111e531d8b3e037b6baec6a",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/SYSTEM_DEPENDENCIES.md",
+      "baselineSha256": "9b2ee660dda17ef2be1ebefc1facaf89852e23c34e383cba0e41516efe5abee8",
+      "finalSha256": "9b2ee660dda17ef2be1ebefc1facaf89852e23c34e383cba0e41516efe5abee8",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/UNKNOWN_AND_SERVER_ONLY_RULES.md",
+      "baselineSha256": "34f6d6dc9b1a1f6866abd1d586ae24e55c5db7701a2b7f55a022de55b6d4c880",
+      "finalSha256": "34f6d6dc9b1a1f6866abd1d586ae24e55c5db7701a2b7f55a022de55b6d4c880",
+      "unchanged": true
+    },
+    {
+      "group": "stage1",
+      "path": "docs/research/replicatedstorage/WORLD_AND_NAVIGATION.md",
+      "baselineSha256": "043087683999220b9a52faeb8859fef103a7b0300114433dbcbe774b649b708a",
+      "finalSha256": "043087683999220b9a52faeb8859fef103a7b0300114433dbcbe774b649b708a",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OC.luau",
+      "baselineSha256": "a3a1e09e3f7df9c5add4cea705d03ad85b128e3d1e84d72026bc0ae758fe418d",
+      "finalSha256": "a3a1e09e3f7df9c5add4cea705d03ad85b128e3d1e84d72026bc0ae758fe418d",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/AccountPresentation.luau",
+      "baselineSha256": "ece070042b9cc3f9b5c1109633f624217b84487b583c4fb3a51c9ab6686c40b5",
+      "finalSha256": "ece070042b9cc3f9b5c1109633f624217b84487b583c4fb3a51c9ab6686c40b5",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/AccountStateReader.luau",
+      "baselineSha256": "9e0a88e4088b8fdc693acc84965ed1842e2f5a963745b83c4b33f4d6a7d94583",
+      "finalSha256": "9e0a88e4088b8fdc693acc84965ed1842e2f5a963745b83c4b33f4d6a7d94583",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/ConfigResolver.luau",
+      "baselineSha256": "acbdaf4476be8a92f8f9b0528be188c772f70d3449843d73ba99ddd3a26fdee4",
+      "finalSha256": "acbdaf4476be8a92f8f9b0528be188c772f70d3449843d73ba99ddd3a26fdee4",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/FarmingCoordinator.luau",
+      "baselineSha256": "cf160af510a2b153bd9b8e0134d40e7b0a6285b4ddff75c761debabf25eff943",
+      "finalSha256": "cf160af510a2b153bd9b8e0134d40e7b0a6285b4ddff75c761debabf25eff943",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/FarmingPolicy.luau",
+      "baselineSha256": "0f5531e3d598be1d95e6df123a22195b80f2a4fa71109cc0e91fdee82ff47e22",
+      "finalSha256": "0f5531e3d598be1d95e6df123a22195b80f2a4fa71109cc0e91fdee82ff47e22",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/GameKnowledge.luau",
+      "baselineSha256": "81ac00612f2a45587e218646017748a65336f841e93cc91eed47de1151bb5d5c",
+      "finalSha256": "81ac00612f2a45587e218646017748a65336f841e93cc91eed47de1151bb5d5c",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/GameMechanics.luau",
+      "baselineSha256": "67097043648642e718a70aa482113e54f79f640626ad01b91ee3cc909ff1b63a",
+      "finalSha256": "67097043648642e718a70aa482113e54f79f640626ad01b91ee3cc909ff1b63a",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/HatchManager.luau",
+      "baselineSha256": "a5ef04128ce20a0f67a1f394e5777d65324e95e2dc27ae524ab49e576a6e77bc",
+      "finalSha256": "a5ef04128ce20a0f67a1f394e5777d65324e95e2dc27ae524ab49e576a6e77bc",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/OCBrain.luau",
+      "baselineSha256": "c6957bf98f101a8f7631ef39a2300b84cb2d215b5a23fb4675454a2e6b777e1d",
+      "finalSha256": "c6957bf98f101a8f7631ef39a2300b84cb2d215b5a23fb4675454a2e6b777e1d",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/OCConfig.luau",
+      "baselineSha256": "3219a67bed9e436e8f3f2c8242127b838bd51ef6de43eba4eb3f917df614bf6f",
+      "finalSha256": "3219a67bed9e436e8f3f2c8242127b838bd51ef6de43eba4eb3f917df614bf6f",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/OCController.luau",
+      "baselineSha256": "9b3a53e9f18c204a011747bea10f0a4a391cb97d5857914b1f4f8c800f9ecf90",
+      "finalSha256": "9b3a53e9f18c204a011747bea10f0a4a391cb97d5857914b1f4f8c800f9ecf90",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/OCInterface.luau",
+      "baselineSha256": "b0e6db4af9df498bb254a67b14ad4a6aa5d224abc14db5dd5a9d55f700a10bdb",
+      "finalSha256": "b0e6db4af9df498bb254a67b14ad4a6aa5d224abc14db5dd5a9d55f700a10bdb",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/PetManager.luau",
+      "baselineSha256": "56056bfb1519f80bb045bf16b9d916aa410aebc6bc030774134c5a5599617f17",
+      "finalSha256": "56056bfb1519f80bb045bf16b9d916aa410aebc6bc030774134c5a5599617f17",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/PetPolicy.luau",
+      "baselineSha256": "e5dc5c1176b70f7137d5e9bc195bc8b787592813dca5e475e35fd3a4b4a2f00b",
+      "finalSha256": "e5dc5c1176b70f7137d5e9bc195bc8b787592813dca5e475e35fd3a4b4a2f00b",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/PickupTracker.luau",
+      "baselineSha256": "e04c37fe2ec878e324eacea82a65b5ea18067896e26e2485404a9f07f1a1019a",
+      "finalSha256": "e04c37fe2ec878e324eacea82a65b5ea18067896e26e2485404a9f07f1a1019a",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/ProgressionGraph.luau",
+      "baselineSha256": "d936d8cbb354da9080f7efc64829fe3338eac1763bf384fe47b075effd1768f3",
+      "finalSha256": "d936d8cbb354da9080f7efc64829fe3338eac1763bf384fe47b075effd1768f3",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/ResourceMetrics.luau",
+      "baselineSha256": "a4ef2d938fb1abb43cb113d5502ab82f6ee44dbca0be403ecfa8857d36ec848f",
+      "finalSha256": "a4ef2d938fb1abb43cb113d5502ab82f6ee44dbca0be403ecfa8857d36ec848f",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/StationaryExperiment.luau",
+      "baselineSha256": "c40f07d341153513571d473ec3c73549dda9d9c2e4fb96193af3f1a5e86211be",
+      "finalSha256": "c40f07d341153513571d473ec3c73549dda9d9c2e4fb96193af3f1a5e86211be",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/TaskScheduler.luau",
+      "baselineSha256": "c34407ed296c019f09a93c677e55c7a6d1611e39befae6a7acdb0145ef1dcc91",
+      "finalSha256": "c34407ed296c019f09a93c677e55c7a6d1611e39befae6a7acdb0145ef1dcc91",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/TravelPlanner.luau",
+      "baselineSha256": "50b97998d9d1bfc8a6800b9eb99362ab4eb330e3e8ab11e5aa76bfadc77d710a",
+      "finalSha256": "50b97998d9d1bfc8a6800b9eb99362ab4eb330e3e8ab11e5aa76bfadc77d710a",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/UpgradePolicy.luau",
+      "baselineSha256": "aab8c4dcd7a5c0b7f16e5fd1c84490345bb7fd9c4f307ccef8ff956476862321",
+      "finalSha256": "aab8c4dcd7a5c0b7f16e5fd1c84490345bb7fd9c4f307ccef8ff956476862321",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "src/OCFoundation/WorldProgressionManager.luau",
+      "baselineSha256": "0ec1e4277d4f32acba6c3e5c7387698f1a7fd9b98cc61a8ec739099c197ceac8",
+      "finalSha256": "0ec1e4277d4f32acba6c3e5c7387698f1a7fd9b98cc61a8ec739099c197ceac8",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "dist/OC.lua",
+      "baselineSha256": "4cdb5eda83d6d5e7a83b47555d3da34a5e5d3b69b4fe1da5f3c8c3d92776fcb6",
+      "finalSha256": "4cdb5eda83d6d5e7a83b47555d3da34a5e5d3b69b4fe1da5f3c8c3d92776fcb6",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "scripts/build.mjs",
+      "baselineSha256": "7dabe030462343057a4c88012e399ee826aa88d425ac268310186332f682a840",
+      "finalSha256": "7dabe030462343057a4c88012e399ee826aa88d425ac268310186332f682a840",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "scripts/bundle.mjs",
+      "baselineSha256": "bfd695348174c249ad3880ecf56be134278a80344eb01a0eedaa89b5b1fc7693",
+      "finalSha256": "bfd695348174c249ad3880ecf56be134278a80344eb01a0eedaa89b5b1fc7693",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "scripts/test.mjs",
+      "baselineSha256": "9c0c76fcd6b804389206cc393985f3a22d5495ed7918cce8ed2c9bb4dbd4f195",
+      "finalSha256": "9c0c76fcd6b804389206cc393985f3a22d5495ed7918cce8ed2c9bb4dbd4f195",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "scripts/verify-public.mjs",
+      "baselineSha256": "30f558e4b77c233180d5c84b79f0260db5ac7e81317dca44bf5a764cd4901f57",
+      "finalSha256": "30f558e4b77c233180d5c84b79f0260db5ac7e81317dca44bf5a764cd4901f57",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/discovery.luau",
+      "baselineSha256": "29d23b463a30914d9cf806b7173673a77c3c2d54200956fd6d8cc34d8ce76dd4",
+      "finalSha256": "29d23b463a30914d9cf806b7173673a77c3c2d54200956fd6d8cc34d8ce76dd4",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/economics.luau",
+      "baselineSha256": "076c9c605461ea5864d785337501c03c0b5f4fb61420e6b82ad404aee08c64da",
+      "finalSha256": "076c9c605461ea5864d785337501c03c0b5f4fb61420e6b82ad404aee08c64da",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/farming.luau",
+      "baselineSha256": "c0b7f71f978ae0b5a3e3f72ccf64dcee5e84a331cd34ae7e92b27f6af3982984",
+      "finalSha256": "c0b7f71f978ae0b5a3e3f72ccf64dcee5e84a331cd34ae7e92b27f6af3982984",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/foundation.luau",
+      "baselineSha256": "d3a8e56936d552608366c61345f8ed28ae0364dbe7e6d1c0e5f838a92d9eafd2",
+      "finalSha256": "d3a8e56936d552608366c61345f8ed28ae0364dbe7e6d1c0e5f838a92d9eafd2",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/goal-driven.luau",
+      "baselineSha256": "e4d76b46e1f3131982da2a5b65c4ddd19c88bff0b2717cb57213cee5216244c5",
+      "finalSha256": "e4d76b46e1f3131982da2a5b65c4ddd19c88bff0b2717cb57213cee5216244c5",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/integration.luau",
+      "baselineSha256": "258acb25c424f1c619c57010cb1209306f707c1e2e596e64c944bb25ac5c8069",
+      "finalSha256": "258acb25c424f1c619c57010cb1209306f707c1e2e596e64c944bb25ac5c8069",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/logging.luau",
+      "baselineSha256": "c1580d29651415009d9401f1e62fbedb832b1128a47912f481645e779753420c",
+      "finalSha256": "c1580d29651415009d9401f1e62fbedb832b1128a47912f481645e779753420c",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/pets.luau",
+      "baselineSha256": "0c23ccb10d8729afc5fd7e0ce84b00985a8a9446957a61e405114d99b76e99a4",
+      "finalSha256": "0c23ccb10d8729afc5fd7e0ce84b00985a8a9446957a61e405114d99b76e99a4",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/phase2-fixes.luau",
+      "baselineSha256": "6b6eb4d94c91b775e54b2a46b491090201d226ceadab140a8c761b8201987063",
+      "finalSha256": "6b6eb4d94c91b775e54b2a46b491090201d226ceadab140a8c761b8201987063",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/pickup-first.luau",
+      "baselineSha256": "5d104275c884244168a01963d39bd867a0475dc921e6c193bd2a108a8c2b7168",
+      "finalSha256": "5d104275c884244168a01963d39bd867a0475dc921e6c193bd2a108a8c2b7168",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/progression.luau",
+      "baselineSha256": "d19311027a1257d7d8d24b46fb81780a208b6a15eec3e68d40eb41fa72df7cff",
+      "finalSha256": "d19311027a1257d7d8d24b46fb81780a208b6a15eec3e68d40eb41fa72df7cff",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "tests/stationary.luau",
+      "baselineSha256": "4bd6cdf9db6691a497952d4c861d8585efcbac312e20d44ca9a5ef7fb22923b1",
+      "finalSha256": "4bd6cdf9db6691a497952d4c861d8585efcbac312e20d44ca9a5ef7fb22923b1",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/CombinedFarming.luau",
+      "baselineSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "finalSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/EggAnalysis.luau",
+      "baselineSha256": "83b682ae15a4f050541d459314390ed21905dbcb6f1d4653e6e6b00505a9f117",
+      "finalSha256": "83b682ae15a4f050541d459314390ed21905dbcb6f1d4653e6e6b00505a9f117",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/HatchOnceTest.luau",
+      "baselineSha256": "6216789c6875bade866e1aacd50693fbb80c023be0a66e572d9716bb3885f23b",
+      "finalSha256": "6216789c6875bade866e1aacd50693fbb80c023be0a66e572d9716bb3885f23b",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/Loader.luau",
+      "baselineSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "finalSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/PetEquipTest.luau",
+      "baselineSha256": "2d21308636c4015519aff78d8c53ea614112d6da95e66ad2f5e0b8112ca7160b",
+      "finalSha256": "2d21308636c4015519aff78d8c53ea614112d6da95e66ad2f5e0b8112ca7160b",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/Pets.luau",
+      "baselineSha256": "d6d62870dba6e3dbeeaec94e5994c035f4e8f77eadb4bf2b026005aaf31eb49e",
+      "finalSha256": "d6d62870dba6e3dbeeaec94e5994c035f4e8f77eadb4bf2b026005aaf31eb49e",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/PickupOnly.luau",
+      "baselineSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "finalSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/Progression.luau",
+      "baselineSha256": "a5bf7092fe8f1f88a79f828ebf6d71945fe238ecc268765541d1bb82c27656c6",
+      "finalSha256": "a5bf7092fe8f1f88a79f828ebf6d71945fe238ecc268765541d1bb82c27656c6",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/StationaryOnly.luau",
+      "baselineSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "finalSha256": "f37cd5d24ada83ab3cbf022fc55e1b90b67100e7529f99c20dd8adf2f296e9af",
+      "unchanged": true
+    },
+    {
+      "group": "protectedGameplayReleaseScriptsTestsExamples",
+      "path": "examples/UpgradeTest.luau",
+      "baselineSha256": "503628f7240222095799ec6291c0f0aba3b74e4b20cc1115ad717395af23dfcb",
+      "finalSha256": "503628f7240222095799ec6291c0f0aba3b74e4b20cc1115ad717395af23dfcb",
+      "unchanged": true
+    }
+  ],
+  "authoringBoundary": "docs/research/wiki/",
+  "operationalAttestations": {
+    "basis": "Observed tool/action history for Stage2; hashes alone cannot prove absence of external actions",
+    "githubNetworkOperations": 0,
+    "githubRemoteChanges": 0,
+    "notionWrites": 0,
+    "gameplayExecutions": 0,
+    "studioLuauExecutions": 0,
+    "studioObjectOrScriptMutations": 0,
+    "studioPlayStateChanges": 0,
+    "ocBuildsOrTestRuns": 0,
+    "studioReadScope": "Mastery workstream logged15targeted read-only paths, sixcomplete sources/nine ranges; other Stage2 workstreams used saved Stage1 evidence"
+  },
+  "result": "PASS"
+}

@@ -714,4 +714,329 @@ function GameMechanics:PetAction(manager, decision, token)
 	return true, ok and "Dispatched; awaiting received LocalData result" or manager.Fault
 end
 
+
+-- Narrow owner-authorized local features. No account fields or native geometry are changed.
+local function featureFinite(value)
+	return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+function GameMechanics:LocalFeatureGuard()
+	local allowed, reason, root, humanoid = self:Guard()
+	if not allowed then return false, reason end
+	local c = self.LocalFeatureController
+	if not c or c.State ~= "RUNNING" then return false, "Local feature controller is not running" end
+	local ok, blocker = pcall(function()
+		local input = game:GetService("UserInputService")
+		if input:GetFocusedTextBox() ~= nil then return "Typing owns input" end
+		local hatch = self.Reader:_dependency("HatchPresentation")
+		if not hatch or type(hatch.IsHatching) ~= "function" or hatch:IsHatching() ~= false then return "Native hatch presentation active or unavailable" end
+		local scripts = self.Player:FindFirstChild("PlayerScripts")
+		local client = scripts and scripts:FindFirstChild("ClientScript")
+		local auto = client and client:FindFirstChild("GetAutoHatchStatus")
+		if not auto or not auto:IsA("BindableFunction") or auto:Invoke() ~= nil then return "Native auto-hatch active or unavailable" end
+		if c.Pets and (c.Pets.PendingEquip or c.Pets.Hatch.Pending) then return "Pending pet operation owns presentation" end
+		return nil
+	end)
+	if not ok then return false, "Local feature guards unavailable: " .. tostring(blocker) end
+	if blocker then return false, blocker end
+	return true, nil, root, humanoid
+end
+
+function GameMechanics:TravelSelectedEgg(manager, record, token)
+	local c = self.LocalFeatureController
+	if not c or manager ~= c.EggTravel or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "EGG_TRAVEL" then return false, "Selected-egg task does not own the scheduler" end
+	if not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL then return false, "Selected-egg native travel disabled" end
+	local fresh, reason = manager:Validate(record, token)
+	if not fresh then return false, reason end
+	local allowed, blocker = self:LocalFeatureGuard()
+	if not allowed then return false, blocker end
+	fresh, reason = manager:Validate(record, token) -- Guard can yield; all eligibility is rechecked.
+	if not fresh then return false, reason end
+	if not fresh.NeedsNativeTravel then return true, "Already in selected area; no unnecessary native teleport" end
+	local path = fresh.DestinationPath
+	if not fresh.NativeAreaKnown or type(path) ~= "string" or not self:Unlocked(fresh.World, fresh.Island) then return false, "Exact unlocked native egg-area destination unavailable" end
+	if fresh.Island then
+		if path ~= "Workspace.Worlds." .. fresh.World .. ".Islands." .. fresh.Island .. ".Island.Portal.Spawn" then return false, "Selected area path does not match native contract" end
+	elseif not fresh.Destination or not fresh.Destination.Parent or fresh.Destination:GetFullName() ~= path then return false, "Observed world return destination disappeared" end
+	if os.clock() - self.LastTravelAt < self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS then return false, "Native travel cooldown; explicit rearm after bounded failure" end
+	local remote = self.Reader:_dependency("Remote")
+	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote unavailable" end
+	if token:CheckCancelled() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL then return false, "Cancelled" end
+	local beforePosition = fresh.CharacterRoot.Position
+	local destination = fresh.Destination
+	self.LastTravelAt = os.clock()
+	local sent, err = pcall(function() remote:FireServer("Teleport", path) end)
+	if not sent then return false, "Native area travel delivery uncertain: " .. tostring(err) end
+	local started, stable = os.clock(), nil
+	while os.clock() - started < self.Config.EGG_TRAVEL_SETTINGS.ARRIVAL_TIMEOUT_SECONDS do
+		fresh, reason = manager:Validate(record, token)
+		if not fresh then return false, reason end
+		local spawnObserved = destination and destination.Parent and destination:IsDescendantOf(workspace)
+			and (fresh.CharacterRoot.Position - destination.Position).Magnitude <= self.Config.ISLAND_SETTINGS.ARRIVAL_DISTANCE_STUDS
+		local transitionObserved = not destination and not fresh.NeedsNativeTravel
+			and (fresh.CharacterRoot.Position - beforePosition).Magnitude > 1
+		if not fresh.NeedsNativeTravel and (spawnObserved or transitionObserved) then
+			stable = stable or os.clock()
+			if os.clock() - stable >= 0.4 then return true, "Native target-area arrival observed; egg range still requires verification" end
+		else stable = nil end
+		task.wait(0.1)
+	end
+	return false, "Native target-area arrival unconfirmed"
+end
+
+function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
+	local c = self.LocalFeatureController
+	if not c or manager ~= c.EggTravel or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "EGG_TRAVEL" then return false, "Selected-egg task does not own the scheduler" end
+	if not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Direct egg positioning disabled" end
+	local fresh, reason = manager:Validate(record, token)
+	if not fresh then return false, reason end
+	local allowed, blocker = self:LocalFeatureGuard()
+	if not allowed then return false, blocker end
+	fresh, reason = manager:Validate(record, token)
+	if not fresh then return false, reason end
+	if fresh.NeedsNativeTravel then return false, "Correct unlocked native area must be reached first" end
+	local clearedFrame, clearanceReason = manager:ResolveStanding(fresh)
+	if not clearedFrame then return false, clearanceReason end
+	if typeof(frame) ~= "CFrame" or (frame.Position - clearedFrame.Position).Magnitude > 0.25 then return false, "Standing geometry changed during guards; explicit rearm required" end
+	frame = clearedFrame -- Assign exactly the freshly cleared avatar orientation/volume.
+	if typeof(frame) ~= "CFrame" or not featureFinite(frame.Position.X) or not featureFinite(frame.Position.Y)
+		or not featureFinite(frame.Position.Z) or not fresh.RangeOrigin
+		or (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range
+		or not manager:RangeEligibleAt(fresh, frame.Position) then return false, "Validated standing transform unavailable or outside actual native hatch eligibility" end
+	if self.LastEggPositionLease == record.LeaseId then return false, "Direct position already attempted for this lease" end
+	if token:CheckCancelled() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled" end
+	self.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.
+	local assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)
+	return assigned, assigned and "Direct CFrame assigned; observed arrival/stability/range still pending" or "Direct position failed: " .. tostring(err)
+end
+
+function GameMechanics:RewardsContext()
+	local raw = self.Reader:GetLiveProfile()
+	local result = { Raw = raw, UserId = self.Player and self.Player.UserId, Balances = self.Reader:ReadBalances(),
+		GiftIds = {}, GiftRecords = {}, CanClaim = false, CanOpen = false, GiftCompletionAvailable = false }
+	local time, playtime = self.Reader:_dependency("Time"), self.Reader:_dependency("Playtime")
+	if time and type(time.now) == "function" then local ok, value = pcall(time.now) if ok and featureFinite(value) then result.NativeNow = value end end
+	result.PlaytimeGifts = playtime and playtime.Gifts
+	if raw and type(raw.MasteryUpgrades) == "table" then
+		result.HasPlaytime = false
+		for _, upgrade in pairs(raw.MasteryUpgrades) do if type(upgrade) == "table" and upgrade.Type == "Playtime" then result.HasPlaytime = true break end end
+	end
+	local plaza = self.Reader:_dependency("IsTradingPlaza")
+	if type(plaza) == "function" then local ok, value = pcall(plaza) if ok and type(value) == "boolean" then result.IsTradingPlaza = value end end
+	local item, constants, powerups = self.Reader:_dependency("ItemUtil"), self.Reader:_dependency("Constants"), self.Reader:_dependency("Powerups")
+	if raw and item and type(item.GetOwnedAmount) == "function" then
+		local ok, value = pcall(item.GetOwnedAmount, item, raw, { Type = "Powerup", Name = "Mystery Box" })
+		if ok and featureFinite(value) and value >= 0 and value % 1 == 0 then result.OwnedBoxes = value end
+	end
+	if constants and featureFinite(constants.MaxSpawnableLimit) and constants.MaxSpawnableLimit >= 1 then result.MaxGiftCount = constants.MaxSpawnableLimit end
+	local physical, giftClass = self.Reader:_dependency("PhysicalItem"), self.Reader:_dependency("PhysicalGift")
+	local identityOK, identity = false, nil
+	if type(self.Reader.GetNativeGiftFacts) == "function" then identityOK, identity = pcall(self.Reader.GetNativeGiftFacts, self.Reader) end
+	if identityOK and type(identity) == "table" and identity.Available == true then
+		result.GiftIdentityAvailable = true
+		result.GiftIdentityEpoch, result.GiftRevision = identity.Epoch, identity.Revision
+	end
+	if physical and type(physical.GetActiveObjects) == "function" then
+		local ok, total = pcall(physical.GetActiveObjects, physical, "Gift")
+		if ok and featureFinite(total) and total >= 0 and total % 1 == 0 then result.GiftCount = total end
+	end
+	if physical and type(physical.GetActiveGifts) == "function" then
+		local ok, active = pcall(physical.GetActiveGifts, physical)
+		if ok and type(active) == "table" then
+			for instance, component in pairs(active) do
+				-- Native GetActiveGifts is the loaded Instance -> component subset.
+				-- The component has a BasePart Model and no item Name. Item identity
+				-- comes only from received RenderGifts facts, never guessed geometry.
+				local model = type(component) == "table" and component.Model
+				if model == instance and typeof(model) == "Instance" and model:IsA("BasePart") and model.Parent and model:IsDescendantOf(workspace) then
+					local id = model.Name
+					result.GiftIds[id] = true
+					local fact = result.GiftIdentityAvailable and type(identity.Records) == "table" and identity.Records[id]
+					if type(fact) == "table" and fact.Name == "Mystery Box" and type(component.Hit) == "function" then
+						result.GiftRecords[id] = { Id = id, Name = fact.Name, IdentityEpoch = identity.Epoch,
+							Revision = fact.Revision, Model = model, Component = component }
+					end
+				end
+			end
+			result.GiftCompletionAvailable = result.GiftIdentityAvailable == true and result.GiftCount ~= nil
+				and giftClass ~= nil and type(giftClass.Hit) == "function"
+		end
+	end
+	local allowed, reason = self:LocalFeatureGuard()
+	result.Reason = reason
+	result.CanClaim = allowed and raw ~= nil and result.IsTradingPlaza == false and result.GiftCount == 0
+	result.CanOpen = result.CanClaim and powerups ~= nil and powerups["Mystery Box"] ~= nil
+		and result.GiftCompletionAvailable and result.OwnedBoxes ~= nil and result.MaxGiftCount ~= nil
+	return result
+end
+
+function GameMechanics:RewardAction(manager, decision, token)
+	local c = self.LocalFeatureController
+	if not c or manager ~= c.Rewards or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "REWARDS" then return false, "Reward task does not own the scheduler" end
+	if token:CheckCancelled() or manager.Controller.State ~= "RUNNING" then return false, "Cancelled" end
+	local allowed, reason = self:LocalFeatureGuard()
+	if not allowed then return false, reason end
+	local remote = self.Reader:_dependency("Remote")
+	if not remote then return false, "Native Remote unavailable" end
+	if decision.Kind ~= "PLAYTIME" and decision.Kind ~= "MYSTERY_BOX" then return false, "Unsupported reward intent" end
+	if decision.Kind == "PLAYTIME" and type(remote.InvokeServer) ~= "function"
+		or decision.Kind == "MYSTERY_BOX" and type(remote.FireServer) ~= "function" then return false, "Required native transport unavailable before preparation" end
+	local command, first, second, pending = manager:Prepare(decision, token)
+	if not command then return false, pending end
+	if command ~= "ClaimPlaytime" and not (command == "UseGift" and first == "Mystery Box" and second == 1) then manager:AbortPreparation(pending, "Unsupported local reward command") return false, "Unsupported local reward command" end
+	if command == "ClaimPlaytime" and type(remote.InvokeServer) ~= "function" or command == "UseGift" and type(remote.FireServer) ~= "function" then manager:AbortPreparation(pending, "Required native transport unavailable") return false, "Required native transport unavailable" end
+	manager.Controller:MarkNonPickupReward(pending)
+	if command == "ClaimPlaytime" then
+		-- Start transport within this positive foreground lease, then bound the
+		-- parent's observation slice even if InvokeServer waits indefinitely.
+		self.RewardRPCs = self.RewardRPCs or {}
+		local thread = task.spawn(function()
+			local active = c.Scheduler.Active
+			if token:CheckCancelled() or c.State ~= "RUNNING" or not self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME
+				or not active or active.Definition.Owner ~= "REWARDS" or active.Definition.Generation ~= c.Generation then
+				manager:AbortPreparation(pending, "Cancelled or stale before playtime transport") return
+			end
+			if not manager:MarkDispatched(pending) then manager:AbortPreparation(pending, "Dispatch reservation rejected") return end
+			pending.TransportStarted = true
+			local ok, output = pcall(function() return remote:InvokeServer(command, first) end)
+			manager:DispatchReturned(pending, ok, output)
+		end)
+		self.RewardRPCs[thread] = true
+	else
+		if not manager:MarkDispatched(pending) then manager:AbortPreparation(pending, "Dispatch reservation rejected") return false, "Dispatch reservation rejected" end
+		pending.TransportStarted = true
+		local ok, output = pcall(function() return remote:FireServer(command, first, second) end)
+		manager:DispatchReturned(pending, ok, output)
+	end
+	return true, "Request recorded; received acknowledgement required"
+end
+
+function GameMechanics:CancelRewardTransport()
+	for thread in pairs(self.RewardRPCs or {}) do pcall(task.cancel, thread) end
+	self.RewardRPCs = {}
+end
+
+function GameMechanics:AdvanceMysteryGift(pending, token)
+	local c = self.LocalFeatureController
+	if not c or c.State ~= "RUNNING" or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "REWARDS" then return false, "Gift task does not own the scheduler" end
+	if not self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES or not c.Rewards or not c.Rewards.Ledger
+		or c.Rewards.Ledger.Pending ~= pending or pending.Kind ~= "MYSTERY_BOX" or pending.Attempted ~= true then return false, "Gift task lacks its exact attempted owned-box operation" end
+	if token:CheckCancelled() then return false, "Cancelled" end
+	local allowed, reason, root = self:LocalFeatureGuard()
+	if not allowed then return false, reason end
+	local context = self:RewardsContext()
+	if not context.GiftCompletionAvailable then return false, "Native gift completion representation unavailable" end
+	if os.clock() - (self.LastOrdinaryGiftHit or -math.huge) < 0.5 then return false, "Native gift hit pacing" end
+	for id, record in pairs(context.GiftRecords) do
+		if id == pending.GiftId and not pending.AmbiguousGift and not pending.BeforeGiftIds[id] and record.Name == "Mystery Box" and record.Model.Parent
+			and context.GiftIdentityAvailable == true and context.GiftIdentityEpoch == pending.GiftIdentityEpoch
+			and record.IdentityEpoch == pending.GiftIdentityEpoch and featureFinite(record.Revision)
+			and featureFinite(pending.BeforeGiftRevision) and record.Revision > pending.BeforeGiftRevision
+			and featureFinite(context.GiftRevision) and record.Revision <= context.GiftRevision
+			and record.Component.InRange == true and type(record.Component.Hit) == "function" then
+			local okPosition, position = pcall(function() return record.Model:GetPivot().Position end)
+			local physical = self.Reader:_dependency("PhysicalItem")
+			if okPosition and physical and physical.IsGiftInRange == true
+				and ((position - root.Position) * Vector3.new(1, 0, 1)).Magnitude <= 15 then
+				if token:CheckCancelled() or self.LocalFeatureController.State ~= "RUNNING" then return false, "Cancelled" end
+				local active = c.Scheduler.Active
+				if not active or active.Definition.Owner ~= "REWARDS" or active.Definition.Generation ~= c.Generation
+					or c.Rewards.Ledger.Pending ~= pending or not self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES then return false, "Gift lease/operation changed during guards" end
+				self.LastOrdinaryGiftHit = os.clock()
+				local ok, err = pcall(record.Component.Hit, record.Component)
+				return ok, ok and "Guarded native ordinary gift Hit; reward still unverified" or tostring(err)
+			end
+		end
+	end
+	return false, "No correlated in-range ordinary gift with verified completion interface; manual completion may be required"
+end
+
+function GameMechanics:AntiAFKCapability(method)
+	if method ~= "VIRTUAL_INPUT_SCROLL_LOCK" then return { Available = false, Reason = "Unsupported method; native AFK reporting ignores mouse movement" } end
+	local ok, service = pcall(game.GetService, game, "VirtualInputManager")
+	local readable, callable, key = pcall(function()
+		return service and type(service.SendKeyEvent) == "function" and Enum.KeyCode.ScrollLock ~= nil, Enum.KeyCode.ScrollLock
+	end)
+	if not ok or not readable or not callable then return { Available = false, Method = method, Reason = "VirtualInputManager.SendKeyEvent / ScrollLock unavailable in this runtime" } end
+	return { Available = true, Method = method, Status = "API_PRESENT_PERMISSION_UNTESTED", Service = service, Key = key }
+end
+
+function GameMechanics:AntiAFKGuard(manager)
+	local c = manager.Controller
+	if c.State ~= "RUNNING" or not self.Config.ANTIAFK_SETTINGS.ENABLE_ANTI_AFK then return false, "Anti-AFK disabled/stopped" end
+	local active = c.Scheduler.Active
+	if active and active.Definition.Owner ~= "ANTI_AFK" then return false, "Another scheduler task owns input" end
+	if c.EggTravel:OwnsLocation() or c.Pets.Hatch.Location or c.Pets.Hatch.Pending or c.Pets.PendingEquip then return false, "Egg travel/hatch/equipment owns interaction" end
+	local rewards = c.Rewards:GetStatus()
+	if rewards.Pending then return false, "Reward/gift operation pending or uncertain" end
+	local allowed, reason = self:LocalFeatureGuard()
+	if not allowed then return false, reason end
+	local ok, blocker = pcall(function()
+		local raw = self.Reader:GetLiveProfile()
+		if not raw or type(raw.Settings) ~= "table" then return "Fresh native keybind settings unavailable" end
+		for _, value in pairs(raw.Settings) do
+			if value == "ScrollLock" or value == "Enum.KeyCode.ScrollLock" then return "ScrollLock is assigned to a native game action" end
+		end
+		local report = self.Reader:_dependency("AFKReport")
+		if not report or type(report.Get) ~= "function" then return "Native AFK report guard unavailable" end
+		local state = report:Get()
+		if type(state) ~= "table" or type(state.Pets) ~= "table" or next(state.Pets) ~= nil then return "AFK report/reveal has pending or unknown pet results" end
+		local playerGui = self.Player:FindFirstChild("PlayerGui")
+		local screen = playerGui and playerGui:FindFirstChild("ScreenGui")
+		local afk, reveal = screen and screen:FindFirstChild("AFK"), screen and screen:FindFirstChild("AFKReveal")
+		if not afk or not reveal or afk.Visible ~= false or reveal.Visible ~= false then return "Native AFK/report presentation active or unavailable" end
+		local input = game:GetService("UserInputService")
+		local camera, point = workspace.CurrentCamera, input:GetMouseLocation()
+		local viewport = camera and camera.ViewportSize
+		if not point or not viewport or not featureFinite(point.X) or not featureFinite(point.Y)
+			or point.X < 2 or point.Y < 2 or point.X > viewport.X - 2 or point.Y > viewport.Y - 2 then return "Actual pointer/camera outside safe viewport" end
+		if input.MouseBehavior ~= Enum.MouseBehavior.Default then return "Locked camera/cursor owns movement" end
+		if #input:GetKeysPressed() > 0 or #input:GetMouseButtonsPressed() > 0 then return "Real keyboard/mouse input is active" end
+		local gui = game:GetService("GuiService")
+		if gui.MenuIsOpen then return "Roblox menu is open" end
+		local physical = self.Reader:_dependency("PhysicalItem")
+		if not physical or type(physical.GetActiveObjects) ~= "function" then return "Total gift input guard unavailable" end
+		local gifts = physical:GetActiveObjects("Gift")
+		if gifts ~= 0 then return "Gift interaction is active or unknown, including unloaded gifts" end
+		return nil
+	end)
+	if not ok then return false, "Anti-AFK guards unavailable: " .. tostring(blocker) end
+	return blocker == nil, blocker
+end
+
+function GameMechanics:AntiAFKPulse(manager, token)
+	local c = self.LocalFeatureController
+	if not c or manager ~= c.AntiAFK or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "ANTI_AFK"
+		or c.Scheduler.Active.Definition.Generation ~= c.Generation then return false, "SUPPRESSED: anti-AFK task lacks current scheduler lease" end
+	if token:CheckCancelled() then return false, "SUPPRESSED: Cancelled" end
+	local allowed, reason = self:AntiAFKGuard(manager)
+	if not allowed then return false, "SUPPRESSED: " .. tostring(reason) end
+	local capability = self:AntiAFKCapability(self.Config.ANTIAFK_SETTINGS.METHOD)
+	if not capability.Available then return false, capability.Reason end
+	if self.AntiAFKHeldInput then return false, "Previous simulated input has not been released" end
+	if token:CheckCancelled() or manager.Controller.State ~= "RUNNING" then return false, "SUPPRESSED: Cancelled before keyDown" end
+	local active = c.Scheduler.Active
+	if manager ~= c.AntiAFK or not active or active.Definition.Owner ~= "ANTI_AFK"
+		or active.Definition.Generation ~= c.Generation then return false, "SUPPRESSED: anti-AFK lease changed during guards" end
+	-- Reserve before keyDown: even an API error can leave delivery uncertain.
+	-- Pause/Stop/Destroy can synchronously release this exact service/key.
+	self.AntiAFKHeldInput = { Service = capability.Service, Key = capability.Key }
+	local ok, output = pcall(function()
+		capability.Service:SendKeyEvent(true, capability.Key, false, game)
+		return nil
+	end)
+	local released, releaseReason = self:ReleaseAntiAFKInput()
+	if not released then return false, "ScrollLock release failed; input delivery uncertain: " .. tostring(releaseReason) end
+	if not ok or output then return false, tostring(ok and output or output) end
+	return true, "Unassigned ScrollLock down/up API accepted; native activity reception and idle-prevention effectiveness remain owner-tested"
+end
+
+function GameMechanics:ReleaseAntiAFKInput()
+	local held = self.AntiAFKHeldInput
+	if not held then return true, "No simulated key/button held" end
+	local ok, reason = pcall(function() held.Service:SendKeyEvent(false, held.Key, false, game) end)
+	if ok then self.AntiAFKHeldInput = nil return true, "ScrollLock released" end
+	return false, tostring(reason)
+end
+
 return GameMechanics

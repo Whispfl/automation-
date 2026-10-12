@@ -1,0 +1,213 @@
+[OC] Static bundle and configuration checks passed
+Compiled 9 KLOC into 509 KB bytecode (read 0.01s, parse 0.01s, compile 0.02s)
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] Discovered live currencies appear alongside preserved Phase 1 account fields passed
+[OC TEST] Observed earnings require sample time and preserve distinct currencies passed
+[OC TEST] Spending, stopped sessions and missing balances do not fabricate income passed
+[OC TEST] Island selection compares only the goal currency and respects locked access passed
+[OC TEST] Dwell prevents island ping-pong even when a cluster just emptied passed
+[OC TEST] Activity uses goal-specific measured rates and probes a different untested mode passed
+[OC TEST] Full bubbles sell first and incomplete bubble probes include the sale cycle passed
+[OC TEST] Disabled farming, collection, simultaneous mode, travel and fallback cannot schedule their actions passed
+[OC TEST] Upgrade purchases need measured bubble yield, affordability, gain and goal reserves passed
+[OC TEST] Native purchase adapter rechecks live funds and verifies received ownership passed
+[OC TEST] Stopping an idle or disabled system never moves the player passed
+[OC TEST] Unknown yields stay visible and missing local spawns do not suppress supported native destinations passed
+[OC TEST] Island discovery diagnostics explain every exclusion and trials respect configuration and dwell passed
+[OC TEST] Tracker keeps distinct Floating Island and Outer Space zones, counts, metadata and discovery membership passed
+[OC TEST] Native island path requests require real access and cannot report success without observed arrival passed
+[OC TEST] Pickup trial ends on an actual sample or timeout and bubble sales cannot become pickup earnings passed
+[OC TEST] Cold-start scanning accepts duplicate same-name Gem prefabs and overlapping same-island zones passed
+[OC TEST] Delayed prefabs recover on bounded refresh and distinct ambiguous visuals remain rejected passed
+[OC TEST] Jump-stage Area labels resolve to real worlds but cannot inflate island farming yields passed
+[OC TEST] Different-area overlap requires metadata and unexpected native classes are diagnosed passed
+[OC TEST] Full bubbles preempt both loading grace and an active isolated pickup trial passed
+[OC TEST] GameKnowledge reuses native definitions without claiming server or action verification passed
+[OC TEST] Native registry discovers preexisting IDs despite an empty legacy pickup folder passed
+[OC TEST] Every same-name native Chunker folder is scanned and registry/models are deduplicated passed
+[OC TEST] Spawn metadata counts real observed events without synthesizing positions or IDs passed
+[OC TEST] Malformed or unloaded native registry entries stay unavailable rather than becoming targets passed
+[OC TEST] 26 Phase 2 offline tests passed; 35 total. Phase 2 live verification awaits the owner.
+[OC TEST] Ownership without payment and payment without ownership remain unconfirmed passed
+[OC TEST] Separate delayed ownership and deduction updates verify one purchase request passed
+[OC TEST] Cancellation after guards prevents a stale purchase command passed
+[OC TEST] Upgrade diagnostics expose disabled toggles, resource reserves, goal cap and payback passed
+[OC TEST] Gum above the urgency threshold can still qualify through measured economics passed
+[OC TEST] Native effective flavor projection cannot treat additive pet power as a base multiplier passed
+[OC TEST] Premium and unapproved purchase currencies cannot become eligible passed
+[OC TEST] Combined rates need actual growth, pickup credit and a complete sale within the window passed
+[OC TEST] Full combined bubbles defer selling only with measured opportunity cost and a bounded delay passed
+[OC TEST] Measured combined income prevents a worse island switch passed
+[OC TEST] Current currency defaults no longer imply retained Fall catalogs are active passed
+[OC TEST] Pause and Stop during native travel retain one request and cannot verify cancelled arrival passed
+[OC TEST] Preserved Brain upgrade filters constrain new policy purchases passed
+[OC TEST] Unavailable combined pickup targets cannot suppress a useful island switch passed
+[OC TEST] 14 additional Phase 2 regression tests passed; 49 total. Live owner verification remains pending.
+[OC TEST] Pickup-first prefers cooperative combined work over higher bubble-only rates passed
+[OC TEST] Background blowing remains available for pickup goals paid in another currency passed
+[OC TEST] Excluded current island cannot farm despite dwell, pending sweep or high income passed
+[OC TEST] Saved return beats dwell and income while failed origins select an eligible alternative passed
+[OC TEST] Full probes sell before loading or exploration and blocked sales remain explicit passed
+[OC TEST] Final-mode decision reason cannot cite the replaced bubble score passed
+[OC TEST] Observed model latency cannot inflate definition-based island rates passed
+[OC TEST] Invalid strategy names are rejected and qualified selected-island names work passed
+[OC TEST] Stale generation and excluded pickup tasks never reach the executor passed
+[OC TEST] Sell saves origin and confirmed return closes exactly one end-to-end cycle passed
+[OC TEST] Pre-existing bubbles and observed spending cannot create complete combined income passed
+[OC TEST] Background tick respects cancellation and full threshold without a request passed
+[OC TEST] Pause retains return intent but discards incomplete measurement and route state passed
+[OC TEST] Unrelated currency credit cannot verify a sale and saved return survives failure passed
+[OC TEST] Full-bubble timestamp survives mode changes and observer preempts optional probes passed
+[OC TEST] Pickup-first exploration uses combined farming rather than an isolated arrival probe passed
+[OC TEST] Void and Zen restriction requires the selected world and actual unlocked evidence passed
+[OC TEST] 17 pickup-first regressions passed; 66 total. Live owner testing remains pending.
+[OC TEST] Production defaults enforce stationary-only collection and legacy routing cannot reactivate walking passed
+[OC TEST] Stationary pacing rejects NaN infinity flooding batches and excessive transport retries passed
+[OC TEST] Dispatched genuine ID removes native chunk references and its visual without inventing credit passed
+[OC TEST] Actual matching LocalData credit is verified independently of visual cleanup passed
+[OC TEST] Native Model removal and successful invocation without balances are never credit passed
+[OC TEST] Missing matching currency gain cannot be substituted with another currency passed
+[OC TEST] Repeated scans never redispatch normally invoked IDs even without credit passed
+[OC TEST] New genuine spawned IDs participate continuously without clearing retry history passed
+[OC TEST] Legacy session quotas and expiry cannot stop continuous farming passed
+[OC TEST] Changed missing unloaded or conflicting registry entries cannot dispatch passed
+[OC TEST] Classified Chunker-only objects cannot invent a native registry collection ID passed
+[OC TEST] Actual LocalData unlocks and hard Void Zen world scope are rechecked at dispatch passed
+[OC TEST] Zen is an eligible stationary island only after real unlock confirmation passed
+[OC TEST] Distance is diagnostic only even with legacy native-only overrides passed
+[OC TEST] Unavailable LocalData refuses dispatch and cannot fabricate balances passed
+[OC TEST] Position changes never permanently invalidate stationary batches passed
+[OC TEST] Intermediate spending or bubble sale contaminates later positive stationary credit passed
+[OC TEST] Cancellation after fresh guards prevents a stale stationary remote invocation passed
+[OC TEST] Pause and Stop cancel scheduled stationary windows and retain deduplication passed
+[OC TEST] Isolated scheduler execution rejects stale travel sell bubble upgrade and combined tasks passed
+[OC TEST] Full bubbles do not schedule selling or travel during isolated stationary observation passed
+[OC TEST] Legacy combined settings cannot start background bubbles or a combined pickup task passed
+[OC TEST] Stationary snapshot observations cannot double count explicit credit samples passed
+[OC TEST] Actual Brain context selects one stationary scheduled request without automatic travel passed
+[OC TEST] Invocation errors consume the bounded attempt without fabricating credit passed
+[OC TEST] Rapid bounded batches process all real Coins and Gems IDs across successive tasks passed
+[OC TEST] Failed transport attempts back off per ID without blocking new IDs passed
+[OC TEST] Island changes discard only the current window and resume on the other allowed island passed
+[OC TEST] Movement route eligibility and missing radius diagnostics cannot block genuine stationary IDs passed
+[OC TEST] Deduplication survives Chunker unload reload and prunes only retired OC state passed
+[OC TEST] Replacement Models with the same genuine ID start a fresh lifecycle without duplicate old requests passed
+[OC TEST] A newly spawned genuine ID and Model is collected after the original lifecycle is retired passed
+[OC TEST] Actual numeric native registry keys are preserved in collection requests passed
+[OC TEST] Inconclusive no-credit batches log actual zero gains and timing without inventing success passed
+[OC TEST] Manual island changes and Pause start fresh rate windows while preserving ID lifecycle state passed
+[OC TEST] Failed dispatch retains the visual registry and Chunker until a successful retry passed
+[OC TEST] Native cleanup failure blocks accumulation and retries cleanup without redispatch passed
+[OC TEST] Post-dispatch registry replacement is preserved and reported instead of erased passed
+[OC TEST] Cleanup retry releases native references even after the chunk unloaded during backoff passed
+[OC TEST] Cleanup finishes an already-dispatched pickup when cancellation occurs inside invocation passed
+[OC TEST] Receiver observation delegates native Update unchanged and restores it on capture or Pause passed
+[OC TEST] Receiver observation timeout and malformed values cannot disrupt native updates passed
+[OC TEST] Many successive batches release native visuals tracker metadata and retired diagnostics passed
+[OC TEST] Startup selects actual unlocked Zen and falls back to Void without unlock requests passed
+[OC TEST] Automatic island travel uses the native path then waits for stable arrival before collecting passed
+[OC TEST] Empty preferred island does not cause fallback switching and selling retains the saved return passed
+[OC TEST] Teleport invocation and unconfirmed arrival use bounded backoff without invalid collection passed
+[OC TEST] Pause Stop locked islands and excluded destinations prevent native island dispatch passed
+[OC TEST] 48 stationary-only regressions passed; 114 total. Offline fixtures are not live server verification.
+[OC TEST] Goal defaults turn automatic bubbles selling and background blowing off passed
+[OC TEST] Coins goal selects stationary Void even with full bubbles and higher bubble income passed
+[OC TEST] Gems goal travels to native Zen while Coins goal travels to Void passed
+[OC TEST] No known active deficit cannot borrow another candidate's need or invent a bubble goal passed
+[OC TEST] Reported XL Gum affordability is WAIT under the existing upgrade budget without spending passed
+[OC TEST] Disabled unfinished bubble goals cannot initiate island travel and preserve pending cleanup or return passed
+[OC TEST] Actual collect progress drives currency farming independently of existing balances passed
+[OC TEST] Locked preferred island reports fallback and rejects a mismatched fallback reward pool passed
+[OC TEST] Neither selected island unlocked or outside approved world blocks goal travel passed
+[OC TEST] An unchanged resource goal retains fallback across new unlocks rate changes and empty scans passed
+[OC TEST] Brain scope changes preserve the chosen island and stable arrival still precedes pickups passed
+[OC TEST] Completed bubble task still returns from selling before goal-driven idle passed
+[OC TEST] Reader recognizes only received unfinished supported tasks with native amounts and actual progress passed
+[OC TEST] Brain uses actual task requirements rather than fullness or catalog task existence passed
+[OC TEST] Bubble work and selling require a matching unfinished native requirement and explicit permission passed
+[OC TEST] Native bubble adapter rechecks live task completion goal changes and cancellation passed
+[OC TEST] Stale scheduled goals cannot dispatch bubbles selling or currency travel passed
+[OC TEST] Goal-driven currency dispatch preserves real 32-ID cleanup credit and controls without bubble work passed
+[OC TEST] 18 goal-driven farming regressions passed. Synthetic checks are not live gameplay approval.
+[OC TEST] Phase 3 controls default off and reject invalid retry stabilization and spending settings passed
+[OC TEST] Fresh account plans first undiscovered native island without assuming Void Zen Mastery or a bubble minimum passed
+[OC TEST] Partial discoveries skip completed islands and expose Mastery only through actual Outer Space discovery passed
+[OC TEST] Developed account skips earlier unlocks and completed permanent graph does not replay progression passed
+[OC TEST] Native world shortage creates a stationary Coins goal and major reservation without upgrade budget inflation passed
+[OC TEST] Native Gems cost routes to Zen and sufficient world funds stop farming even while spending is disabled passed
+[OC TEST] Unknown access costs balances definitions and ambiguous gates never manufacture a farming requirement passed
+[OC TEST] Retained events excluded and target world includes observed gate-origin dependencies passed
+[OC TEST] Account reader joins cached definitions and scene observations with actual discovery flags passed
+[OC TEST] Verified world action requires real gate range and never uses teleport as a pickup route passed
+[OC TEST] World unlock invocation and visual gate changes without LocalData flag are unconfirmed and backed off passed
+[OC TEST] Received world unlock flag verifies independently of balance timing then refreshes and reevaluates passed
+[OC TEST] Stale funds cost permissions goals and cancellation block unlock dispatch passed
+[OC TEST] Currency deduction alone cannot prove unlock and failed transport retains bounded uncertain request ledger passed
+[OC TEST] Native progression portal requires discovered origin and observed stable arrival, with no repeated travel passed
+[OC TEST] Failed progression travel bounded across resumes and already discovered native islands never bypass access passed
+[OC TEST] Same scheduler lease cancels progression on Pause and stale generations cannot dispatch after Resume or Stop passed
+[OC TEST] Pause during unlock confirmation stops waiting and Resume observes late acknowledgement without resending passed
+[OC TEST] Phase 3 funding retains approved 32-ID stationary cleanup credit and no background bubbles passed
+[OC TEST] Native unlock panel exception is exact and cannot authorize trading prompts other worlds or WorldMap passed
+[OC TEST] Major native unlock reserve prevents unrelated upgrade spending even when other goal reservations are disabled passed
+[OC TEST] Pending pickup cleanup and saved sell return remain with the approved Phase 2 path before world travel passed
+[OC TEST] Session unlock ceiling and global native travel cooldown cannot be reset by manager control cleanup passed
+[OC TEST] Server-only native portal destinations reuse existing island-zone arrival evidence without local Spawn passed
+[OC TEST] Missing native arrival geometry blocks progression portal requests even with actual discovery passed
+[OC TEST] 25 Phase 3 progression regressions passed; 157 total. Synthetic tests are not live unlock/traversal verification.
+[OC TEST] Published example Config validation passed
+[OC TEST] Pickup-only example Config isolation passed
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] StationaryOnly.luau Config validation passed
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] CombinedFarming.luau Config validation passed
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] UpgradeTest.luau Config validation passed
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] Progression.luau Config validation passed
+[OC TEST] Actual bundled initializer and custom Config entry passed. Live statistics remain unverified.

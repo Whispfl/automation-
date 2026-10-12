@@ -1,0 +1,1496 @@
+{
+  "researchDate": "2026-10-11",
+  "evidence": "SAVED_EDIT_SCENE_READ_ONLY_NOT_LIVE_ACCEPTANCE",
+  "scope": "29 physical fishing area models and Roots; all88 BoardNodes; no player/account data",
+  "fishingAreas": [
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.c2f5df3a-d02d-4bf3-9ccd-9b0655544419",
+      "className": "Model",
+      "attributes": {
+        "Id": "starter"
+      },
+      "tags": null,
+      "position": "-23713.146484375, 3.8470282554626465, 46.23316955566406",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.c2f5df3a-d02d-4bf3-9ccd-9b0655544419.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.c2f5df3a-d02d-4bf3-9ccd-9b0655544419.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 18,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.6edc3e0d-3fd2-4f10-a4a2-c2cc2c1fd8b3",
+      "className": "Model",
+      "attributes": {
+        "Id": "starter"
+      },
+      "tags": null,
+      "position": "-23710.240234375, 3.9022536277770996, -55.471107482910156",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.6edc3e0d-3fd2-4f10-a4a2-c2cc2c1fd8b3.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.6edc3e0d-3fd2-4f10-a4a2-c2cc2c1fd8b3.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 13,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.f731ee3e-48b2-444a-9283-f695cf066183",
+      "className": "Model",
+      "attributes": {
+        "Id": "starter"
+      },
+      "tags": null,
+      "position": "-23658.974609375, 2.3641371726989746, -141.55303955078125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.f731ee3e-48b2-444a-9283-f695cf066183.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.f731ee3e-48b2-444a-9283-f695cf066183.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 7,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.1dcbaf62-c8d7-45e4-a52c-60050d54e77d",
+      "className": "Model",
+      "attributes": {
+        "Id": "starter"
+      },
+      "tags": null,
+      "position": "-23607.17578125, 3.7831335067749023, -35.09849548339844",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.1dcbaf62-c8d7-45e4-a52c-60050d54e77d.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.1dcbaf62-c8d7-45e4-a52c-60050d54e77d.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 21,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.987e0031-2672-4b3a-8c3a-73268e12acc0",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21401.859375, 2.4101009368896484, -100804.46875",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.987e0031-2672-4b3a-8c3a-73268e12acc0.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.987e0031-2672-4b3a-8c3a-73268e12acc0.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 19,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.c40f69b6-e24a-4acc-9cd7-cd9708492fe7",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21431.974609375, 2.3641371726989746, -100987.65625",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.c40f69b6-e24a-4acc-9cd7-cd9708492fe7.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.c40f69b6-e24a-4acc-9cd7-cd9708492fe7.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 7,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.621e2ef5-6f49-4da1-8329-d8a56110e80b",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21592.837890625, 10.373579025268555, -100800.8046875",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.621e2ef5-6f49-4da1-8329-d8a56110e80b.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.621e2ef5-6f49-4da1-8329-d8a56110e80b.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 11,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.bc73f197-ede6-4629-bd51-e78772da26c4",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21487.033203125, 2.3758962154388428, -100902.2109375",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.bc73f197-ede6-4629-bd51-e78772da26c4.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.bc73f197-ede6-4629-bd51-e78772da26c4.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 11,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.1f149eed-2f77-48d0-a4e5-aa9da21bb2c4",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21477.4296875, 9.913196563720703, -100736.828125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.1f149eed-2f77-48d0-a4e5-aa9da21bb2c4.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.1f149eed-2f77-48d0-a4e5-aa9da21bb2c4.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 11,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.69994b59-4e11-43af-adcb-67ea34fc50e6",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21599.0703125, 9.956363677978516, -100730.109375",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.69994b59-4e11-43af-adcb-67ea34fc50e6.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.69994b59-4e11-43af-adcb-67ea34fc50e6.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 11,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.929768c5-37fc-46f8-9e92-960ba3ec6934",
+      "className": "Model",
+      "attributes": {
+        "Id": "blizzard"
+      },
+      "tags": null,
+      "position": "-21376.48828125, 2.180661201477051, -100906.359375",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.929768c5-37fc-46f8-9e92-960ba3ec6934.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.929768c5-37fc-46f8-9e92-960ba3ec6934.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 11,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.a256bbdc-0acc-431b-b93d-7bdd9322a40b",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19249.75390625, 3.0566442012786865, 18891.8671875",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.a256bbdc-0acc-431b-b93d-7bdd9322a40b.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.a256bbdc-0acc-431b-b93d-7bdd9322a40b.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 10,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.8d98d04b-9ac6-4794-a55c-3d9f6dec2e4e",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19331.830078125, 9.825634002685547, 19080.236328125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.8d98d04b-9ac6-4794-a55c-3d9f6dec2e4e.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.8d98d04b-9ac6-4794-a55c-3d9f6dec2e4e.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 20,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7ee1119d-b473-442a-bc71-3df3c1301e5f",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19316.673828125, 2.3641371726989746, 18696.623046875",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7ee1119d-b473-442a-bc71-3df3c1301e5f.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7ee1119d-b473-442a-bc71-3df3c1301e5f.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 7,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7746e5ea-45de-4446-b111-81196cd822a4",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19270.93359375, 2.71262264251709, 18781.265625",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7746e5ea-45de-4446-b111-81196cd822a4.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7746e5ea-45de-4446-b111-81196cd822a4.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 11,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.1a61c588-dbfb-4171-b04a-d1b8f0b8bdc6",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19382.9296875, 3.0205423831939697, 18840.63671875",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.1a61c588-dbfb-4171-b04a-d1b8f0b8bdc6.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.1a61c588-dbfb-4171-b04a-d1b8f0b8bdc6.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 6,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.e0df4168-640e-49f8-bec9-7acf58dd0c0c",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19275.23046875, 3.086158514022827, 18840.63671875",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.e0df4168-640e-49f8-bec9-7acf58dd0c0c.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.e0df4168-640e-49f8-bec9-7acf58dd0c0c.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 6,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.4dc511b4-70f7-4564-b114-9f5cf797c590",
+      "className": "Model",
+      "attributes": {
+        "Id": "jungle"
+      },
+      "tags": null,
+      "position": "-19384.376953125, 3.525108575820923, 18919.017578125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.4dc511b4-70f7-4564-b114-9f5cf797c590.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.4dc511b4-70f7-4564-b114-9f5cf797c590.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 9,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.1f437470-2fdd-4bb5-b8f4-7549f6c74194",
+      "className": "Model",
+      "attributes": {
+        "Id": "lava"
+      },
+      "tags": null,
+      "position": "-17239.337890625, 5.617441654205322, -20299.56640625",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.1f437470-2fdd-4bb5-b8f4-7549f6c74194.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.1f437470-2fdd-4bb5-b8f4-7549f6c74194.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 72,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.7026af73-0e98-41c5-86de-8048ab232bab",
+      "className": "Model",
+      "attributes": {
+        "Id": "lava"
+      },
+      "tags": null,
+      "position": "-17236.7734375, 5.464137077331543, -20477",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.7026af73-0e98-41c5-86de-8048ab232bab.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.7026af73-0e98-41c5-86de-8048ab232bab.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 7,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Lost Atlantis.FishingAreas.bfdf7d96-275c-4992-a2b8-5b42619b5d57",
+      "className": "Model",
+      "attributes": {
+        "Id": "atlantis"
+      },
+      "tags": null,
+      "position": "-13945.7470703125, 0.6843600273132324, -20340.53515625",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Lost Atlantis.FishingAreas.bfdf7d96-275c-4992-a2b8-5b42619b5d57.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Lost Atlantis.FishingAreas.bfdf7d96-275c-4992-a2b8-5b42619b5d57.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 6,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.c15a0189-62e1-452a-bf12-41bbdcc8783c",
+      "className": "Model",
+      "attributes": {
+        "Id": "dream"
+      },
+      "tags": null,
+      "position": "-21806.005859375, 2.84161376953125, -20586.16015625",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.c15a0189-62e1-452a-bf12-41bbdcc8783c.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.c15a0189-62e1-452a-bf12-41bbdcc8783c.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 7,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.635c521a-e61a-4645-8f8f-1c25511c1119",
+      "className": "Model",
+      "attributes": {
+        "Id": "dream"
+      },
+      "tags": null,
+      "position": "-21858.220703125, 4.3245086669921875, -20397.818359375",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.635c521a-e61a-4645-8f8f-1c25511c1119.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.635c521a-e61a-4645-8f8f-1c25511c1119.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 18,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.3258a71b-2d07-41b1-ad6e-b9d46bb0aac6",
+      "className": "Model",
+      "attributes": {
+        "Id": "dream"
+      },
+      "tags": null,
+      "position": "-21753.1015625, 4.260612487792969, -20480.25",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.3258a71b-2d07-41b1-ad6e-b9d46bb0aac6.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.3258a71b-2d07-41b1-ad6e-b9d46bb0aac6.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 21,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.5f00f1ec-f22d-45c8-9249-ae6e7d180954",
+      "className": "Model",
+      "attributes": {
+        "Id": "dream"
+      },
+      "tags": null,
+      "position": "-21856.373046875, 4.379737854003906, -20499.55078125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.5f00f1ec-f22d-45c8-9249-ae6e7d180954.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.5f00f1ec-f22d-45c8-9249-ae6e7d180954.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 13,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.3e29e1fb-d234-4fd9-8285-2c734a4dfbbb",
+      "className": "Model",
+      "attributes": {
+        "Id": "classic"
+      },
+      "tags": null,
+      "position": "-41572.23046875, 5.102673530578613, -20428.962890625",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.3e29e1fb-d234-4fd9-8285-2c734a4dfbbb.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.3e29e1fb-d234-4fd9-8285-2c734a4dfbbb.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 10,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.9547189a-3a4c-45e4-8b68-bd6ea6d00609",
+      "className": "Model",
+      "attributes": {
+        "Id": "classic"
+      },
+      "tags": null,
+      "position": "-41512.53515625, 5.228493690490723, -20464.162109375",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.9547189a-3a4c-45e4-8b68-bd6ea6d00609.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.9547189a-3a4c-45e4-8b68-bd6ea6d00609.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 8,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.356b1ecf-fe7e-4442-adfc-37a88e0eb27b",
+      "className": "Model",
+      "attributes": {
+        "Id": "classic"
+      },
+      "tags": null,
+      "position": "-41479.828125, 5.102673530578613, -20507.36328125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.356b1ecf-fe7e-4442-adfc-37a88e0eb27b.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.356b1ecf-fe7e-4442-adfc-37a88e0eb27b.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 10,
+        "childrenCount": 2
+      }
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.fc7036ff-6877-433a-a20d-30b5d23b60df",
+      "className": "Model",
+      "attributes": {
+        "Id": "classic"
+      },
+      "tags": null,
+      "position": "-41506.30078125, 3.0026731491088867, -20597.595703125",
+      "children": {
+        "immediateChildren": [
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.fc7036ff-6877-433a-a20d-30b5d23b60df.Nodes",
+            "className": "Folder"
+          },
+          {
+            "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.fc7036ff-6877-433a-a20d-30b5d23b60df.Root",
+            "className": "Part"
+          }
+        ],
+        "totalDescendants": 8,
+        "childrenCount": 2
+      }
+    }
+  ],
+  "fishingRoots": [
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.c2f5df3a-d02d-4bf3-9ccd-9b0655544419.Root",
+      "attributes": {},
+      "position": "-23713.54296875, 3.540369749069214, 46.26325988769531",
+      "size": "41.921348571777344, 1, 71.47328186035156",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.6edc3e0d-3fd2-4f10-a4a2-c2cc2c1fd8b3.Root",
+      "attributes": {},
+      "position": "-23710.123046875, 3.7641372680664062, -55.63564682006836",
+      "size": "41, 1, 41.47328186035156",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.f731ee3e-48b2-444a-9283-f695cf066183.Root",
+      "attributes": {},
+      "position": "-23658.974609375, 1.8641372919082642, -141.55303955078125",
+      "size": "201.89999389648438, 1, 91.57328033447266",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Fisher's Island.FishingAreas.1dcbaf62-c8d7-45e4-a52c-60050d54e77d.Root",
+      "attributes": {},
+      "position": "-23607.17578125, 3.460007905960083, -35.09849548339844",
+      "size": "42, 1, 88.47328186035156",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.987e0031-2672-4b3a-8c3a-73268e12acc0.Root",
+      "attributes": {},
+      "position": "-21401.953125, 2.1601009368896484, -100804.4375",
+      "size": "78.5999984741211, 1, 47.87327575683594",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.c40f69b6-e24a-4acc-9cd7-cd9708492fe7.Root",
+      "attributes": {},
+      "position": "-21431.974609375, 1.8641372919082642, -100987.65625",
+      "size": "201.89999389648438, 1, 91.57328033447266",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.621e2ef5-6f49-4da1-8329-d8a56110e80b.Root",
+      "attributes": {},
+      "position": "-21592.4140625, 10.353771209716797, -100799.7734375",
+      "size": "50.900001525878906, 1, 50.77328109741211",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.bc73f197-ede6-4629-bd51-e78772da26c4.Root",
+      "attributes": {},
+      "position": "-21487.033203125, 2.2758963108062744, -100902.2109375",
+      "size": "78.5999984741211, 1, 47.87327575683594",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.1f149eed-2f77-48d0-a4e5-aa9da21bb2c4.Root",
+      "attributes": {},
+      "position": "-21478.513671875, 9.893387794494629, -100737.0703125",
+      "size": "50.900001525878906, 1, 50.77328109741211",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.69994b59-4e11-43af-adcb-67ea34fc50e6.Root",
+      "attributes": {},
+      "position": "-21598.013671875, 9.936555862426758, -100729.7734375",
+      "size": "50.900001525878906, 1, 50.77328109741211",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Blizzard Hills.FishingAreas.929768c5-37fc-46f8-9e92-960ba3ec6934.Root",
+      "attributes": {},
+      "position": "-21382.22265625, 2.180661201477051, -100900.625",
+      "size": "45.499996185302734, 1, 47.87327575683594",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.a256bbdc-0acc-431b-b93d-7bdd9322a40b.Root",
+      "attributes": {},
+      "position": "-19258.779296875, 2.9516961574554443, 18887.658203125",
+      "size": "55.05922317504883, 0.7004989981651306, 33.53518295288086",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.8d98d04b-9ac6-4794-a55c-3d9f6dec2e4e.Root",
+      "attributes": {},
+      "position": "-19331.830078125, 9.475561141967773, 19080.236328125",
+      "size": "205.3000030517578, 1, 198.57327270507812",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7ee1119d-b473-442a-bc71-3df3c1301e5f.Root",
+      "attributes": {},
+      "position": "-19316.673828125, 1.8641372919082642, 18696.623046875",
+      "size": "201.89999389648438, 1, 91.57328033447266",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.7746e5ea-45de-4446-b111-81196cd822a4.Root",
+      "attributes": {},
+      "position": "-19270.93359375, 2.6126227378845215, 18781.265625",
+      "size": "78.5999984741211, 1, 47.87327575683594",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.1a61c588-dbfb-4171-b04a-d1b8f0b8bdc6.Root",
+      "attributes": {},
+      "position": "-19382.9296875, 2.8026516437530518, 18840.63671875",
+      "size": "103.0999984741211, 1, 28.173263549804688",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.e0df4168-640e-49f8-bec9-7acf58dd0c0c.Root",
+      "attributes": {},
+      "position": "-19275.23046875, 2.868267774581909, 18840.63671875",
+      "size": "84.89999389648438, 1, 28.173263549804688",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Poison Jungle.FishingAreas.4dc511b4-70f7-4564-b114-9f5cf797c590.Root",
+      "attributes": {},
+      "position": "-19385.15234375, 2.821441650390625, 18918.65625",
+      "size": "76.72747802734375, 0.9761764407157898, 46.732765197753906",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.1f437470-2fdd-4bb5-b8f4-7549f6c74194.Root",
+      "attributes": {},
+      "position": "-17239.337890625, 5.117441654205322, -20285.630859375",
+      "size": "399.3000183105469, 1, 300.57330322265625",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Infernite Volcano.FishingAreas.7026af73-0e98-41c5-86de-8048ab232bab.Root",
+      "attributes": {},
+      "position": "-17236.7734375, 4.964137077331543, -20477",
+      "size": "201.89999389648438, 1, 91.57328033447266",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Lost Atlantis.FishingAreas.bfdf7d96-275c-4992-a2b8-5b42619b5d57.Root",
+      "attributes": {},
+      "position": "-13971.947265625, 0.18436002731323242, -20347.029296875",
+      "size": "471.8999938964844, 1, 415.5732727050781",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.c15a0189-62e1-452a-bf12-41bbdcc8783c.Root",
+      "attributes": {},
+      "position": "-21806.005859375, 2.34161376953125, -20586.16015625",
+      "size": "201.89999389648438, 1, 91.57328033447266",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.635c521a-e61a-4645-8f8f-1c25511c1119.Root",
+      "attributes": {},
+      "position": "-21858.6171875, 4.017852783203125, -20397.78515625",
+      "size": "41.921348571777344, 1, 71.47328186035156",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.3258a71b-2d07-41b1-ad6e-b9d46bb0aac6.Root",
+      "attributes": {},
+      "position": "-21753.1015625, 3.9374847412109375, -20480.25",
+      "size": "42, 1, 88.47328186035156",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Dream Island.FishingAreas.5f00f1ec-f22d-45c8-9249-ae6e7d180954.Root",
+      "attributes": {},
+      "position": "-21856.2578125, 4.2416229248046875, -20499.71484375",
+      "size": "41, 1, 41.47328186035156",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.3e29e1fb-d234-4fd9-8285-2c734a4dfbbb.Root",
+      "attributes": {},
+      "position": "-41572.23046875, 4.575561046600342, -20428.962890625",
+      "size": "40.500003814697266, 1, 42.77327346801758",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.9547189a-3a4c-45e4-8b68-bd6ea6d00609.Root",
+      "attributes": {},
+      "position": "-41509.828125, 4.575561046600342, -20464.162109375",
+      "size": "170.10000610351562, 1, 42.77327346801758",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.356b1ecf-fe7e-4442-adfc-37a88e0eb27b.Root",
+      "attributes": {},
+      "position": "-41479.828125, 4.575561046600342, -20507.36328125",
+      "size": "40.500003814697266, 1, 42.77327346801758",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    },
+    {
+      "path": "Workspace.Worlds.Seven Seas.Areas.Classic Island.FishingAreas.fc7036ff-6877-433a-a20d-30b5d23b60df.Root",
+      "attributes": {},
+      "position": "-41528.078125, 2.7755610942840576, -20597.763671875",
+      "size": "281.79998779296875, 1, 198.57327270507812",
+      "canCollide": true,
+      "canTouch": false,
+      "canQuery": false,
+      "transparency": 1
+    }
+  ],
+  "boardNodes": [
+    {
+      "index": 1,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 2,
+      "type": "rift",
+      "rawWeight": 0.1,
+      "weight": 0.1
+    },
+    {
+      "index": 3,
+      "type": "basic-dice",
+      "rawWeight": 1,
+      "weight": 1
+    },
+    {
+      "index": 4,
+      "type": "dice",
+      "rawWeight": 0.5,
+      "weight": 0.3
+    },
+    {
+      "index": 5,
+      "type": "chance",
+      "rawWeight": 0.1,
+      "weight": 0.25
+    },
+    {
+      "index": 6,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 7,
+      "type": "basic",
+      "rawWeight": 0.1,
+      "weight": 1.5
+    },
+    {
+      "index": 8,
+      "type": "super-ticket",
+      "rawWeight": 0.75,
+      "weight": 0.7
+    },
+    {
+      "index": 9,
+      "type": "basic",
+      "rawWeight": 0.1,
+      "weight": 1.5
+    },
+    {
+      "index": 10,
+      "type": "golden-dice",
+      "rawWeight": 1,
+      "weight": 0.2
+    },
+    {
+      "index": 11,
+      "type": "super-ticket",
+      "rawWeight": 0.1,
+      "weight": 0.7
+    },
+    {
+      "index": 12,
+      "type": "dice",
+      "rawWeight": 1,
+      "weight": 0.3
+    },
+    {
+      "index": 13,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 14,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 15,
+      "type": "basic",
+      "rawWeight": 0.75,
+      "weight": 1.5
+    },
+    {
+      "index": 16,
+      "type": "dice",
+      "rawWeight": 1,
+      "weight": 0.3
+    },
+    {
+      "index": 17,
+      "type": "infinity",
+      "rawWeight": 1,
+      "weight": 0.05
+    },
+    {
+      "index": 18,
+      "type": "super-ticket",
+      "rawWeight": 1,
+      "weight": 0.7
+    },
+    {
+      "index": 19,
+      "type": "dice-key",
+      "rawWeight": 1,
+      "weight": 0.8
+    },
+    {
+      "index": 20,
+      "type": "golden-dice",
+      "rawWeight": 1,
+      "weight": 0.2
+    },
+    {
+      "index": 21,
+      "type": "dice-key",
+      "rawWeight": 1,
+      "weight": 0.8
+    },
+    {
+      "index": 22,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 23,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 24,
+      "type": "basic",
+      "rawWeight": 0.75,
+      "weight": 1.5
+    },
+    {
+      "index": 25,
+      "type": "chance",
+      "rawWeight": 0.1,
+      "weight": 0.25
+    },
+    {
+      "index": 26,
+      "type": "golden-dice",
+      "rawWeight": 0.1,
+      "weight": 0.2
+    },
+    {
+      "index": 27,
+      "type": "special-egg",
+      "rawWeight": 0.05,
+      "weight": 0.05
+    },
+    {
+      "index": 28,
+      "type": "golden-dice",
+      "rawWeight": 0.1,
+      "weight": 0.2
+    },
+    {
+      "index": 29,
+      "type": "chance",
+      "rawWeight": 0.1,
+      "weight": 0.25
+    },
+    {
+      "index": 30,
+      "type": "basic",
+      "rawWeight": 0.1,
+      "weight": 1.5
+    },
+    {
+      "index": 31,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 32,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 33,
+      "type": "basic-dice",
+      "rawWeight": 1,
+      "weight": 1
+    },
+    {
+      "index": 34,
+      "type": "dice-key",
+      "rawWeight": 1,
+      "weight": 0.8
+    },
+    {
+      "index": 35,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 36,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 37,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 38,
+      "type": "basic-dice",
+      "rawWeight": 1,
+      "weight": 1
+    },
+    {
+      "index": 39,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 40,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 41,
+      "type": "dice",
+      "rawWeight": 1,
+      "weight": 0.3
+    },
+    {
+      "index": 42,
+      "type": "dice",
+      "rawWeight": 1,
+      "weight": 0.3
+    },
+    {
+      "index": 43,
+      "type": "rift",
+      "rawWeight": 0.1,
+      "weight": 0.1
+    },
+    {
+      "index": 44,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 45,
+      "type": "golden-dice",
+      "rawWeight": 1,
+      "weight": 0.2
+    },
+    {
+      "index": 46,
+      "type": "basic-dice",
+      "rawWeight": 1,
+      "weight": 1
+    },
+    {
+      "index": 47,
+      "type": "dice-key",
+      "rawWeight": 1,
+      "weight": 0.8
+    },
+    {
+      "index": 48,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 49,
+      "type": "golden-dice",
+      "rawWeight": 1,
+      "weight": 0.2
+    },
+    {
+      "index": 50,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 51,
+      "type": "basic",
+      "rawWeight": 0.1,
+      "weight": 1.5
+    },
+    {
+      "index": 52,
+      "type": "super-ticket",
+      "rawWeight": 1,
+      "weight": 0.7
+    },
+    {
+      "index": 53,
+      "type": "chance",
+      "rawWeight": 0.05,
+      "weight": 0.25
+    },
+    {
+      "index": 54,
+      "type": "dice",
+      "rawWeight": 1,
+      "weight": 0.3
+    },
+    {
+      "index": 55,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 56,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 57,
+      "type": "special-egg",
+      "rawWeight": 1,
+      "weight": 0.05
+    },
+    {
+      "index": 58,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 59,
+      "type": "dice",
+      "rawWeight": 1,
+      "weight": 0.3
+    },
+    {
+      "index": 60,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 61,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 62,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 63,
+      "type": "special-egg",
+      "rawWeight": 1,
+      "weight": 0.05
+    },
+    {
+      "index": 64,
+      "type": "infinity",
+      "rawWeight": 1,
+      "weight": 0.05
+    },
+    {
+      "index": 65,
+      "type": "super-ticket",
+      "rawWeight": 1,
+      "weight": 0.7
+    },
+    {
+      "index": 66,
+      "type": "super-ticket",
+      "rawWeight": 1,
+      "weight": 0.7
+    },
+    {
+      "index": 67,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 68,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 69,
+      "type": "giant-dice",
+      "rawWeight": 1,
+      "weight": 1
+    },
+    {
+      "index": 70,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 71,
+      "type": "special-egg",
+      "rawWeight": 0.05,
+      "weight": 0.05
+    },
+    {
+      "index": 72,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 73,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 74,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 75,
+      "type": "golden-dice",
+      "rawWeight": 1,
+      "weight": 0.2
+    },
+    {
+      "index": 76,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 77,
+      "type": "rift",
+      "rawWeight": 0.1,
+      "weight": 0.1
+    },
+    {
+      "index": 78,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 79,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 80,
+      "type": "dice-key",
+      "rawWeight": 1,
+      "weight": 0.8
+    },
+    {
+      "index": 81,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 82,
+      "type": "dice-key",
+      "rawWeight": 1,
+      "weight": 0.8
+    },
+    {
+      "index": 83,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 84,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    },
+    {
+      "index": 85,
+      "type": "infinity",
+      "rawWeight": 1,
+      "weight": 0.05
+    },
+    {
+      "index": 86,
+      "type": "basic",
+      "rawWeight": 1,
+      "weight": 1.5
+    },
+    {
+      "index": 87,
+      "type": "chance",
+      "rawWeight": 0.05,
+      "weight": 0.25
+    },
+    {
+      "index": 88,
+      "type": "chance",
+      "rawWeight": 1,
+      "weight": 0.25
+    }
+  ]
+}

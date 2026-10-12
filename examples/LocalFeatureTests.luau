@@ -1,0 +1,57 @@
+-- Editable header copied into dist/OC.local.lua. That file includes the entire
+-- matching bundle; it does not call HttpGet, readfile, loadfile or a public loader.
+-- Change TEST_MODE to A_TRAVEL, B_PLAYTIME, C_ONE_BOX or D_ANTI_AFK.
+local TEST_MODE = "NONE" -- Read-only initialization until an isolated test is selected.
+local SELECTED_EGG = "" -- A_TRAVEL: exact current native egg name from your EGG_PLAN/selection.
+local BOX_RESERVE = 0
+local BOX_SESSION_LIMIT = 1 -- Keep 1 for the first active test.
+local BOX_CONTINUE_AUTOMATICALLY = false -- Later opt-in; individual openings still require verified results.
+local BOX_SESSION_KEY = "OWNER_ORDINARY_BOX_TEST_1" -- Reloads preserve this budget; unresolved operations remain blocked globally.
+
+local Config = {
+	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
+	ACCOUNT_SETTINGS = { ENABLE_ACCOUNT_READER = true, READ_ITEM_INVENTORY = true, READ_UNLOCKS = true, READ_MASTERY = true },
+	WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false, AUTO_UNLOCK_WORLDS = false,
+		AUTO_TRAVEL_FOR_PROGRESSION = false, AUTO_FARM_UNLOCK_REQUIREMENTS = false, MAXIMUM_WORLD_UNLOCK_COST = 0 },
+	FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false },
+	ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
+	PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false, STATIONARY_ISOLATED_TEST = false },
+	BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false,
+		AUTO_BUY_FLAVORS = false, ENABLE_SIMULTANEOUS_BLOWING = false },
+	UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false,
+		ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false },
+	PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = false, AUTO_HATCH = false, AUTO_EQUIP = false,
+		EQUIP_OWNED_TEAM_ONCE = false, AUTO_DELETE_PETS = false, AUTO_CRAFT_SHINY = false, AUTO_FUSE_PETS = false },
+	HATCH_SETTINGS = { SELECTED_EGGS = {}, HATCH_ONE_EGG_ONCE = false, MAXIMUM_EGG_COST = 0,
+		MAXIMUM_SESSION_COST = 0, ENABLE_BACKGROUND_PICKUPS = false, PRESERVE_PROGRESSION_RESERVE = true },
+	EGG_TRAVEL_SETTINGS = { ENABLE_SELECTED_EGG_TRAVEL = false, ENABLE_DIRECT_POSITIONING = false,
+		ENABLE_NATIVE_ISLAND_TRAVEL = false, ARRIVAL_TIMEOUT_SECONDS = 12, STABILITY_SECONDS = 1,
+		MAXIMUM_ATTEMPTS_PER_SELECTION = 1, MAXIMUM_LOCATION_SECONDS = 120, SELECTION_REVISION = 0 },
+	PLAYTIME_SETTINGS = { AUTO_CLAIM_PLAYTIME = false, CHECK_INTERVAL_SECONDS = 10,
+		CLAIM_INTERVAL_SECONDS = 5, CONFIRMATION_TIMEOUT_SECONDS = 15 },
+	MYSTERY_BOX_SETTINGS = { AUTO_OPEN_MYSTERY_BOXES = false, BOX_RESERVE = BOX_RESERVE,
+		MAXIMUM_SESSION_BOXES = BOX_SESSION_LIMIT, MAXIMUM_BATCH_BOXES = 1, OPEN_INTERVAL_SECONDS = 5,
+		CONFIRMATION_TIMEOUT_SECONDS = 20, ENABLE_AUTOMATIC_CONTINUATION = BOX_CONTINUE_AUTOMATICALLY,
+		SESSION_KEY = BOX_SESSION_KEY },
+	ANTIAFK_SETTINGS = { ENABLE_ANTI_AFK = false, METHOD = "VIRTUAL_INPUT_SCROLL_LOCK", INTERVAL_SECONDS = 120 },
+	STATUS_UI_SETTINGS = { ENABLE_STATUS_UI = true },
+	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
+}
+
+local TestConfigs = {
+	NONE = {},
+	A_TRAVEL = {
+		HATCH_SETTINGS = { SELECTED_EGGS = SELECTED_EGG ~= "" and { SELECTED_EGG } or {} },
+		EGG_TRAVEL_SETTINGS = { ENABLE_SELECTED_EGG_TRAVEL = true, ENABLE_DIRECT_POSITIONING = true, ENABLE_NATIVE_ISLAND_TRAVEL = true },
+	},
+	B_PLAYTIME = { PLAYTIME_SETTINGS = { AUTO_CLAIM_PLAYTIME = true } },
+	C_ONE_BOX = { MYSTERY_BOX_SETTINGS = { AUTO_OPEN_MYSTERY_BOXES = true } },
+	D_ANTI_AFK = { ANTIAFK_SETTINGS = { ENABLE_ANTI_AFK = true } },
+}
+assert(TestConfigs[TEST_MODE], "Unknown TEST_MODE; choose NONE, A_TRAVEL, B_PLAYTIME, C_ONE_BOX or D_ANTI_AFK")
+for category, settings in pairs(TestConfigs[TEST_MODE]) do
+	for key, value in pairs(settings) do Config[category][key] = value end
+end
+-- Add a separately authorized existing hatch/farming Config only after isolated
+-- tests. No preset above enables spending, hatching, pickups or world purchases.
+-- OC LOCAL CONFIG END

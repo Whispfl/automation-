@@ -130,7 +130,7 @@ actual-shortage farming and native farming travel ON; world spending OFF with
 zero ceiling; gate-island progression travel, bubbles, selling and upgrades OFF.
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/examples/Progression.luau"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/main/examples/Progression.luau"))()
 ```
 
 1. Confirm existing received discoveries are skipped, `[OC][GOAL]` selects the

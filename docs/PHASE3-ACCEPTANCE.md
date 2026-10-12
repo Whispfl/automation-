@@ -135,7 +135,7 @@ It enables summary mode, discovery, actual-shortage farming and native farming t
 keeps bubbles, selling, upgrades and world purchases OFF; spending ceiling remains 0.
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/examples/Progression.luau"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/main/examples/Progression.luau"))()
 ```
 
 Owner check: run long enough for one or two summaries and confirm they are readable.

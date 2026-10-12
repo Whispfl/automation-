@@ -1,0 +1,49 @@
+{"key":"Coins","sourceLine":11,"display":"Coins","layoutOrder":1,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Gems","sourceLine":12,"display":"Gems","layoutOrder":2,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Tickets","sourceLine":13,"display":"Tickets","layoutOrder":5,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Seashells","sourceLine":14,"display":"Seashells","layoutOrder":7,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"FestivalCoins","sourceLine":15,"display":"Festival Coins","layoutOrder":6,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Pearls","sourceLine":16,"display":"Pearls","layoutOrder":6,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Leaves","sourceLine":17,"display":"Leaves","layoutOrder":7,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Candycorn","sourceLine":18,"display":"Candycorn","layoutOrder":8,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"OGPoints","sourceLine":19,"display":"OG Points","layoutOrder":8,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"ThanksgivingShards","sourceLine":20,"display":"Thanksgiving Shard","layoutOrder":9,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"WinterShards","sourceLine":21,"display":"Winter Shard","layoutOrder":10,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Snowflakes","sourceLine":22,"display":"Snowflakes","layoutOrder":8,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"NewYearsShard","sourceLine":23,"display":"New Years Shard","layoutOrder":11,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"CircusTickets","sourceLine":24,"display":"Circus Tickets","layoutOrder":12,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"GameTickets","sourceLine":25,"display":"Game Tickets","layoutOrder":13,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"InfToken","sourceLine":26,"display":"Anniversary Token","layoutOrder":14,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"SixHundredMStar","sourceLine":27,"display":"600 Million Star","layoutOrder":14,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"EggDice","sourceLine":28,"display":"Red Dice","layoutOrder":8,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Clovers","sourceLine":29,"display":"Clovers","layoutOrder":14,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"EasterEggs","sourceLine":30,"display":"Easter Eggs","layoutOrder":8,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Points","sourceLine":31,"display":"Points","layoutOrder":3,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Stars","sourceLine":32,"display":"Stars","layoutOrder":4,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Shards","sourceLine":33,"display":"Shards","layoutOrder":6,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"Tokens","sourceLine":34,"display":"Tokens","layoutOrder":7,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"ChallengePoints","sourceLine":35,"display":"Bubbles","layoutOrder":8,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"CompetitiveScore","sourceLine":36,"display":"Stars","layoutOrder":9,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"SantaPoints","sourceLine":37,"display":"Points","layoutOrder":10,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"PrizeCoins","sourceLine":38,"display":"Points","layoutOrder":11,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"Horns","sourceLine":39,"display":"Demon Horns","layoutOrder":12,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Halos","sourceLine":40,"display":"Angel Halos","layoutOrder":13,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"MoonShards","sourceLine":41,"display":"Moon Shards","layoutOrder":14,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Petals","sourceLine":42,"display":"Petals","layoutOrder":15,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"CompetitivePoints","sourceLine":43,"display":"Points","layoutOrder":17,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"AnnivPoints","sourceLine":44,"display":"Anniversary Points","layoutOrder":18,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"SixHundredPoints","sourceLine":45,"display":"600M Points","layoutOrder":19,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"TropicalSeashells","sourceLine":46,"display":"Seashells","layoutOrder":20,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Flames","sourceLine":47,"display":"Flames","layoutOrder":21,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Ice","sourceLine":48,"display":"Ice","layoutOrder":22,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"ObsidianShards","sourceLine":49,"display":"Obsidian Shards","layoutOrder":23,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"CarnivalCoins","sourceLine":50,"display":"Carnival Coins","layoutOrder":24,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"RebirthShards","sourceLine":51,"display":"Carnival Rebirth Shards","layoutOrder":25,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"BubbleCoins","sourceLine":52,"display":"Bubble Coins","layoutOrder":26,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"Crystals","sourceLine":53,"display":"Crystals","layoutOrder":27,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"GoldEggs","sourceLine":54,"display":"Golden Eggs","layoutOrder":26,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"RainbowEggs","sourceLine":55,"display":"Rainbow Eggs","layoutOrder":26,"canBeMultiplied":false,"inventoryDisplay":false}
+{"key":"RebirthShards26","sourceLine":56,"display":"Autumn Rebirth Shards","layoutOrder":28,"canBeMultiplied":false,"inventoryDisplay":true}
+{"key":"Leaves26","sourceLine":57,"display":"Autumn Leaf","layoutOrder":27,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"Candycorn26","sourceLine":58,"display":"Candycorn","layoutOrder":29,"canBeMultiplied":true,"inventoryDisplay":true}
+{"key":"HalloweenShards","sourceLine":59,"display":"Halloween Shards","layoutOrder":30,"canBeMultiplied":false,"inventoryDisplay":true}

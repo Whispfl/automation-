@@ -313,4 +313,14 @@ function GameKnowledge:Destroy()
 	self:ReleaseChunkerObserver() self.NativePickupChunker = nil
 end
 
+function GameKnowledge:RewardContract()
+	return { Playtime = "Shared.Data.Playtime.Gifts[{Time,Luck}]; Client.Gui.Frames.Playtime:99-135,369-376,394-404",
+		Claimed = "PlaytimeRewards.Claimed[tostring(index)]~=nil; elapsed Time.now()-Start; received Playtime mastery",
+		OrdinaryBox = "ItemUtil:GetOwnedAmount(profile,{Type='Powerup',Name='Mystery Box'}); PromptBuilder:297-383 UseGift(name,count)",
+		Physical = "PhysicalItem:GetActiveGifts:109-121; Gift:Hit:206-270; eight guarded native hits precede native ClaimGift",
+		Result = "Received exact claimed key or stock debit plus correlated physical completion and observable reward; dispatch is not success",
+		Bulk = "ClaimAllPlaytime exists but automatic bulk is not enabled; authoritative server eligibility remains unknown",
+		ServerValidation = "UNAVAILABLE", LiveVerification = "OWNER_PENDING" }
+end
+
 return GameKnowledge

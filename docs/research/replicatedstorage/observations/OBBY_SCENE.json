@@ -1,0 +1,156 @@
+{
+  "evidence": "SAVED_EDIT_SCENE_READ_ONLY_NOT_ROUTE_OR_ACCEPTANCE",
+  "date": "2026-10-11",
+  "facts": [
+    {
+      "path": "Workspace.Obbys.Easy.Spawn",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-797.34375, 5915.7353515625, 22420.59375",
+      "size": "4, 1, 4",
+      "canCollide": false,
+      "canTouch": true
+    },
+    {
+      "path": "Workspace.Obbys.Easy.Complete",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-802.453125, 5938.72998046875, 22614.359375",
+      "size": "44, 19, 28",
+      "canCollide": false,
+      "canTouch": true
+    },
+    {
+      "path": "Workspace.Obbys.Easy.KillBricks",
+      "className": "Folder",
+      "attributes": {},
+      "childrenCount": 2,
+      "totalDescendants": 3
+    },
+    {
+      "path": "Workspace.Obbys.Easy.Chest",
+      "className": "Model",
+      "attributes": {
+        "Beam": "0.3764706254005432, 1, 0.3764706254005432"
+      },
+      "childrenCount": 3,
+      "totalDescendants": 75,
+      "position": "-812.22265625, 5932.91259765625, 22620.578125"
+    },
+    {
+      "path": "Workspace.Obbys.Easy.Chest.Prompt",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-812.25390625, 5931.896484375, 22616.736328125",
+      "size": "0.507366418838501, 0.3805248439311981, 0.3805248439311981",
+      "canCollide": false,
+      "canTouch": false
+    },
+    {
+      "path": "Workspace.Obbys.Medium.Spawn",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-1152.34375, 5915.72998046875, 22420.59375",
+      "size": "4, 1, 4",
+      "canCollide": false,
+      "canTouch": true
+    },
+    {
+      "path": "Workspace.Obbys.Medium.Complete",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-1122.453125, 5924.72998046875, 22560.359375",
+      "size": "44, 19, 28",
+      "canCollide": false,
+      "canTouch": true
+    },
+    {
+      "path": "Workspace.Obbys.Medium.KillBricks",
+      "className": "Folder",
+      "attributes": {},
+      "childrenCount": 10,
+      "totalDescendants": 11
+    },
+    {
+      "path": "Workspace.Obbys.Medium.Chest",
+      "className": "Model",
+      "attributes": {
+        "Beam": "0.3764706254005432, 1, 0.3764706254005432"
+      },
+      "childrenCount": 3,
+      "totalDescendants": 75,
+      "position": "-1116.3775634765625, 5918.9482421875, 22570.576171875"
+    },
+    {
+      "path": "Workspace.Obbys.Medium.Chest.Prompt",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-1120.21875, 5917.93212890625, 22570.607421875",
+      "size": "0.507366418838501, 0.3805248439311981, 0.3805248439311981",
+      "canCollide": false,
+      "canTouch": false
+    },
+    {
+      "path": "Workspace.Obbys.Hard.Spawn",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-1544.484375, 5915.72998046875, 22420.59375",
+      "size": "4, 1, 4",
+      "canCollide": false,
+      "canTouch": true
+    },
+    {
+      "path": "Workspace.Obbys.Hard.Complete",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-1545.80078125, 5931.6943359375, 22536.359375",
+      "size": "44, 19, 28",
+      "canCollide": false,
+      "canTouch": true
+    },
+    {
+      "path": "Workspace.Obbys.Hard.KillBricks",
+      "className": "Folder",
+      "attributes": {},
+      "childrenCount": 9,
+      "totalDescendants": 10
+    },
+    {
+      "path": "Workspace.Obbys.Hard.Chest",
+      "className": "Model",
+      "attributes": {
+        "Beam": "0.3764706254005432, 1, 0.3764706254005432"
+      },
+      "childrenCount": 3,
+      "totalDescendants": 75,
+      "position": "-1555.515625, 5925.9482421875, 22542.43359375"
+    },
+    {
+      "path": "Workspace.Obbys.Hard.Chest.Prompt",
+      "className": "Part",
+      "attributes": {},
+      "childrenCount": 0,
+      "totalDescendants": 0,
+      "position": "-1555.546875, 5924.93212890625, 22538.591796875",
+      "size": "0.507366418838501, 0.3805248439311981, 0.3805248439311981",
+      "canCollide": false,
+      "canTouch": false
+    }
+  ]
+}

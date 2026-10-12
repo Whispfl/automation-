@@ -4,3 +4,8 @@ node_modules/
 *.log
 .env
 .env.*
+
+# Native third-party source extracts: retained locally and in the recovery backup.
+# No redistribution permission is documented; publish authored evidence instead.
+docs/local-feature-studio-evidence/*.source.txt
+!docs/local-feature-studio-evidence/AntiAFK_KEY_SEARCH.source.txt

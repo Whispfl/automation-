@@ -40,7 +40,7 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/main/dist/OC.lua"))()(Config)
 -- Controls: OC:Pause(), OC:Resume(), OC:Stop(). Full estimates: OC:GetStatus().Pets.Analysis
 -- Fill PROTECTED_PET_IDS / FAVORITE_PET_IDS / VALUABLE_PET_IDS before running.
 -- One frozen team attempt: exact acknowledgements, <=16 requests, <=120 wall-clock seconds.

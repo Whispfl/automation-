@@ -1,0 +1,2185 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-11",
+  "scope": "OFFLINE_DOCUMENT_ARITHMETIC_ONLY",
+  "provenance": "Recomputed final documentation examples and printed table totals; reused preserved numeric fish inputs. No fresh web/native-body reads, game actions, OC builds/tests or Git. This does not certify source transcription, server rules or owner facts.",
+  "documentSnapshots": [
+    {
+      "path": "docs/research/wiki/ROI_DECISION_FRAMEWORK.md",
+      "sha256": "55b703721f670269d4cdadf46a60d5dc9108ce01d6cc6ea22939bb6eb9ee3f32"
+    },
+    {
+      "path": "docs/research/wiki/EGG_PROBABILITY_RESEARCH.md",
+      "sha256": "9cd9979b350c50fd10a720cc39d1f0de76257fdb9b5615cd8d1bee59f04cd78f"
+    },
+    {
+      "path": "docs/research/wiki/MASTERY_ROI_RESEARCH.md",
+      "sha256": "97f0c7441bb7d38231234d7d541df48edf14dceccda67fdd1355687cd374dd24"
+    },
+    {
+      "path": "docs/research/wiki/PET_TEAM_AND_ENCHANT_STRATEGY.md",
+      "sha256": "4cfa41fedd0e8cd898d98f77c032d311a77b549a1a5fa14e92707dbdd14747f6"
+    },
+    {
+      "path": "docs/research/wiki/RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "sha256": "73ee4e6cef401874e05a9f6c32f01a4c414c49650966d7f20cc35cbf1e33734c"
+    },
+    {
+      "path": "docs/research/wiki/FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "sha256": "f769020c948c48e7ae05331ef9f341132d6d4b24f5eb7df169b90d186d941538"
+    },
+    {
+      "path": "docs/research/wiki/REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "sha256": "018385a6391c5ce0070488f9e214b64c3539f5d401003dbc5b230bc74fa603d7"
+    }
+  ],
+  "postSnapshotReviewNotes": [
+    "Concurrent final edit changed only Phase1/2/7 scope wording at line224; numerical inputs/formulas unchanged and reread."
+  ],
+  "summary": {
+    "assertions": 124,
+    "passed": 124,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "id": "MV-001",
+      "title": "Geometric mean",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "1/q",
+      "inputs": {
+        "q": 0.000001
+      },
+      "actual": 1000000,
+      "expected": 1000000,
+      "unit": "hatches",
+      "tolerance": 1e-8,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-002",
+      "title": "Geometric median",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "ceil(log(0.5)/log1p(-q))",
+      "inputs": {
+        "q": 0.000001
+      },
+      "actual": 693147,
+      "expected": 693147,
+      "unit": "hatches",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-003",
+      "title": "Geometric 95% budget",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "ceil(log(0.05)/log1p(-q))",
+      "inputs": {
+        "q": 0.000001
+      },
+      "actual": 2995731,
+      "expected": 2995731,
+      "unit": "hatches",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-004",
+      "title": "Success after one million trials",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "-expm1(n*log1p(-q))",
+      "inputs": {
+        "q": 0.000001,
+        "n": 1000000
+      },
+      "actual": 0.632120742768355,
+      "expected": 0.632121,
+      "unit": "probability",
+      "tolerance": 5e-7,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-005",
+      "title": "Per-batch useful success",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "-expm1(b*log1p(-q))",
+      "inputs": {
+        "q": 0.000001,
+        "b": 12
+      },
+      "actual": 0.000011999934000220001,
+      "expected": 0.000011999934,
+      "unit": "probability",
+      "tolerance": 1e-15,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-006",
+      "title": "First successful batch seconds",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "T/Q",
+      "inputs": {
+        "q": 0.000001,
+        "b": 12,
+        "T": 4.5
+      },
+      "actual": 375002.0625044687,
+      "expected": 375002.063,
+      "unit": "seconds",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-007",
+      "title": "First successful batch hours",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "T/(3600*Q)",
+      "inputs": {
+        "q": 0.000001,
+        "b": 12,
+        "T": 4.5
+      },
+      "actual": 104.16723958457465,
+      "expected": 104.167,
+      "unit": "hours",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-008",
+      "title": "Per-hatch stoppable mean cost",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "c/q",
+      "inputs": {
+        "q": 0.000001,
+        "c": 1000
+      },
+      "actual": 1000000000,
+      "expected": 1000000000,
+      "unit": "fictional currency",
+      "tolerance": 0.000001,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-009",
+      "title": "Full prepaid batch mean cost",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "b*c/Q",
+      "inputs": {
+        "q": 0.000001,
+        "b": 12,
+        "c": 1000
+      },
+      "actual": 1000005500.0119165,
+      "expected": 1000005500.0119165,
+      "unit": "fictional currency",
+      "tolerance": 0.00001,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle.",
+        "All b trials charged before stopping; successful batch fully paid."
+      ]
+    },
+    {
+      "id": "MV-010",
+      "title": "Prepaid batch costs at least stoppable hatches",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "Q_b<=b*q => b*c/Q_b>=c/q",
+      "inputs": {
+        "q": 0.000001,
+        "b": 12,
+        "c": 1000
+      },
+      "actual": true,
+      "expected": true,
+      "unit": "boolean",
+      "tolerance": null,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-011",
+      "title": "q=0 no finite positive-confidence budget",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "endpoint branch",
+      "inputs": {
+        "q": 0,
+        "confidence": 0.95
+      },
+      "actual": "Infinity",
+      "expected": "Infinity",
+      "unit": "hatches",
+      "tolerance": null,
+      "status": "PASS",
+      "assumptions": [
+        "Positive confidence; useful probability zero."
+      ]
+    },
+    {
+      "id": "MV-012",
+      "title": "q=1 first eligible trial",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "endpoint branch",
+      "inputs": {
+        "q": 1,
+        "confidence": 1
+      },
+      "actual": 1,
+      "expected": 1,
+      "unit": "hatch",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Eligible trial is certain; actual game certainty is not established."
+      ]
+    },
+    {
+      "id": "MV-013",
+      "title": "Zero-confidence budget",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "endpoint branch",
+      "inputs": {
+        "q": 0.3,
+        "confidence": 0
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "hatches",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-014",
+      "title": "No finite certainty for 0<q<1",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "endpoint branch",
+      "inputs": {
+        "q": 0.3,
+        "confidence": 1
+      },
+      "actual": "Infinity",
+      "expected": "Infinity",
+      "unit": "hatches",
+      "tolerance": null,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-015",
+      "title": "q=1 prepaid batch charges all trials",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "b*c/Q_12 with Q_12=1",
+      "inputs": {
+        "q": 1,
+        "b": 12,
+        "c": 1000
+      },
+      "actual": 12000,
+      "expected": 12000,
+      "unit": "fictional currency",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Full prepaid batch; first successful batch time=T, not T/b."
+      ]
+    },
+    {
+      "id": "MV-016",
+      "title": "Geometric variance",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "(1-q)/q^2",
+      "inputs": {
+        "q": 0.25
+      },
+      "actual": 12,
+      "expected": 12,
+      "unit": "hatches squared",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-017",
+      "title": "Binomial exactly two of three",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "choose(3,2)*q^2*(1-q)",
+      "inputs": {
+        "q": 0.2,
+        "n": 3,
+        "k": 2
+      },
+      "actual": 0.09600000000000003,
+      "expected": 0.096,
+      "unit": "probability",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Stationary independent eligible useful-outcome trials; no pity, Golden, deletion, expiry or state change; fictional q/c/cycle."
+      ]
+    },
+    {
+      "id": "MV-018",
+      "title": "Variable deterministic hazard identity",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "1-exp(sum(log(1-q_i)))",
+      "inputs": {
+        "q_i": [
+          0.1,
+          0.2
+        ]
+      },
+      "actual": 0.28,
+      "expected": 0.28,
+      "unit": "probability",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Independent known schedule; not random state-dependent odds."
+      ]
+    },
+    {
+      "id": "MV-019",
+      "title": "Subset normalized target mass",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "m*P/(1+(m-1)*P)",
+      "inputs": {
+        "P": 0.00001,
+        "m": 1000
+      },
+      "actual": 0.009901088129585442,
+      "expected": 0.00990109,
+      "unit": "probability",
+      "tolerance": 5e-9,
+      "status": "PASS",
+      "assumptions": [
+        "Hypothetical subset-only boost; no donor subtraction or overlapping stages."
+      ]
+    },
+    {
+      "id": "MV-020",
+      "title": "Infinity rarity weight total",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "60+20+13+6.5+0.5+2.5e-6",
+      "inputs": {},
+      "actual": 100.0000025,
+      "expected": 100.0000025,
+      "unit": "raw weight",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Saved definition weights; not final odds."
+      ]
+    },
+    {
+      "id": "MV-021",
+      "title": "Infinity conditional Secret rarity mean",
+      "document": "EGG_PROBABILITY_RESEARCH.md",
+      "formula": "totalWeight/SecretWeight",
+      "inputs": {
+        "secretWeight": 0.0000025
+      },
+      "actual": 40000000.99999999,
+      "expected": 40000001,
+      "unit": "rarity selections",
+      "tolerance": 1e-7,
+      "status": "PASS",
+      "assumptions": [
+        "Hypothetical normalized rarity draw only; within-rarity/server policy unknown."
+      ]
+    },
+    {
+      "id": "MV-022",
+      "title": "Synthetic goal saving time",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "max(0,G+R-B)/r",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0
+      },
+      "actual": 60,
+      "expected": 60,
+      "unit": "minutes",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Affordable upgrade; additional nonoverlapping reserve; stable same-currency rates."
+      ]
+    },
+    {
+      "id": "MV-023",
+      "title": "Synthetic upgrade goal time",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "t+max(0,G+R-(B-C+rSetup*t))/rateAfter",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0
+      },
+      "actual": 48.666666666666664,
+      "expected": 48.667,
+      "unit": "minutes",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "No setup earnings in printed example; no owner observation."
+      ]
+    },
+    {
+      "id": "MV-024",
+      "title": "Synthetic slower upgrade loses",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "upgrade with rateAfter=11m/min",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 11000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0
+      },
+      "actual": 65.63636363636363,
+      "expected": 65.636,
+      "unit": "minutes",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-025",
+      "title": "Simple earning payback",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "C/(rateAfter-r)",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0
+      },
+      "actual": 20,
+      "expected": 20,
+      "unit": "productive minutes",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Same currency; rateAfter>r; setup loss is separate."
+      ]
+    },
+    {
+      "id": "MV-026",
+      "title": "Reserve/setup extension fixture",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "t+remainingDeficit/rateAfter",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 100000000,
+        "rSetup": 10000000
+      },
+      "actual": 54,
+      "expected": 54,
+      "unit": "minutes",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "New arithmetic fixture, not printed account observation; reserve excludes G."
+      ]
+    },
+    {
+      "id": "MV-027",
+      "title": "Signed horizon gain at H=1",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "balance_after_investment - balance_after_baseline",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0,
+        "H": 1
+      },
+      "actual": -110000000,
+      "expected": -110000000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Cost paid at start; constant rates; min(H,t) bounds setup loss."
+      ]
+    },
+    {
+      "id": "MV-028",
+      "title": "Signed horizon gain at H=10",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "balance_after_investment - balance_after_baseline",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0,
+        "H": 10
+      },
+      "actual": -80000000,
+      "expected": -80000000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Cost paid at start; constant rates; min(H,t) bounds setup loss."
+      ]
+    },
+    {
+      "id": "MV-029",
+      "title": "Signed horizon gain at H=60",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "balance_after_investment - balance_after_baseline",
+      "inputs": {
+        "G": 1000000000,
+        "B": 400000000,
+        "C": 100000000,
+        "r": 10000000,
+        "rateAfter": 15000000,
+        "t": 2,
+        "R": 0,
+        "rSetup": 0,
+        "H": 60
+      },
+      "actual": 170000000,
+      "expected": 170000000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Cost paid at start; constant rates; min(H,t) bounds setup loss."
+      ]
+    },
+    {
+      "id": "MV-030",
+      "title": "Bubble cycle illustration",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "s*K/(K/b+tau)",
+      "inputs": {
+        "s": 2,
+        "K": 100,
+        "b": 10,
+        "tau": 5
+      },
+      "actual": 13.333333333333334,
+      "expected": 13.333333333333334,
+      "unit": "currency/second",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "New fixture; tau seconds, production bubbles/second, s currency/bubble."
+      ]
+    },
+    {
+      "id": "MV-031",
+      "title": "Cooldown overlap fixture",
+      "document": "ROI_DECISION_FRAMEWORK.md",
+      "formula": "max(c,t+a)",
+      "inputs": {
+        "c": 300,
+        "t": 60,
+        "a": 20
+      },
+      "actual": 300,
+      "expected": 300,
+      "unit": "seconds",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Start-triggered cooldown; 20s overhead fits inside cooldown; no additional serial prerequisites."
+      ]
+    },
+    {
+      "id": "MV-032",
+      "title": "Shrine donation count 1",
+      "document": "RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "formula": "floor(60*(15+1425*clamp(n,0,500)/500))",
+      "inputs": {
+        "count": 1
+      },
+      "actual": 1071,
+      "expected": 1071,
+      "unit": "seconds",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Saved count-duration formula, not live donation acceptance; item XP separate."
+      ]
+    },
+    {
+      "id": "MV-033",
+      "title": "Shrine donation count 100",
+      "document": "RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "formula": "floor(60*(15+1425*clamp(n,0,500)/500))",
+      "inputs": {
+        "count": 100
+      },
+      "actual": 18000,
+      "expected": 18000,
+      "unit": "seconds",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Saved count-duration formula, not live donation acceptance; item XP separate."
+      ]
+    },
+    {
+      "id": "MV-034",
+      "title": "Shrine donation count 500",
+      "document": "RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "formula": "floor(60*(15+1425*clamp(n,0,500)/500))",
+      "inputs": {
+        "count": 500
+      },
+      "actual": 86400,
+      "expected": 86400,
+      "unit": "seconds",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Saved count-duration formula, not live donation acceptance; item XP separate."
+      ]
+    },
+    {
+      "id": "MV-035",
+      "title": "Shrine marginal slope",
+      "document": "RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "formula": "60*1425/500",
+      "inputs": {},
+      "actual": 171,
+      "expected": 171,
+      "unit": "seconds/item",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Within count interval; initial 900-second baseline and cap remain separate."
+      ]
+    },
+    {
+      "id": "MV-036",
+      "title": "Halloween 331 threshold sum",
+      "document": "RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "formula": "sum(k=0..330,min(20b+250m*k,170b))",
+      "inputs": {
+        "rebirths": 331
+      },
+      "actual": 20273750000000,
+      "expected": 20273750000000,
+      "unit": "Candycorn threshold quantities",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "One shard/rebirth; no prior balances/shards/other sources; exact-threshold resets; excess forfeiture excluded."
+      ]
+    },
+    {
+      "id": "MV-037",
+      "title": "Wheel raw weight sum",
+      "document": "REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "formula": "sum(weights)",
+      "inputs": {
+        "weights": [
+          45,
+          20,
+          14,
+          10,
+          4,
+          3,
+          2.9,
+          0.1
+        ]
+      },
+      "actual": 99,
+      "expected": 99,
+      "unit": "raw weight",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Literal weights only; missing 1 not filled or silently certified."
+      ]
+    },
+    {
+      "id": "MV-038",
+      "title": "Wheel conditional base coin expectation",
+      "document": "REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "formula": "(45*200+20*450)/99",
+      "inputs": {},
+      "actual": 181.8181818181818,
+      "expected": 181.818,
+      "unit": "Coins/draw",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Hypothetical normalized literal-weight draw; no credit scaling/boosts."
+      ]
+    },
+    {
+      "id": "MV-039",
+      "title": "Wheel conditional returned tickets",
+      "document": "REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "formula": "5*2.9/99",
+      "inputs": {},
+      "actual": 0.14646464646464646,
+      "expected": 0.146465,
+      "unit": "Spin Tickets/draw",
+      "tolerance": 5e-7,
+      "status": "PASS",
+      "assumptions": [
+        "Hypothetical unchanged wheel; draw not play entitlement."
+      ]
+    },
+    {
+      "id": "MV-040",
+      "title": "Wheel pet chance",
+      "document": "REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "formula": "0.1/99",
+      "inputs": {},
+      "actual": 0.00101010101010101,
+      "expected": 0.00101010101010101,
+      "unit": "probability",
+      "tolerance": 1e-15,
+      "status": "PASS",
+      "assumptions": [
+        "Raw conditional model, not final rarity probability."
+      ]
+    },
+    {
+      "id": "MV-041",
+      "title": "Claw conditional Super Ticket expectation",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "1.4/95.91",
+      "inputs": {},
+      "actual": 0.014597018037743718,
+      "expected": 0.014597,
+      "unit": "Super Tickets/raw draw",
+      "tolerance": 5e-7,
+      "status": "PASS",
+      "assumptions": [
+        "One returned ticket on that outcome; accepted roll count/bonus unknown."
+      ]
+    },
+    {
+      "id": "MV-042",
+      "title": "Claw mean draws per replacement ticket",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "95.91/1.4",
+      "inputs": {},
+      "actual": 68.50714285714285,
+      "expected": 68.507,
+      "unit": "raw draws",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Conditional unchanged raw pool; not plays, perpetual funding or refund."
+      ]
+    },
+    {
+      "id": "MV-043",
+      "title": "Match conditional Dice Key expectation",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "2*15/98.5",
+      "inputs": {},
+      "actual": 0.30456852791878175,
+      "expected": 0.3045685,
+      "unit": "Dice Keys/raw draw",
+      "tolerance": 5e-8,
+      "status": "PASS",
+      "assumptions": [
+        "Outcome has two keys; no per-play roll assumption."
+      ]
+    },
+    {
+      "id": "MV-044",
+      "title": "Cart conditional Dice Key expectation",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "2*10/98.8",
+      "inputs": {},
+      "actual": 0.20242914979757085,
+      "expected": 0.2024291,
+      "unit": "Dice Keys/raw draw",
+      "tolerance": 5e-8,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-045",
+      "title": "Biased enchant level distribution sum",
+      "document": "PET_TEAM_AND_ENCHANT_STRATEGY.md",
+      "formula": "sum((k/5)^0.25-((k-1)/5)^0.25)",
+      "inputs": {},
+      "actual": 1,
+      "expected": 1,
+      "unit": "probability",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Independent uniform U; L=ceil(5*U^4); no server distribution claim."
+      ]
+    },
+    {
+      "id": "MV-046",
+      "title": "Biased enchant levelV",
+      "document": "PET_TEAM_AND_ENCHANT_STRATEGY.md",
+      "formula": "1-0.8^0.25",
+      "inputs": {},
+      "actual": 0.05425839099682417,
+      "expected": 0.054258391,
+      "unit": "probability",
+      "tolerance": 5e-10,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-047",
+      "title": "Normal-only Looter/BubblerV",
+      "document": "PET_TEAM_AND_ENCHANT_STRATEGY.md",
+      "formula": "(10/23.5)*P(levelV)",
+      "inputs": {},
+      "actual": 0.023088677019925178,
+      "expected": 0.023088677,
+      "unit": "probability",
+      "tolerance": 5e-10,
+      "status": "PASS",
+      "assumptions": [
+        "Only four normal IDs eligible; no excluded current ID or Special luck."
+      ]
+    },
+    {
+      "id": "MV-048",
+      "title": "Normal-only TeamUpV reciprocal",
+      "document": "PET_TEAM_AND_ENCHANT_STRATEGY.md",
+      "formula": "23.5/P(levelV)",
+      "inputs": {},
+      "actual": 433.1127327637764,
+      "expected": 433.113,
+      "unit": "raw rolls",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Same eligibility assumptions; two slots not independent identical draws."
+      ]
+    },
+    {
+      "id": "MV-049",
+      "title": "Extra pet relative multiplier increase",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "28/19-1",
+      "inputs": {
+        "before": 19,
+        "after": 28
+      },
+      "actual": 0.4736842105263157,
+      "expected": 0.4737,
+      "unit": "relative proportion",
+      "tolerance": 0.00005,
+      "status": "PASS",
+      "assumptions": [
+        "Uncoupled synthetic currency stat team; actual rate proportionality unverified."
+      ]
+    },
+    {
+      "id": "MV-050",
+      "title": "Pets3 synthetic break-even",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "(95000+1000*1)/(1000*(28/19-1))",
+      "inputs": {},
+      "actual": 202.66666666666669,
+      "expected": 202.67,
+      "unit": "productive minutes",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Synthetic1000Coins/min; one-minute lost earnings; useful spare pet."
+      ]
+    },
+    {
+      "id": "MV-051",
+      "title": "Speed addition at H=3",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "0.1/H",
+      "inputs": {
+        "H": 3
+      },
+      "actual": 0.03333333333333333,
+      "expected": 0.0333,
+      "unit": "relative throughput gain",
+      "tolerance": 0.00005,
+      "status": "PASS",
+      "assumptions": [
+        "Potential throughput only; no affordability/storage/server bottleneck."
+      ]
+    },
+    {
+      "id": "MV-052",
+      "title": "Potion duration 15 to20",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "1.2/1.15-1",
+      "inputs": {},
+      "actual": 0.04347826086956519,
+      "expected": 0.0435,
+      "unit": "relative timer gain",
+      "tolerance": 0.00005,
+      "status": "PASS",
+      "assumptions": [
+        "Only mastery duration scalar; existing queue/window omitted."
+      ]
+    },
+    {
+      "id": "MV-053",
+      "title": "Potion duration 20 to25",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "1.25/1.2-1",
+      "inputs": {},
+      "actual": 0.04166666666666674,
+      "expected": 0.0417,
+      "unit": "relative timer gain",
+      "tolerance": 0.00005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-054",
+      "title": "Refresh base to10%",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "1-1/1.1",
+      "inputs": {},
+      "actual": 0.09090909090909094,
+      "expected": 0.0909,
+      "unit": "relative interval reduction",
+      "tolerance": 0.00005,
+      "status": "PASS",
+      "assumptions": [
+        "D/(1+m), other=0; not frequency or direct10% subtraction."
+      ]
+    },
+    {
+      "id": "MV-055",
+      "title": "Refresh10 to20%",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "1-1.1/1.2",
+      "inputs": {},
+      "actual": 0.08333333333333326,
+      "expected": 0.0833,
+      "unit": "relative interval reduction",
+      "tolerance": 0.00005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-056",
+      "title": "Shops1 expected sale spending break-even",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "2500/(0.25*0.1)",
+      "inputs": {},
+      "actual": 100000,
+      "expected": 100000,
+      "unit": "planned eligible base-price Gems",
+      "tolerance": 1e-9,
+      "status": "PASS",
+      "assumptions": [
+        "Sale discount25%; q10%; no rounding/other discounts; necessary existing demand."
+      ]
+    },
+    {
+      "id": "MV-057",
+      "title": "Sale chance10 to25 increment",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "0.25*(0.25-0.1)",
+      "inputs": {},
+      "actual": 0.0375,
+      "expected": 0.0375,
+      "unit": "expected-saving proportion",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-058",
+      "title": "Shops10 sale-only nominal break-even",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "3397000/0.25",
+      "inputs": {},
+      "actual": 13588000,
+      "expected": 13588000,
+      "unit": "planned eligible base-price Gems",
+      "tolerance": 1e-9,
+      "status": "PASS",
+      "assumptions": [
+        "Always-sale q1; 25%discount; excludes earlier realized savings/other package benefits."
+      ]
+    },
+    {
+      "id": "MV-059",
+      "title": "Pets3 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 3
+      },
+      "actual": 95000,
+      "expected": 95000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-060",
+      "title": "Pets3 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 3
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-061",
+      "title": "Pets9 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 9
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-062",
+      "title": "Pets9 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 9
+      },
+      "actual": 23500,
+      "expected": 23500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-063",
+      "title": "Pets10 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 10
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-064",
+      "title": "Pets10 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 10
+      },
+      "actual": 98500,
+      "expected": 98500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-065",
+      "title": "Pets11 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 11
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-066",
+      "title": "Pets11 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 11
+      },
+      "actual": 273500,
+      "expected": 273500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-067",
+      "title": "Pets12 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 12
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-068",
+      "title": "Pets12 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 12
+      },
+      "actual": 723500,
+      "expected": 723500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-069",
+      "title": "Pets14 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 14
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-070",
+      "title": "Pets14 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 14
+      },
+      "actual": 4173500,
+      "expected": 4173500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-071",
+      "title": "Pets15 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 15
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-072",
+      "title": "Pets15 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Pets",
+        "targetTier": 15
+      },
+      "actual": 11673500,
+      "expected": 11673500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-073",
+      "title": "Buffs6 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 6
+      },
+      "actual": 1880500,
+      "expected": 1880500,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-074",
+      "title": "Buffs6 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 6
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-075",
+      "title": "Buffs14 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 14
+      },
+      "actual": 1880500,
+      "expected": 1880500,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-076",
+      "title": "Buffs14 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 14
+      },
+      "actual": 1921450,
+      "expected": 1921450,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-077",
+      "title": "Buffs15 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 15
+      },
+      "actual": 1880500,
+      "expected": 1880500,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-078",
+      "title": "Buffs15 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 15
+      },
+      "actual": 4421450,
+      "expected": 4421450,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-079",
+      "title": "Buffs20 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 20
+      },
+      "actual": 1880500,
+      "expected": 1880500,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-080",
+      "title": "Buffs20 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Buffs",
+        "targetTier": 20
+      },
+      "actual": 334421450,
+      "expected": 334421450,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-081",
+      "title": "Shops5 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Shops",
+        "targetTier": 5
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-082",
+      "title": "Shops5 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Shops",
+        "targetTier": 5
+      },
+      "actual": 72000,
+      "expected": 72000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-083",
+      "title": "Shops10 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Shops",
+        "targetTier": 10
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-084",
+      "title": "Shops10 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Shops",
+        "targetTier": 10
+      },
+      "actual": 3397000,
+      "expected": 3397000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-085",
+      "title": "Shops11 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Shops",
+        "targetTier": 11
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-086",
+      "title": "Shops11 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Shops",
+        "targetTier": 11
+      },
+      "actual": 8397000,
+      "expected": 8397000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-087",
+      "title": "Rifts1 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Rifts",
+        "targetTier": 1
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-088",
+      "title": "Rifts1 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Rifts",
+        "targetTier": 1
+      },
+      "actual": 5000000,
+      "expected": 5000000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-089",
+      "title": "Rifts3 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Rifts",
+        "targetTier": 3
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-090",
+      "title": "Rifts3 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Rifts",
+        "targetTier": 3
+      },
+      "actual": 165000000,
+      "expected": 165000000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-091",
+      "title": "Rifts4 Coin package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Rifts",
+        "targetTier": 4
+      },
+      "actual": 0,
+      "expected": 0,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Document-table arithmetic check only; no native transcription, discount or entitlement verification."
+      ]
+    },
+    {
+      "id": "MV-092",
+      "title": "Rifts4 Gem package",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs by currency",
+      "inputs": {
+        "category": "Rifts",
+        "targetTier": 4
+      },
+      "actual": 1165000000,
+      "expected": 1165000000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-093",
+      "title": "Buffs total Coins",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Buffs"
+      },
+      "actual": 1880500,
+      "expected": 1880500,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-094",
+      "title": "Buffs total Gems",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Buffs"
+      },
+      "actual": 3534421450,
+      "expected": 3534421450,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-095",
+      "title": "Pets total Coins",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Pets"
+      },
+      "actual": 845000,
+      "expected": 845000,
+      "unit": "Coins",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-096",
+      "title": "Pets total Gems",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Pets"
+      },
+      "actual": 11511673500,
+      "expected": 11511673500,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-097",
+      "title": "Shops total Gems",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Shops"
+      },
+      "actual": 8397000,
+      "expected": 8397000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-098",
+      "title": "Minigames total Tickets",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Minigames"
+      },
+      "actual": 32770000000,
+      "expected": 32770000000,
+      "unit": "Tickets",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-099",
+      "title": "Rifts total Gems",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed tier costs",
+      "inputs": {
+        "category": "Rifts"
+      },
+      "actual": 1165000000,
+      "expected": 1165000000,
+      "unit": "Gems",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Nominal table costs only; no live purchase eligibility/discounts."
+      ]
+    },
+    {
+      "id": "MV-100",
+      "title": "Christmas retained price sum",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed seasonal costs",
+      "inputs": {
+        "category": "Christmas"
+      },
+      "actual": 867435000000,
+      "expected": 867435000000,
+      "unit": "Snowflakes",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Retained hidden branch; arithmetic does not establish current event availability."
+      ]
+    },
+    {
+      "id": "MV-101",
+      "title": "Easter retained price sum",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed seasonal costs",
+      "inputs": {
+        "category": "Easter"
+      },
+      "actual": 1917435000000,
+      "expected": 1917435000000,
+      "unit": "EasterEggs",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Retained hidden branch; arithmetic does not establish current event availability."
+      ]
+    },
+    {
+      "id": "MV-102",
+      "title": "Summer retained price sum",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "sum printed seasonal costs",
+      "inputs": {
+        "category": "Summer"
+      },
+      "actual": 1917435000000,
+      "expected": 1917435000000,
+      "unit": "TropicalSeashells",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Retained hidden branch; arithmetic does not establish current event availability."
+      ]
+    },
+    {
+      "id": "MV-103",
+      "title": "Printed tier count",
+      "document": "MASTERY_ROI_RESEARCH.md",
+      "formula": "permanent rows + nonnull seasonal cells",
+      "inputs": {},
+      "actual": 115,
+      "expected": 115,
+      "unit": "tier rows",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "Count of document rows, not independently verified runtime effects."
+      ]
+    },
+    {
+      "id": "MV-104",
+      "title": "starter raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "starter"
+      },
+      "actual": 60.350684359209,
+      "expected": 60.35,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-105",
+      "title": "starter raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "starter"
+      },
+      "actual": 502.6600000000001,
+      "expected": 502.66,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-106",
+      "title": "blizzard raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "blizzard"
+      },
+      "actual": 363.5122344527799,
+      "expected": 363.51,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-107",
+      "title": "blizzard raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "blizzard"
+      },
+      "actual": 3328.0333333333338,
+      "expected": 3328.03,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-108",
+      "title": "jungle raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "jungle"
+      },
+      "actual": 1676.565795919183,
+      "expected": 1676.57,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-109",
+      "title": "jungle raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "jungle"
+      },
+      "actual": 6668.600000000002,
+      "expected": 6668.6,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-110",
+      "title": "lava raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "lava"
+      },
+      "actual": 5492.7026134965645,
+      "expected": 5492.7,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-111",
+      "title": "lava raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "lava"
+      },
+      "actual": 33327,
+      "expected": 33327,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-112",
+      "title": "atlantis raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "atlantis"
+      },
+      "actual": 9240.499066841781,
+      "expected": 9240.5,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-113",
+      "title": "atlantis raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "atlantis"
+      },
+      "actual": 67512.66666666664,
+      "expected": 67512.67,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-114",
+      "title": "dream raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "dream"
+      },
+      "actual": 9228.848767613468,
+      "expected": 9228.85,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-115",
+      "title": "dream raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "dream"
+      },
+      "actual": 101165.49999999997,
+      "expected": 101165.5,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-116",
+      "title": "classic raw mean fish XP",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight*baseXP)/sum(weight)",
+      "inputs": {
+        "area": "classic"
+      },
+      "actual": 9212.365022862337,
+      "expected": 9212.37,
+      "unit": "XP/raw draw",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": [
+        "Preserved catalog records; no rod/luck/mutation/modifiers/accepted catch rate."
+      ]
+    },
+    {
+      "id": "MV-117",
+      "title": "classic raw rare mean",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(weight)/minimumWeight",
+      "inputs": {
+        "area": "classic"
+      },
+      "actual": 201422.99999999994,
+      "expected": 201423,
+      "unit": "raw draws",
+      "tolerance": 0.005,
+      "status": "PASS",
+      "assumptions": []
+    },
+    {
+      "id": "MV-118",
+      "title": "Starter rare95% tail",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "ceil(log(0.05)/log1p(-0.2/100.532))",
+      "inputs": {},
+      "actual": 1505,
+      "expected": 1505,
+      "unit": "raw draws",
+      "tolerance": 0,
+      "status": "PASS",
+      "assumptions": [
+        "IID unchanged raw pool; catching rarest does not complete all index entries."
+      ]
+    },
+    {
+      "id": "MV-119",
+      "title": "Mutation conditional share 0",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "weight/9.5",
+      "inputs": {
+        "weight": 5
+      },
+      "actual": 0.5263157894736842,
+      "expected": 0.526,
+      "unit": "conditional probability",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Conditioned on mutation; not unconditional catch probability."
+      ]
+    },
+    {
+      "id": "MV-120",
+      "title": "Mutation conditional share 1",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "weight/9.5",
+      "inputs": {
+        "weight": 3
+      },
+      "actual": 0.3157894736842105,
+      "expected": 0.316,
+      "unit": "conditional probability",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Conditioned on mutation; not unconditional catch probability."
+      ]
+    },
+    {
+      "id": "MV-121",
+      "title": "Mutation conditional share 2",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "weight/9.5",
+      "inputs": {
+        "weight": 1
+      },
+      "actual": 0.10526315789473684,
+      "expected": 0.105,
+      "unit": "conditional probability",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Conditioned on mutation; not unconditional catch probability."
+      ]
+    },
+    {
+      "id": "MV-122",
+      "title": "Mutation conditional share 3",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "weight/9.5",
+      "inputs": {
+        "weight": 0.5
+      },
+      "actual": 0.05263157894736842,
+      "expected": 0.053,
+      "unit": "conditional probability",
+      "tolerance": 0.0005,
+      "status": "PASS",
+      "assumptions": [
+        "Conditioned on mutation; not unconditional catch probability."
+      ]
+    },
+    {
+      "id": "MV-123",
+      "title": "Board normalized weight sum",
+      "document": "FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "formula": "sum(0.1,1,0.3,0.25,1.5,1.5)",
+      "inputs": {},
+      "actual": 4.65,
+      "expected": 4.65,
+      "unit": "raw weight",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "Hypothetical native node1 window, no chosen destination action."
+      ]
+    },
+    {
+      "id": "MV-124",
+      "title": "Two-missing coupon collector identity",
+      "document": "REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "formula": "sum inclusion-exclusion versus first-hit recurrence",
+      "inputs": {
+        "missingPs": [
+          0.2,
+          0.3
+        ]
+      },
+      "actual": 6.333333333333334,
+      "expected": 6.333333333333333,
+      "unit": "draws",
+      "tolerance": 1e-12,
+      "status": "PASS",
+      "assumptions": [
+        "IID mutually exclusive disjoint pet outcomes, positive missing probabilities; extra outcomes allowed."
+      ]
+    }
+  ],
+  "limitations": [
+    "Conditional RNG/independence/normalization, full paid batches, useful-team baselines and measured rates must be verified separately.",
+    "Native saved source fidelity and publication/body scopes are not re-audited by arithmetic.",
+    "Mastery totals are checked against printed tier inputs, not re-read native scripts.",
+    "No permission to spend, reset, reroll or automate is created."
+  ]
+}

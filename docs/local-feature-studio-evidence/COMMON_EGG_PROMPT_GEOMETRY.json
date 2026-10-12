@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-11",
+  "studioId": "681d6e17-4b4e-443e-8997-73c126b5e682",
+  "mode": "Edit",
+  "scope": "Saved Common Egg Root/Prompt geometry; duplicate matches are not treated as current account/live availability",
+  "observations": [
+    {
+      "path": "Workspace.Rendered.Chunker.Common Egg.Root",
+      "className": "Part",
+      "position": "-10.255278587341309, 7.736116409301758, -79.81158447265625",
+      "size": "1.2000000476837158, 0.20000000298023224, 1.2000000476837158"
+    },
+    {
+      "path": "Workspace.Rendered.Chunker.Common Egg.Root",
+      "className": "Part",
+      "position": "-80.87321472167969, 8.228915214538574, 5.961015224456787",
+      "size": "1.2000000476837158, 0.20000000298023224, 1.2000000476837158"
+    },
+    {
+      "path": "Workspace.Rendered.Chunker.Common Egg.Prompt",
+      "className": "Part",
+      "position": "-7.755280017852783, 9.136112213134766, -79.81158447265625",
+      "size": "0.800000011920929, 0.6000000238418579, 0.6000000238418579"
+    },
+    {
+      "path": "Workspace.Rendered.Chunker.Common Egg.Prompt",
+      "className": "Part",
+      "position": "-82.3071517944336, 9.62890911102295, 3.91314435005188",
+      "size": "0.800000011920929, 0.6000000238418579, 0.6000000238418579"
+    }
+  ]
+}

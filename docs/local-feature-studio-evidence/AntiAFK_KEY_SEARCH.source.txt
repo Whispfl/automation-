@@ -1,0 +1,16 @@
+Read date: 2026-10-11
+Studio: 681d6e17-4b4e-443e-8997-73c126b5e682
+Mode: Edit; read-only script-grep queries. No input, Lua execution or play-state change.
+
+Query: ScrollLock
+Returned: No matches found for the given query.
+
+Query: Enum.KeyCode.F13
+Returned: No matches found for the given query.
+
+Query: Enum.KeyCode.F15
+Returned: No matches found for the given query.
+
+Limits: Search is a discovery result over accessible script text, not a universal binding or enum-support proof. Dynamic profile.Settings bindings require a fresh runtime collision guard. Engine/core input bindings and unseen handlers remain outside this source check.
+
+Demonstrated dynamic binding source: ReplicatedStorage.Client.Gui.HookKeybind42-55,94-115; ReplicatedStorage.Client.Gui.Frames.Settings331-347. R is default Auto Hatch in Shared.Data.Settings38. AFKReport638-649 ignores None/MouseMovement; other InputBegan reaches onUnidled. AFKReport261-276 public Get returns report.Pets;550-604 can open report UI when pets remain. Safe runtime must suppress those pending/visible contexts.

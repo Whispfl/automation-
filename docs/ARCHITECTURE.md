@@ -105,7 +105,7 @@ Permanent and event definitions may persist after gameplay is unavailable.
 ## Delivery rules
 
 Studio remains unchanged and read-only. All sources and the generated bundle live
-in ryanrooflead-source/OCscript. Central OCConfig naming and custom Config entry
+in Whispfl/automation-. Central OCConfig naming and custom Config entry
 remain unchanged. Each fix rebuilds, compiles/tests, commits/pushes and verifies the
 public raw URL. The owner runs the loader and reports results; phase approval is
 explicit. Phase 2's agreed scope is approved, Phase 3 is authorized with documented

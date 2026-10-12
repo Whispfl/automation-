@@ -44,6 +44,7 @@ function StationaryExperiment:Collect(decision, token, canContinue)
 	local before = owner.Reader:ReadBalances()
 	if not owner.Tracker:Root() or type(before.Coins) ~= "number" or type(before.Gems) ~= "number" then return { Verified = false, Reason = "Ready LocalData Coins/Gems and root required; no request dispatched" } end
 	local areaKey, started = owner.Tracker.Current.Key, os.clock()
+	local rewardEpoch = owner.Controller.RewardAttributionEpoch or 0
 	local deadline = started + owner.Config.FARMING_SETTINGS.ACTION_SLICE_SECONDS
 	local raw = owner.Reader:GetLiveProfile()
 	local initialBubble = raw and raw.Bubble and raw.Bubble.Amount
@@ -52,6 +53,8 @@ function StationaryExperiment:Collect(decision, token, canContinue)
 	local contaminated, missing, areaChanged = decision.HatchSpending == true, false, false
 	local ids, currencies, outside, invocationSucceeded, cleaned = {}, {}, 0, true, 0
 	local function observe()
+		if rewardEpoch ~= (owner.Controller.RewardAttributionEpoch or 0)
+			or owner.Controller.RewardAttributionBlocked and owner.Controller:RewardAttributionBlocked() then contaminated = true end
 		after = owner.Reader:ReadBalances()
 		for _, currency in ipairs({ "Coins", "Gems" }) do
 			if type(after[currency]) ~= "number" then missing = true
@@ -144,7 +147,7 @@ function StationaryExperiment:Collect(decision, token, canContinue)
 			or contaminated and "Stationary window contaminated by sale/spending; credit unconfirmed"
 			or missing and "LocalData unavailable; stationary credit unconfirmed" or "No matching LocalData credit; server acceptance unknown; no movement fallback"
 	end
-	if not cancelled then
+	if not cancelled and not contaminated and not missing and not areaChanged then
 		local sampleStart = self.LastSampleArea == areaKey and self.LastSampleAt or started
 		owner.Metrics:AddSample("STATIONARY", areaKey, gains, os.clock() - sampleStart, os.clock())
 		self.LastSampleAt, self.LastSampleArea = os.clock(), areaKey
@@ -155,7 +158,7 @@ function StationaryExperiment:Collect(decision, token, canContinue)
 	self.LastResult = { Ids = ids, BatchSize = #ids, CreditObserved = credit, Gains = gains, Before = before, After = after,
 		ObservedDeltas = deltas, ProcessingSeconds = processingSeconds, WindowSeconds = os.clock() - started, Outcome = outcome, Cancelled = cancelled,
 		VisualsCleaned = cleaned, OutsideNativeRange = outside > 0, OutsideNativeCount = outside, Contaminated = contaminated or missing or areaChanged,
-		InvocationSucceeded = invocationSucceeded, Reason = cancelled and reason or owner.Metrics.LastConfirmation, Attribution = "UNPROVEN: native collection/external rewards can contribute" }
+		InvocationSucceeded = invocationSucceeded, Reason = cancelled and reason or owner.Metrics.LastConfirmation, Attribution = "UNPROVEN: native collection/external rewards can contribute; OC playtime/box overlap excluded" }
 	owner.Controller:Log("PICKUP][STATIONARY_RESULT", string.format("batch=%d visualsCleaned=%d processing=%.3fs window=%.3fs outcome=%s creditObserved=%s outsideNative=%d | Coins gained=%s (%s -> %s) | Gems gained=%s (%s -> %s) | %s",
 		#ids, cleaned, processingSeconds, os.clock() - started, outcome, tostring(credit), outside, tostring(deltas.Coins or "UNKNOWN"), tostring(before.Coins), tostring(after.Coins),
 		tostring(deltas.Gems or "UNKNOWN"), tostring(before.Gems), tostring(after.Gems), self.LastResult.Reason))

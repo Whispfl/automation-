@@ -48,6 +48,7 @@ function AccountStateReader.new(config, player)
 	self.StartedAt = nil
 	self.Revision = 0
 	self.DiscoveredCurrencies = {}
+	self.NativeGiftFacts = { Available = false, Revision = 0, Records = {}, Reason = "Ordinary gift observer not bound" }
 	self.Snapshot = { Ready = false, Status = "NOT_STARTED", Diagnostics = {}, Revision = 0 }
 	return self
 end
@@ -102,6 +103,7 @@ function AccountStateReader:_load(name, path, expectedType)
 				end
 			end
 		end
+		if name == "Remote" and ok then self:_bindNativeGiftObserver() end
 		self:Refresh()
 	end))
 	table.insert(self.Threads, task.delay(self.Config.ACCOUNT_SETTINGS.MODULE_LOAD_TIMEOUT_SECONDS, function()
@@ -115,6 +117,75 @@ end
 function AccountStateReader:_dependency(name)
 	local entry = self.Dependencies[name]
 	return entry and entry.Status == "READY" and entry.Value or nil
+end
+
+-- The public RenderGifts callback supplies identity before PhysicalItem stores
+-- only an ID-named BasePart. Observe that event; never inspect private closures.
+function AccountStateReader:_acceptNativeGiftFacts(payload)
+	local state = self.NativeGiftFacts
+	if self.Destroyed or not state or not state.Available then return end
+	local function reject(reason)
+		state.Available, state.Reason = false, reason
+		self:_queueRefresh()
+	end
+	if type(payload) ~= "table" then reject("Malformed native RenderGifts payload; ordinary identity blocked") return end
+	local updates = {}
+	for id, record in pairs(payload) do
+		if type(id) ~= "string" or id == "" or type(record) ~= "table" or type(record.Name) ~= "string" or record.Name == ""
+			or typeof(record.Position) ~= "Vector3" then
+			reject("Malformed native RenderGifts identity; ordinary identity blocked") return
+		end
+		local position = record.Position
+		for _, axis in ipairs({ position.X, position.Y, position.Z }) do
+			if type(axis) ~= "number" or axis ~= axis or math.abs(axis) == math.huge then
+				reject("Nonfinite native RenderGifts position; ordinary identity blocked") return
+			end
+		end
+		local previous = state.Records[id]
+		if previous and (previous.Name ~= record.Name or previous.Position.X ~= position.X
+			or previous.Position.Y ~= position.Y or previous.Position.Z ~= position.Z) then
+			reject("Conflicting native gift ID identity; ordinary identity blocked") return
+		end
+		if not previous then updates[id] = { Name = record.Name, Position = position } end
+	end
+	state.Revision += 1
+	for id, record in pairs(updates) do
+		record.Revision = state.Revision
+		state.Records[id] = record
+	end
+	self:_queueRefresh()
+end
+
+function AccountStateReader:_bindNativeGiftObserver()
+	local state = self.NativeGiftFacts
+	if self.Destroyed or not self.Config.ACCOUNT_SETTINGS.ENABLE_ACCOUNT_READER
+		or not self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES or self.NativeGiftObserverAttempted then return end
+	local remote = self:_dependency("Remote")
+	if not remote then return end -- The normal dependency loader will bind once ready.
+	self.NativeGiftObserverAttempted = true
+	local epochOK, epoch = pcall(function() return game:GetService("HttpService"):GenerateGUID(false) end)
+	if not epochOK or type(epoch) ~= "string" or epoch == "" then state.Reason = "Unique reader gift identity epoch unavailable" return end
+	state.Epoch = epoch
+	if type(remote.Event) ~= "function" then state.Reason = "Native RenderGifts event unavailable" return end
+	local eventOK, signal = pcall(remote.Event, "RenderGifts") -- Native interface uses dot syntax.
+	if not eventOK or not signal then state.Reason = "Native RenderGifts signal unavailable" return end
+	local connected, connection = pcall(function()
+		return signal:Connect(function(payload) self:_acceptNativeGiftFacts(payload) end)
+	end)
+	if not connected or not connection then state.Reason = "Native RenderGifts observer connection unavailable" return end
+	self.NativeGiftConnection = connection
+	table.insert(self.Connections, connection)
+	state.Available, state.Reason = true, nil
+end
+
+function AccountStateReader:GetNativeGiftFacts()
+	self:_bindNativeGiftObserver()
+	local state, records = self.NativeGiftFacts, {}
+	for id, record in pairs(state.Records) do
+		records[id] = table.freeze({ Name = record.Name, Position = record.Position, Revision = record.Revision })
+	end
+	return table.freeze({ Available = not self.Destroyed and state.Available, Epoch = state.Epoch,
+		Revision = state.Revision, Records = table.freeze(records), Reason = self.Destroyed and "Reader destroyed" or state.Reason })
 end
 
 function AccountStateReader:_stat(method, raw, diagnostics)
@@ -438,17 +509,38 @@ function AccountStateReader:Start()
 			self:_load(name, path)
 		end
 		local pets = self.Config.PET_SETTINGS
+		if self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then self:_load("ProximityPrompt", "Client.Gui.ProximityPrompt") end
+		local localFeatures = self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL
+			or self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME
+			or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
+			or self.Config.ANTIAFK_SETTINGS.ENABLE_ANTI_AFK
+		if self.Config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL and not pets.ENABLE_PET_INTELLIGENCE then
+			self:_load("Eggs", "Shared.Data.Eggs")
+			self:_load("WorldUtil", "Shared.Utils.WorldUtil")
+		end
+		if localFeatures then
+			self:_load("Time", "Shared.Framework.Utilities.Math.Time")
+			self:_load("HatchPresentation", "Client.Effects.HatchEgg")
+		end
+		if self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME then self:_load("Playtime", "Shared.Data.Playtime") end
+		if self.Config.ANTIAFK_SETTINGS.ENABLE_ANTI_AFK then self:_load("AFKReport", "Client.AFKReport") end
+		if self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES then
+			self:_load("Powerups", "Shared.Data.Powerups")
+			self:_load("Constants", "Shared.Constants")
+			self:_load("ItemUtil", "Shared.Utils.Stats.ItemUtil")
+			self:_load("PhysicalGift", "Client.Effects.PhysicalItem.Gift")
+		end
 		if pets.ENABLE_PET_INTELLIGENCE then
 			self:_load("Eggs", "Shared.Data.Eggs") self:_load("Pets", "Shared.Data.Pets")
 			self:_load("PetUtil", "Shared.Utils.Stats.PetUtil")
 			self:_load("GetEggPool", "Shared.Utils.GetEggPool", "function")
 			self:_load("WorldUtil", "Shared.Utils.WorldUtil")
-			if pets.AUTO_HATCH then
+			if pets.AUTO_HATCH and not localFeatures then
 				self:_load("HatchPresentation", "Client.Effects.HatchEgg")
 				self:_load("Time", "Shared.Framework.Utilities.Math.Time")
 			end
 		end
-		if self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION
+		if localFeatures or self.Config.FARMING_SETTINGS.AUTO_RESOURCE_FARM or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION
 			or (pets.ENABLE_PET_INTELLIGENCE and (pets.AUTO_HATCH or pets.AUTO_EQUIP)) then
 			if self.Config.PICKUP_SETTINGS.BULK_COLLECT_PICKUPS and self.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING
 				and self.Config.PICKUP_SETTINGS.ENABLE_NATIVE_REGISTRY_DISCOVERY then
@@ -477,6 +569,7 @@ end
 function AccountStateReader:Destroy()
 	if self.Destroyed then return end
 	self.Destroyed = true
+	self.NativeGiftFacts.Available = false
 	if self.RefreshThread then pcall(task.cancel, self.RefreshThread) end
 	for _, connection in ipairs(self.Connections) do connection:Disconnect() end
 	for _, thread in ipairs(self.Threads) do pcall(task.cancel, thread) end

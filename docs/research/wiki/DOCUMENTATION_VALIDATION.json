@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-11",
+  "result": "PASS_WITH_DOCUMENTED_ACCESS_LIMITS",
+  "scope": "Stage2 JSON/JSONL structure, normalized aggregation consistency, required classification/date fields, local Markdown file/heading links, exact external URL syntax, final reviewed-file snapshots, referenced preservation/math/primary results",
+  "counts": {
+    "stage2FilesScanned": 44,
+    "markdownFiles": 27,
+    "jsonOrJsonlFilesParsed": 17,
+    "localMarkdownLinkOccurrences": 916,
+    "externalMarkdownUrlsCheckedForSyntax": 440,
+    "sourceAggregateMatches": 83,
+    "claimAggregateMatches": 153,
+    "primaryLedgerSha256Matches": 8,
+    "mathReviewedDocumentSha256Matches": 7,
+    "sourceAccessRecords": 83,
+    "claimRecords": 153,
+    "distinctExternalUrls": 72,
+    "bodyEvidenceAccessRecords": 61,
+    "distinctBodyEvidenceUrls": 53,
+    "errors": 0
+  },
+  "errors": [],
+  "warnings": [],
+  "delegatedNativeReferenceValidation": {
+    "report": "PRIMARY_EVIDENCE_VALIDATION.json",
+    "result": "PASS_WITH_EXEMPTIONS",
+    "nativeScriptRefs": 230,
+    "numericSpans": 358,
+    "stage1DocumentRefs": 233,
+    "workspacePropertyExemptions": 8
+  },
+  "mathValidation": {
+    "report": "MATH_VALIDATION.json",
+    "assertions": 124,
+    "failed": 0
+  },
+  "limitations": [
+    "Markdown links checked by local file existence and GitHub-style heading slugs where possible; code fences ignored.",
+    "External URLs checked for syntax and preserved actual access provenance; no blanket claim of current URL availability or exhaustive article coverage.",
+    "Primary agent validated all allowed primary and secondary classification labels in normalized views; specialist classification counts may refer only to directly recorded primary arrays.",
+    "Native path/line bounds do not prove semantic support, final server behavior or live action acceptance.",
+    "This validation runs no OC build/test, game code, Studio action or network/GitHub operation.",
+    "Archive integrity is recorded in the separate external backup verification manifest."
+  ],
+  "finalCoverageReviewIncluded": true
+}

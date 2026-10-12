@@ -57,5 +57,5 @@ local Config = {
 }
 
 local OC = loadstring(game:HttpGet(
-	"https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"
+	"https://raw.githubusercontent.com/Whispfl/automation-/main/dist/OC.lua"
 ))()(Config)

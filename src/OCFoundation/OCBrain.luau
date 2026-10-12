@@ -439,4 +439,15 @@ function OCBrain:Plan(snapshot, token)
 		ReservationPolicy = "Farming policy and native upgrade adapter enforce spending reserves before currency purchases." }
 end
 
+-- Scoped local additions arbitrate through the same Brain and foreground scheduler.
+-- Managers expose eligibility/state; they create no competing gameplay loops.
+function OCBrain:SelectLocalFeature(controller, plan)
+	for _, entry in ipairs({ { "REWARDS", controller.Rewards }, { "EGG_TRAVEL", controller.EggTravel },
+		{ "ANTI_AFK", controller.AntiAFK } }) do
+		local owns, decision = entry[2]:Select(plan)
+		if owns then return entry[1], decision end
+	end
+	return nil
+end
+
 return OCBrain

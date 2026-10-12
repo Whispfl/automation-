@@ -1,0 +1,1956 @@
+{
+  "evidence": "SOURCE_CONFIRMED_SAVED_CATALOG_ONLY",
+  "scope": "Relative weights and fish numeric facts, no live/server validation, no buffs/mutations applied",
+  "fish": [
+    {
+      "name": "Bass",
+      "xp": 25,
+      "value": 1,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 8
+    },
+    {
+      "name": "Tuna Fish",
+      "xp": 25,
+      "value": 1,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 9
+    },
+    {
+      "name": "Summer Flounder",
+      "xp": 35,
+      "value": 2,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 10
+    },
+    {
+      "name": "Perch",
+      "xp": 35,
+      "value": 2,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 11
+    },
+    {
+      "name": "Mudfish",
+      "xp": 40,
+      "value": 3,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 12
+    },
+    {
+      "name": "Permit",
+      "xp": 45,
+      "value": 4,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 13
+    },
+    {
+      "name": "Salmon",
+      "xp": 50,
+      "value": 5,
+      "rarity": "Common",
+      "catalogArea": "starter",
+      "sourceLine": 14
+    },
+    {
+      "name": "Catfish",
+      "xp": 60,
+      "value": 7,
+      "rarity": "Rare",
+      "catalogArea": "starter",
+      "sourceLine": 15
+    },
+    {
+      "name": "River Carp",
+      "xp": 65,
+      "value": 8,
+      "rarity": "Rare",
+      "catalogArea": "starter",
+      "sourceLine": 16
+    },
+    {
+      "name": "Cod",
+      "xp": 70,
+      "value": 9,
+      "rarity": "Rare",
+      "catalogArea": "starter",
+      "sourceLine": 17
+    },
+    {
+      "name": "Roosterfish",
+      "xp": 75,
+      "value": 10,
+      "rarity": "Rare",
+      "catalogArea": "starter",
+      "sourceLine": 18
+    },
+    {
+      "name": "Verdant Snapper",
+      "xp": 90,
+      "value": 12,
+      "rarity": "Rare",
+      "catalogArea": "starter",
+      "sourceLine": 19
+    },
+    {
+      "name": "Koromo Koi",
+      "xp": 105,
+      "value": 14,
+      "rarity": "Epic",
+      "catalogArea": "starter",
+      "sourceLine": 20
+    },
+    {
+      "name": "Queen Snapper",
+      "xp": 120,
+      "value": 16,
+      "rarity": "Epic",
+      "catalogArea": "starter",
+      "sourceLine": 21
+    },
+    {
+      "name": "Shortbill Spearfish",
+      "xp": 130,
+      "value": 18,
+      "rarity": "Epic",
+      "catalogArea": "starter",
+      "sourceLine": 22
+    },
+    {
+      "name": "Shrimp",
+      "xp": 145,
+      "value": 22,
+      "rarity": "Epic",
+      "catalogArea": "starter",
+      "sourceLine": 23
+    },
+    {
+      "name": "Rockfish",
+      "xp": 160,
+      "value": 25,
+      "rarity": "Epic",
+      "catalogArea": "starter",
+      "sourceLine": 24
+    },
+    {
+      "name": "Lionfish",
+      "xp": 250,
+      "value": 40,
+      "rarity": "Legendary",
+      "catalogArea": "starter",
+      "sourceLine": 25
+    },
+    {
+      "name": "Golden Koi",
+      "xp": 375,
+      "value": 60,
+      "rarity": "Legendary",
+      "catalogArea": "starter",
+      "sourceLine": 26
+    },
+    {
+      "name": "Lemon Shark",
+      "xp": 500,
+      "value": 75,
+      "rarity": "Legendary",
+      "catalogArea": "starter",
+      "sourceLine": 27
+    },
+    {
+      "name": "Silver Shad",
+      "xp": 180,
+      "value": 10,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 28
+    },
+    {
+      "name": "Snow Smelt",
+      "xp": 220,
+      "value": 12,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 29
+    },
+    {
+      "name": "Glacier Bass",
+      "xp": 240,
+      "value": 14,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 30
+    },
+    {
+      "name": "Ice Minnow",
+      "xp": 275,
+      "value": 16,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 31
+    },
+    {
+      "name": "Pale Perch",
+      "xp": 300,
+      "value": 18,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 32
+    },
+    {
+      "name": "Frost Trout",
+      "xp": 325,
+      "value": 20,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 33
+    },
+    {
+      "name": "Frostbite Barracuda",
+      "xp": 350,
+      "value": 22,
+      "rarity": "Common",
+      "catalogArea": "blizzard",
+      "sourceLine": 34
+    },
+    {
+      "name": "Glassfish",
+      "xp": 400,
+      "value": 25,
+      "rarity": "Rare",
+      "catalogArea": "blizzard",
+      "sourceLine": 35
+    },
+    {
+      "name": "Frozen Catfish",
+      "xp": 425,
+      "value": 25,
+      "rarity": "Rare",
+      "catalogArea": "blizzard",
+      "sourceLine": 36
+    },
+    {
+      "name": "Blue Loach",
+      "xp": 450,
+      "value": 28,
+      "rarity": "Rare",
+      "catalogArea": "blizzard",
+      "sourceLine": 37
+    },
+    {
+      "name": "Crystal Clownfish",
+      "xp": 475,
+      "value": 30,
+      "rarity": "Rare",
+      "catalogArea": "blizzard",
+      "sourceLine": 38
+    },
+    {
+      "name": "Crystalfish",
+      "xp": 500,
+      "value": 32,
+      "rarity": "Rare",
+      "catalogArea": "blizzard",
+      "sourceLine": 39
+    },
+    {
+      "name": "Tundra Devilfish",
+      "xp": 600,
+      "value": 40,
+      "rarity": "Epic",
+      "catalogArea": "blizzard",
+      "sourceLine": 40
+    },
+    {
+      "name": "Ice Pike",
+      "xp": 650,
+      "value": 45,
+      "rarity": "Epic",
+      "catalogArea": "blizzard",
+      "sourceLine": 41
+    },
+    {
+      "name": "Moonlit Carp",
+      "xp": 675,
+      "value": 55,
+      "rarity": "Epic",
+      "catalogArea": "blizzard",
+      "sourceLine": 42
+    },
+    {
+      "name": "Shiver Ray",
+      "xp": 700,
+      "value": 60,
+      "rarity": "Epic",
+      "catalogArea": "blizzard",
+      "sourceLine": 43
+    },
+    {
+      "name": "Arctic Grayling",
+      "xp": 750,
+      "value": 70,
+      "rarity": "Epic",
+      "catalogArea": "blizzard",
+      "sourceLine": 44
+    },
+    {
+      "name": "Reef Fish",
+      "xp": 1250,
+      "value": 110,
+      "rarity": "Legendary",
+      "catalogArea": "blizzard",
+      "sourceLine": 45
+    },
+    {
+      "name": "Icejaw Eel",
+      "xp": 2000,
+      "value": 140,
+      "rarity": "Legendary",
+      "catalogArea": "blizzard",
+      "sourceLine": 46
+    },
+    {
+      "name": "Snowdrift Wyrm",
+      "xp": 4000,
+      "value": 200,
+      "rarity": "Legendary",
+      "catalogArea": "blizzard",
+      "sourceLine": 47
+    },
+    {
+      "name": "Atlantic Herring",
+      "xp": 1000,
+      "value": 60,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 48
+    },
+    {
+      "name": "Sand Minnow",
+      "xp": 1100,
+      "value": 65,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 49
+    },
+    {
+      "name": "Clownfish",
+      "xp": 1225,
+      "value": 70,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 50
+    },
+    {
+      "name": "Pink Salmon",
+      "xp": 1300,
+      "value": 73,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 51
+    },
+    {
+      "name": "Coral Carp",
+      "xp": 1400,
+      "value": 77,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 52
+    },
+    {
+      "name": "Blue Marlin",
+      "xp": 1500,
+      "value": 80,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 53
+    },
+    {
+      "name": "Northern Red Snapper",
+      "xp": 1600,
+      "value": 85,
+      "rarity": "Common",
+      "catalogArea": "jungle",
+      "sourceLine": 54
+    },
+    {
+      "name": "Common Fangtooth",
+      "xp": 1800,
+      "value": 100,
+      "rarity": "Rare",
+      "catalogArea": "jungle",
+      "sourceLine": 55
+    },
+    {
+      "name": "Sailfish",
+      "xp": 2000,
+      "value": 115,
+      "rarity": "Rare",
+      "catalogArea": "jungle",
+      "sourceLine": 56
+    },
+    {
+      "name": "Swordfish",
+      "xp": 2250,
+      "value": 130,
+      "rarity": "Rare",
+      "catalogArea": "jungle",
+      "sourceLine": 57
+    },
+    {
+      "name": "Queen Parrotfish",
+      "xp": 2500,
+      "value": 140,
+      "rarity": "Rare",
+      "catalogArea": "jungle",
+      "sourceLine": 58
+    },
+    {
+      "name": "Stingray",
+      "xp": 2700,
+      "value": 150,
+      "rarity": "Rare",
+      "catalogArea": "jungle",
+      "sourceLine": 59
+    },
+    {
+      "name": "Anglerfish",
+      "xp": 3500,
+      "value": 165,
+      "rarity": "Epic",
+      "catalogArea": "jungle",
+      "sourceLine": 60
+    },
+    {
+      "name": "Green Moray Eel",
+      "xp": 3800,
+      "value": 180,
+      "rarity": "Epic",
+      "catalogArea": "jungle",
+      "sourceLine": 61
+    },
+    {
+      "name": "Guineafowl Pufferfish",
+      "xp": 4200,
+      "value": 200,
+      "rarity": "Epic",
+      "catalogArea": "jungle",
+      "sourceLine": 62
+    },
+    {
+      "name": "Hammerhead Shark",
+      "xp": 4500,
+      "value": 220,
+      "rarity": "Epic",
+      "catalogArea": "jungle",
+      "sourceLine": 63
+    },
+    {
+      "name": "Pacific Blackdragon",
+      "xp": 4850,
+      "value": 250,
+      "rarity": "Epic",
+      "catalogArea": "jungle",
+      "sourceLine": 64
+    },
+    {
+      "name": "Oarfish",
+      "xp": 7500,
+      "value": 750,
+      "rarity": "Legendary",
+      "catalogArea": "jungle",
+      "sourceLine": 65
+    },
+    {
+      "name": "Seahorse",
+      "xp": 10000,
+      "value": 1000,
+      "rarity": "Legendary",
+      "catalogArea": "jungle",
+      "sourceLine": 66
+    },
+    {
+      "name": "Giant Squid",
+      "xp": 20000,
+      "value": 2000,
+      "rarity": "Legendary",
+      "catalogArea": "jungle",
+      "sourceLine": 67
+    },
+    {
+      "name": "Aurate Tuna",
+      "xp": 4000,
+      "value": 200,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 68
+    },
+    {
+      "name": "Ombre Chevalier",
+      "xp": 4350,
+      "value": 225,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 69
+    },
+    {
+      "name": "Heated Perch",
+      "xp": 4500,
+      "value": 250,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 70
+    },
+    {
+      "name": "Yellow Loach",
+      "xp": 4750,
+      "value": 275,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 71
+    },
+    {
+      "name": "Sunset Minnow",
+      "xp": 5000,
+      "value": 300,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 72
+    },
+    {
+      "name": "Sunset Crystalfish",
+      "xp": 5300,
+      "value": 325,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 73
+    },
+    {
+      "name": "Ashen Carp",
+      "xp": 5500,
+      "value": 350,
+      "rarity": "Common",
+      "catalogArea": "lava",
+      "sourceLine": 74
+    },
+    {
+      "name": "Fire Ray",
+      "xp": 6000,
+      "value": 400,
+      "rarity": "Rare",
+      "catalogArea": "lava",
+      "sourceLine": 75
+    },
+    {
+      "name": "Golden Lionfish",
+      "xp": 6400,
+      "value": 425,
+      "rarity": "Rare",
+      "catalogArea": "lava",
+      "sourceLine": 76
+    },
+    {
+      "name": "Lava Piercer",
+      "xp": 6750,
+      "value": 450,
+      "rarity": "Rare",
+      "catalogArea": "lava",
+      "sourceLine": 77
+    },
+    {
+      "name": "Flamefish",
+      "xp": 7000,
+      "value": 475,
+      "rarity": "Rare",
+      "catalogArea": "lava",
+      "sourceLine": 78
+    },
+    {
+      "name": "Lava Blackdragon",
+      "xp": 7250,
+      "value": 500,
+      "rarity": "Rare",
+      "catalogArea": "lava",
+      "sourceLine": 79
+    },
+    {
+      "name": "Sun Marlin",
+      "xp": 8000,
+      "value": 600,
+      "rarity": "Epic",
+      "catalogArea": "lava",
+      "sourceLine": 80
+    },
+    {
+      "name": "Blaze Eel",
+      "xp": 8450,
+      "value": 650,
+      "rarity": "Epic",
+      "catalogArea": "lava",
+      "sourceLine": 81
+    },
+    {
+      "name": "Sun Spear",
+      "xp": 8800,
+      "value": 675,
+      "rarity": "Epic",
+      "catalogArea": "lava",
+      "sourceLine": 82
+    },
+    {
+      "name": "Blaze Shark",
+      "xp": 9250,
+      "value": 700,
+      "rarity": "Epic",
+      "catalogArea": "lava",
+      "sourceLine": 83
+    },
+    {
+      "name": "Sunset Snapper",
+      "xp": 9500,
+      "value": 850,
+      "rarity": "Epic",
+      "catalogArea": "lava",
+      "sourceLine": 84
+    },
+    {
+      "name": "Flame Seahorse",
+      "xp": 25000,
+      "value": 1500,
+      "rarity": "Legendary",
+      "catalogArea": "lava",
+      "sourceLine": 85
+    },
+    {
+      "name": "Molten Devilfish",
+      "xp": 30000,
+      "value": 2250,
+      "rarity": "Legendary",
+      "catalogArea": "lava",
+      "sourceLine": 86
+    },
+    {
+      "name": "Blazing Puffer",
+      "xp": 50000,
+      "value": 3000,
+      "rarity": "Legendary",
+      "catalogArea": "lava",
+      "sourceLine": 87
+    },
+    {
+      "name": "Marine Loach",
+      "xp": 8450,
+      "value": 650,
+      "rarity": "Common",
+      "catalogArea": "atlantis",
+      "sourceLine": 88
+    },
+    {
+      "name": "Azure Swordfish",
+      "xp": 8600,
+      "value": 675,
+      "rarity": "Common",
+      "catalogArea": "atlantis",
+      "sourceLine": 89
+    },
+    {
+      "name": "Marine Snapper",
+      "xp": 8750,
+      "value": 700,
+      "rarity": "Common",
+      "catalogArea": "atlantis",
+      "sourceLine": 90
+    },
+    {
+      "name": "Verdant Bass",
+      "xp": 9000,
+      "value": 725,
+      "rarity": "Common",
+      "catalogArea": "atlantis",
+      "sourceLine": 91
+    },
+    {
+      "name": "Verdant Minnow",
+      "xp": 9200,
+      "value": 750,
+      "rarity": "Common",
+      "catalogArea": "atlantis",
+      "sourceLine": 92
+    },
+    {
+      "name": "Azure Catfish",
+      "xp": 9400,
+      "value": 800,
+      "rarity": "Rare",
+      "catalogArea": "atlantis",
+      "sourceLine": 93
+    },
+    {
+      "name": "Abyssal Fangtooth",
+      "xp": 9500,
+      "value": 825,
+      "rarity": "Rare",
+      "catalogArea": "atlantis",
+      "sourceLine": 94
+    },
+    {
+      "name": "Deep Dark Sailfish",
+      "xp": 9650,
+      "value": 850,
+      "rarity": "Rare",
+      "catalogArea": "atlantis",
+      "sourceLine": 95
+    },
+    {
+      "name": "Viridescent Spearfish",
+      "xp": 9800,
+      "value": 875,
+      "rarity": "Rare",
+      "catalogArea": "atlantis",
+      "sourceLine": 96
+    },
+    {
+      "name": "Azure Reef Fish",
+      "xp": 10000,
+      "value": 950,
+      "rarity": "Rare",
+      "catalogArea": "atlantis",
+      "sourceLine": 97
+    },
+    {
+      "name": "Cold Crystalfish",
+      "xp": 10500,
+      "value": 1100,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 98
+    },
+    {
+      "name": "Rainbow Snapper",
+      "xp": 11000,
+      "value": 1200,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 99
+    },
+    {
+      "name": "Azure Seahorse",
+      "xp": 11250,
+      "value": 1300,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 100
+    },
+    {
+      "name": "Clam",
+      "xp": 11500,
+      "value": 1400,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 101
+    },
+    {
+      "name": "Guardian Shark",
+      "xp": 11750,
+      "value": 1500,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 102
+    },
+    {
+      "name": "Commander Spearfish",
+      "xp": 11750,
+      "value": 2500,
+      "rarity": "Legendary",
+      "catalogArea": "atlantis",
+      "sourceLine": 103
+    },
+    {
+      "name": "Hermit Crab",
+      "xp": 20000,
+      "value": 3000,
+      "rarity": "Legendary",
+      "catalogArea": "atlantis",
+      "sourceLine": 104
+    },
+    {
+      "name": "Cthulhu's Eye",
+      "xp": 30000,
+      "value": 4000,
+      "rarity": "Legendary",
+      "catalogArea": "atlantis",
+      "sourceLine": 105
+    },
+    {
+      "name": "King Squid",
+      "xp": 45000,
+      "value": 5500,
+      "rarity": "Legendary",
+      "catalogArea": "atlantis",
+      "sourceLine": 106
+    },
+    {
+      "name": "Poseidon's Relic",
+      "xp": 75000,
+      "value": 7500,
+      "rarity": "Legendary",
+      "catalogArea": "atlantis",
+      "sourceLine": 107
+    },
+    {
+      "name": "Dream Puffer",
+      "xp": 8450,
+      "value": 650,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 108
+    },
+    {
+      "name": "Dreamerfish",
+      "xp": 8600,
+      "value": 675,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 109
+    },
+    {
+      "name": "Dreamy Clownfish",
+      "xp": 8750,
+      "value": 700,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 110
+    },
+    {
+      "name": "Dreamy Reef Fish",
+      "xp": 9000,
+      "value": 725,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 111
+    },
+    {
+      "name": "Mystic Carp",
+      "xp": 9200,
+      "value": 750,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 112
+    },
+    {
+      "name": "Mystic Perch",
+      "xp": 9400,
+      "value": 800,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 113
+    },
+    {
+      "name": "Mystic Pricker",
+      "xp": 9500,
+      "value": 825,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 114
+    },
+    {
+      "name": "Mystic Seahorse",
+      "xp": 9650,
+      "value": 850,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 115
+    },
+    {
+      "name": "Mystic Snapper",
+      "xp": 9800,
+      "value": 875,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 116
+    },
+    {
+      "name": "Mystique Ray",
+      "xp": 10000,
+      "value": 950,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 117
+    },
+    {
+      "name": "Planar Eel",
+      "xp": 10500,
+      "value": 1100,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 118
+    },
+    {
+      "name": "Platinum Tuna",
+      "xp": 11000,
+      "value": 1200,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 119
+    },
+    {
+      "name": "Scarlet Sailfish",
+      "xp": 11250,
+      "value": 1300,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 120
+    },
+    {
+      "name": "Seastar",
+      "xp": 11500,
+      "value": 1400,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 121
+    },
+    {
+      "name": "Sky Lionfish",
+      "xp": 11750,
+      "value": 1500,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 122
+    },
+    {
+      "name": "Fallen Star",
+      "xp": 11750,
+      "value": 2500,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 123
+    },
+    {
+      "name": "Mythical Koi",
+      "xp": 20000,
+      "value": 3000,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 124
+    },
+    {
+      "name": "Sky Devilfish",
+      "xp": 30000,
+      "value": 4000,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 125
+    },
+    {
+      "name": "Stellar Squid",
+      "xp": 45000,
+      "value": 5500,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 126
+    },
+    {
+      "name": "The Moon",
+      "xp": 75000,
+      "value": 7500,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 127
+    },
+    {
+      "name": "Red Brick Fish",
+      "xp": 8450,
+      "value": 850,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 128
+    },
+    {
+      "name": "Blue Brick Fish",
+      "xp": 8600,
+      "value": 875,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 129
+    },
+    {
+      "name": "Green Brick Fish",
+      "xp": 8750,
+      "value": 900,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 130
+    },
+    {
+      "name": "Yellow Brick Fish",
+      "xp": 9000,
+      "value": 925,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 131
+    },
+    {
+      "name": "Purple Brick Fish",
+      "xp": 9200,
+      "value": 950,
+      "rarity": "Common",
+      "catalogArea": "dream",
+      "sourceLine": 132
+    },
+    {
+      "name": "Classic Clownfish",
+      "xp": 9400,
+      "value": 1000,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 133
+    },
+    {
+      "name": "Classic Shark",
+      "xp": 9500,
+      "value": 1050,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 134
+    },
+    {
+      "name": "Classic Minnow",
+      "xp": 9650,
+      "value": 1100,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 135
+    },
+    {
+      "name": "Classic Dark Clownfish",
+      "xp": 9800,
+      "value": 1150,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 136
+    },
+    {
+      "name": "Classic Neon Shark",
+      "xp": 10000,
+      "value": 1200,
+      "rarity": "Rare",
+      "catalogArea": "dream",
+      "sourceLine": 137
+    },
+    {
+      "name": "Rainbow Brick Fish",
+      "xp": 10500,
+      "value": 1400,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 138
+    },
+    {
+      "name": "Brick Puffer",
+      "xp": 11000,
+      "value": 1450,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 139
+    },
+    {
+      "name": "Classic Flatfish",
+      "xp": 11250,
+      "value": 1500,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 140
+    },
+    {
+      "name": "Classic Crownfish",
+      "xp": 11500,
+      "value": 1700,
+      "rarity": "Epic",
+      "catalogArea": "dream",
+      "sourceLine": 141
+    },
+    {
+      "name": "Classic Clown Clownfish",
+      "xp": 11750,
+      "value": 2000,
+      "rarity": "Epic",
+      "catalogArea": "atlantis",
+      "sourceLine": 142
+    },
+    {
+      "name": "Classic Rainbow Shark",
+      "xp": 11750,
+      "value": 3500,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 143
+    },
+    {
+      "name": "Classic Rainbow Clownfish",
+      "xp": 20000,
+      "value": 4750,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 144
+    },
+    {
+      "name": "Classic Squid",
+      "xp": 30000,
+      "value": 6000,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 145
+    },
+    {
+      "name": "Classic Cthulhu's Eye",
+      "xp": 45000,
+      "value": 8000,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 146
+    },
+    {
+      "name": "Classic Jellyfish",
+      "xp": 75000,
+      "value": 15000,
+      "rarity": "Legendary",
+      "catalogArea": "dream",
+      "sourceLine": 147
+    }
+  ],
+  "areas": [
+    {
+      "id": "starter",
+      "pool": [
+        {
+          "name": "Bass",
+          "weight": 10.531,
+          "sourceLine": 14
+        },
+        {
+          "name": "Tuna Fish",
+          "weight": 9.721,
+          "sourceLine": 15
+        },
+        {
+          "name": "Summer Flounder",
+          "weight": 9.397,
+          "sourceLine": 16
+        },
+        {
+          "name": "Perch",
+          "weight": 8.749,
+          "sourceLine": 17
+        },
+        {
+          "name": "Mudfish",
+          "weight": 8.101,
+          "sourceLine": 18
+        },
+        {
+          "name": "Permit",
+          "weight": 7.777,
+          "sourceLine": 19
+        },
+        {
+          "name": "Salmon",
+          "weight": 7.291,
+          "sourceLine": 20
+        },
+        {
+          "name": "Catfish",
+          "weight": 5.995,
+          "sourceLine": 21
+        },
+        {
+          "name": "River Carp",
+          "weight": 5.185,
+          "sourceLine": 22
+        },
+        {
+          "name": "Cod",
+          "weight": 4.861,
+          "sourceLine": 23
+        },
+        {
+          "name": "Roosterfish",
+          "weight": 4.375,
+          "sourceLine": 24
+        },
+        {
+          "name": "Verdant Snapper",
+          "weight": 4.051,
+          "sourceLine": 25
+        },
+        {
+          "name": "Koromo Koi",
+          "weight": 3.564,
+          "sourceLine": 26
+        },
+        {
+          "name": "Queen Snapper",
+          "weight": 3.24,
+          "sourceLine": 27
+        },
+        {
+          "name": "Shortbill Spearfish",
+          "weight": 2.43,
+          "sourceLine": 28
+        },
+        {
+          "name": "Shrimp",
+          "weight": 1.944,
+          "sourceLine": 29
+        },
+        {
+          "name": "Rockfish",
+          "weight": 1.62,
+          "sourceLine": 30
+        },
+        {
+          "name": "Lionfish",
+          "weight": 1,
+          "sourceLine": 31
+        },
+        {
+          "name": "Golden Koi",
+          "weight": 0.5,
+          "sourceLine": 32
+        },
+        {
+          "name": "Lemon Shark",
+          "weight": 0.2,
+          "sourceLine": 33
+        }
+      ],
+      "totalWeight": 100.53200000000002,
+      "baseExpectedXP": 60.350684359209,
+      "baseExpectedValue": 6.781024947280468,
+      "rareFish": {
+        "name": "Lemon Shark",
+        "weight": 0.2,
+        "sourceLine": 33
+      },
+      "baseRareProbability": 0.0019894163052560374,
+      "catalogAreaMismatch": []
+    },
+    {
+      "id": "blizzard",
+      "pool": [
+        {
+          "name": "Silver Shad",
+          "weight": 10.672,
+          "sourceLine": 37
+        },
+        {
+          "name": "Snow Smelt",
+          "weight": 9.847,
+          "sourceLine": 38
+        },
+        {
+          "name": "Glacier Bass",
+          "weight": 9.52,
+          "sourceLine": 39
+        },
+        {
+          "name": "Ice Minnow",
+          "weight": 8.867,
+          "sourceLine": 40
+        },
+        {
+          "name": "Pale Perch",
+          "weight": 8.214,
+          "sourceLine": 41
+        },
+        {
+          "name": "Frost Trout",
+          "weight": 7.887,
+          "sourceLine": 42
+        },
+        {
+          "name": "Frostbite Barracuda",
+          "weight": 7.394,
+          "sourceLine": 43
+        },
+        {
+          "name": "Glassfish",
+          "weight": 6.777,
+          "sourceLine": 44
+        },
+        {
+          "name": "Frozen Catfish",
+          "weight": 5.202,
+          "sourceLine": 45
+        },
+        {
+          "name": "Blue Loach",
+          "weight": 4.925,
+          "sourceLine": 46
+        },
+        {
+          "name": "Crystal Clownfish",
+          "weight": 4.433,
+          "sourceLine": 47
+        },
+        {
+          "name": "Crystalfish",
+          "weight": 4.107,
+          "sourceLine": 48
+        },
+        {
+          "name": "Tundra Devilfish",
+          "weight": 3.614,
+          "sourceLine": 49
+        },
+        {
+          "name": "Ice Pike",
+          "weight": 3.287,
+          "sourceLine": 50
+        },
+        {
+          "name": "Moonlit Carp",
+          "weight": 2,
+          "sourceLine": 51
+        },
+        {
+          "name": "Shiver Ray",
+          "weight": 1.315,
+          "sourceLine": 52
+        },
+        {
+          "name": "Arctic Grayling",
+          "weight": 1,
+          "sourceLine": 53
+        },
+        {
+          "name": "Reef Fish",
+          "weight": 0.5,
+          "sourceLine": 54
+        },
+        {
+          "name": "Icejaw Eel",
+          "weight": 0.25,
+          "sourceLine": 55
+        },
+        {
+          "name": "Snowdrift Wyrm",
+          "weight": 0.03,
+          "sourceLine": 56
+        }
+      ],
+      "totalWeight": 99.84100000000001,
+      "baseExpectedXP": 363.5122344527799,
+      "baseExpectedValue": 23.211506295009062,
+      "rareFish": {
+        "name": "Snowdrift Wyrm",
+        "weight": 0.03,
+        "sourceLine": 56
+      },
+      "baseRareProbability": 0.0003004777596378241,
+      "catalogAreaMismatch": []
+    },
+    {
+      "id": "jungle",
+      "pool": [
+        {
+          "name": "Atlantic Herring",
+          "weight": 15.935,
+          "sourceLine": 60
+        },
+        {
+          "name": "Sand Minnow",
+          "weight": 10.388,
+          "sourceLine": 61
+        },
+        {
+          "name": "Clownfish",
+          "weight": 9.8,
+          "sourceLine": 62
+        },
+        {
+          "name": "Pink Salmon",
+          "weight": 9.293,
+          "sourceLine": 63
+        },
+        {
+          "name": "Coral Carp",
+          "weight": 8.442,
+          "sourceLine": 64
+        },
+        {
+          "name": "Blue Marlin",
+          "weight": 8.198,
+          "sourceLine": 65
+        },
+        {
+          "name": "Northern Red Snapper",
+          "weight": 7.651,
+          "sourceLine": 66
+        },
+        {
+          "name": "Common Fangtooth",
+          "weight": 6.3,
+          "sourceLine": 67
+        },
+        {
+          "name": "Sailfish",
+          "weight": 5.465,
+          "sourceLine": 68
+        },
+        {
+          "name": "Swordfish",
+          "weight": 4.918,
+          "sourceLine": 69
+        },
+        {
+          "name": "Queen Parrotfish",
+          "weight": 3.5,
+          "sourceLine": 70
+        },
+        {
+          "name": "Stingray",
+          "weight": 3.093,
+          "sourceLine": 71
+        },
+        {
+          "name": "Anglerfish",
+          "weight": 2.182,
+          "sourceLine": 72
+        },
+        {
+          "name": "Green Moray Eel",
+          "weight": 1.818,
+          "sourceLine": 73
+        },
+        {
+          "name": "Guineafowl Pufferfish",
+          "weight": 1.25,
+          "sourceLine": 74
+        },
+        {
+          "name": "Hammerhead Shark",
+          "weight": 0.91,
+          "sourceLine": 75
+        },
+        {
+          "name": "Pacific Blackdragon",
+          "weight": 0.546,
+          "sourceLine": 76
+        },
+        {
+          "name": "Oarfish",
+          "weight": 0.25,
+          "sourceLine": 77
+        },
+        {
+          "name": "Seahorse",
+          "weight": 0.075,
+          "sourceLine": 78
+        },
+        {
+          "name": "Giant Squid",
+          "weight": 0.015,
+          "sourceLine": 79
+        }
+      ],
+      "totalWeight": 100.02900000000002,
+      "baseExpectedXP": 1676.565795919183,
+      "baseExpectedValue": 93.67436443431403,
+      "rareFish": {
+        "name": "Giant Squid",
+        "weight": 0.015,
+        "sourceLine": 79
+      },
+      "baseRareProbability": 0.00014995651261134267,
+      "catalogAreaMismatch": []
+    },
+    {
+      "id": "lava",
+      "pool": [
+        {
+          "name": "Aurate Tuna",
+          "weight": 15.814,
+          "sourceLine": 92
+        },
+        {
+          "name": "Ombre Chevalier",
+          "weight": 10.266,
+          "sourceLine": 93
+        },
+        {
+          "name": "Heated Perch",
+          "weight": 9.718,
+          "sourceLine": 94
+        },
+        {
+          "name": "Yellow Loach",
+          "weight": 9.002,
+          "sourceLine": 95
+        },
+        {
+          "name": "Sunset Minnow",
+          "weight": 8.102,
+          "sourceLine": 96
+        },
+        {
+          "name": "Sunset Crystalfish",
+          "weight": 7.554,
+          "sourceLine": 97
+        },
+        {
+          "name": "Ashen Carp",
+          "weight": 6.656,
+          "sourceLine": 98
+        },
+        {
+          "name": "Fire Ray",
+          "weight": 6.294,
+          "sourceLine": 99
+        },
+        {
+          "name": "Golden Lionfish",
+          "weight": 5.396,
+          "sourceLine": 100
+        },
+        {
+          "name": "Lava Piercer",
+          "weight": 4.856,
+          "sourceLine": 101
+        },
+        {
+          "name": "Flamefish",
+          "weight": 4.136,
+          "sourceLine": 102
+        },
+        {
+          "name": "Lava Blackdragon",
+          "weight": 3.597,
+          "sourceLine": 103
+        },
+        {
+          "name": "Sun Marlin",
+          "weight": 2.698,
+          "sourceLine": 104
+        },
+        {
+          "name": "Blaze Eel",
+          "weight": 2,
+          "sourceLine": 105
+        },
+        {
+          "name": "Sun Spear",
+          "weight": 1.529,
+          "sourceLine": 106
+        },
+        {
+          "name": "Blaze Shark",
+          "weight": 1.251,
+          "sourceLine": 107
+        },
+        {
+          "name": "Sunset Snapper",
+          "weight": 0.899,
+          "sourceLine": 108
+        },
+        {
+          "name": "Flame Seahorse",
+          "weight": 0.2,
+          "sourceLine": 109
+        },
+        {
+          "name": "Molten Devilfish",
+          "weight": 0.01,
+          "sourceLine": 110
+        },
+        {
+          "name": "Blazing Puffer",
+          "weight": 0.003,
+          "sourceLine": 111
+        }
+      ],
+      "totalWeight": 99.981,
+      "baseExpectedXP": 5492.7026134965645,
+      "baseExpectedValue": 342.80888368790073,
+      "rareFish": {
+        "name": "Blazing Puffer",
+        "weight": 0.003,
+        "sourceLine": 111
+      },
+      "baseRareProbability": 0.00003000570108320581,
+      "catalogAreaMismatch": []
+    },
+    {
+      "id": "atlantis",
+      "pool": [
+        {
+          "name": "Marine Loach",
+          "weight": 17.814,
+          "sourceLine": 115
+        },
+        {
+          "name": "Azure Swordfish",
+          "weight": 12.266,
+          "sourceLine": 116
+        },
+        {
+          "name": "Marine Snapper",
+          "weight": 11.718,
+          "sourceLine": 117
+        },
+        {
+          "name": "Verdant Bass",
+          "weight": 10.002,
+          "sourceLine": 118
+        },
+        {
+          "name": "Verdant Minnow",
+          "weight": 9.102,
+          "sourceLine": 119
+        },
+        {
+          "name": "Azure Catfish",
+          "weight": 8.294,
+          "sourceLine": 120
+        },
+        {
+          "name": "Abyssal Fangtooth",
+          "weight": 7.396,
+          "sourceLine": 121
+        },
+        {
+          "name": "Deep Dark Sailfish",
+          "weight": 6.856,
+          "sourceLine": 122
+        },
+        {
+          "name": "Viridescent Spearfish",
+          "weight": 5.136,
+          "sourceLine": 123
+        },
+        {
+          "name": "Azure Reef Fish",
+          "weight": 3.597,
+          "sourceLine": 124
+        },
+        {
+          "name": "Cold Crystalfish",
+          "weight": 2.698,
+          "sourceLine": 125
+        },
+        {
+          "name": "Rainbow Snapper",
+          "weight": 2,
+          "sourceLine": 126
+        },
+        {
+          "name": "Azure Seahorse",
+          "weight": 1.529,
+          "sourceLine": 127
+        },
+        {
+          "name": "Clam",
+          "weight": 1.251,
+          "sourceLine": 128
+        },
+        {
+          "name": "Guardian Shark",
+          "weight": 0.899,
+          "sourceLine": 129
+        },
+        {
+          "name": "Commander Spearfish",
+          "weight": 0.5,
+          "sourceLine": 130
+        },
+        {
+          "name": "Hermit Crab",
+          "weight": 0.2,
+          "sourceLine": 131
+        },
+        {
+          "name": "Cthulhu's Eye",
+          "weight": 0.0075,
+          "sourceLine": 132
+        },
+        {
+          "name": "King Squid",
+          "weight": 0.002,
+          "sourceLine": 133
+        },
+        {
+          "name": "Poseidon's Relic",
+          "weight": 0.0015,
+          "sourceLine": 134
+        }
+      ],
+      "totalWeight": 101.26899999999996,
+      "baseExpectedXP": 9240.499066841781,
+      "baseExpectedValue": 799.578350729246,
+      "rareFish": {
+        "name": "Poseidon's Relic",
+        "weight": 0.0015,
+        "sourceLine": 134
+      },
+      "baseRareProbability": 0.000014812035272393335,
+      "catalogAreaMismatch": []
+    },
+    {
+      "id": "dream",
+      "pool": [
+        {
+          "name": "Dream Puffer",
+          "weight": 17.814,
+          "sourceLine": 138
+        },
+        {
+          "name": "Dreamerfish",
+          "weight": 12.266,
+          "sourceLine": 139
+        },
+        {
+          "name": "Dreamy Clownfish",
+          "weight": 11.718,
+          "sourceLine": 140
+        },
+        {
+          "name": "Dreamy Reef Fish",
+          "weight": 10.002,
+          "sourceLine": 141
+        },
+        {
+          "name": "Mystic Carp",
+          "weight": 9.102,
+          "sourceLine": 142
+        },
+        {
+          "name": "Mystic Perch",
+          "weight": 8.294,
+          "sourceLine": 143
+        },
+        {
+          "name": "Mystic Pricker",
+          "weight": 7.396,
+          "sourceLine": 144
+        },
+        {
+          "name": "Mystic Seahorse",
+          "weight": 6.856,
+          "sourceLine": 145
+        },
+        {
+          "name": "Mystic Snapper",
+          "weight": 5.136,
+          "sourceLine": 146
+        },
+        {
+          "name": "Mystique Ray",
+          "weight": 3.597,
+          "sourceLine": 147
+        },
+        {
+          "name": "Planar Eel",
+          "weight": 2.698,
+          "sourceLine": 148
+        },
+        {
+          "name": "Platinum Tuna",
+          "weight": 2,
+          "sourceLine": 149
+        },
+        {
+          "name": "Scarlet Sailfish",
+          "weight": 1.529,
+          "sourceLine": 150
+        },
+        {
+          "name": "Seastar",
+          "weight": 1.251,
+          "sourceLine": 151
+        },
+        {
+          "name": "Sky Lionfish",
+          "weight": 0.899,
+          "sourceLine": 152
+        },
+        {
+          "name": "Fallen Star",
+          "weight": 0.5,
+          "sourceLine": 153
+        },
+        {
+          "name": "Mythical Koi",
+          "weight": 0.1,
+          "sourceLine": 154
+        },
+        {
+          "name": "Sky Devilfish",
+          "weight": 0.005,
+          "sourceLine": 155
+        },
+        {
+          "name": "Stellar Squid",
+          "weight": 0.0015,
+          "sourceLine": 156
+        },
+        {
+          "name": "The Moon",
+          "weight": 0.001,
+          "sourceLine": 157
+        }
+      ],
+      "totalWeight": 101.16549999999997,
+      "baseExpectedXP": 9228.848767613468,
+      "baseExpectedValue": 797.267843286496,
+      "rareFish": {
+        "name": "The Moon",
+        "weight": 0.001,
+        "sourceLine": 157
+      },
+      "baseRareProbability": 0.000009884792740608215,
+      "catalogAreaMismatch": [
+        "Sky Lionfish"
+      ]
+    },
+    {
+      "id": "classic",
+      "pool": [
+        {
+          "name": "Red Brick Fish",
+          "weight": 17.814,
+          "sourceLine": 161
+        },
+        {
+          "name": "Blue Brick Fish",
+          "weight": 12.266,
+          "sourceLine": 162
+        },
+        {
+          "name": "Green Brick Fish",
+          "weight": 11.718,
+          "sourceLine": 163
+        },
+        {
+          "name": "Yellow Brick Fish",
+          "weight": 10.002,
+          "sourceLine": 164
+        },
+        {
+          "name": "Purple Brick Fish",
+          "weight": 9.102,
+          "sourceLine": 165
+        },
+        {
+          "name": "Classic Clownfish",
+          "weight": 8.294,
+          "sourceLine": 166
+        },
+        {
+          "name": "Classic Shark",
+          "weight": 7.396,
+          "sourceLine": 167
+        },
+        {
+          "name": "Classic Minnow",
+          "weight": 6.856,
+          "sourceLine": 168
+        },
+        {
+          "name": "Classic Dark Clownfish",
+          "weight": 5.136,
+          "sourceLine": 169
+        },
+        {
+          "name": "Classic Neon Shark",
+          "weight": 3.597,
+          "sourceLine": 170
+        },
+        {
+          "name": "Rainbow Brick Fish",
+          "weight": 2.698,
+          "sourceLine": 171
+        },
+        {
+          "name": "Brick Puffer",
+          "weight": 2,
+          "sourceLine": 172
+        },
+        {
+          "name": "Classic Flatfish",
+          "weight": 1.529,
+          "sourceLine": 173
+        },
+        {
+          "name": "Classic Crownfish",
+          "weight": 1.251,
+          "sourceLine": 174
+        },
+        {
+          "name": "Classic Clown Clownfish",
+          "weight": 0.899,
+          "sourceLine": 175
+        },
+        {
+          "name": "Classic Rainbow Shark",
+          "weight": 0.1,
+          "sourceLine": 176
+        },
+        {
+          "name": "Classic Rainbow Clownfish",
+          "weight": 0.05,
+          "sourceLine": 177
+        },
+        {
+          "name": "Classic Squid",
+          "weight": 0.002,
+          "sourceLine": 178
+        },
+        {
+          "name": "Classic Cthulhu's Eye",
+          "weight": 0.001,
+          "sourceLine": 179
+        },
+        {
+          "name": "Classic Jellyfish",
+          "weight": 0.0005,
+          "sourceLine": 180
+        }
+      ],
+      "totalWeight": 100.71149999999997,
+      "baseExpectedXP": 9212.365022862337,
+      "baseExpectedValue": 1009.3604007486734,
+      "rareFish": {
+        "name": "Classic Jellyfish",
+        "weight": 0.0005,
+        "sourceLine": 180
+      },
+      "baseRareProbability": 0.0000049646763279268026,
+      "catalogAreaMismatch": [
+        "Red Brick Fish",
+        "Blue Brick Fish",
+        "Green Brick Fish",
+        "Yellow Brick Fish",
+        "Purple Brick Fish",
+        "Classic Clownfish",
+        "Classic Shark",
+        "Classic Minnow",
+        "Classic Dark Clownfish",
+        "Classic Neon Shark",
+        "Rainbow Brick Fish",
+        "Brick Puffer",
+        "Classic Flatfish",
+        "Classic Crownfish",
+        "Classic Clown Clownfish",
+        "Classic Rainbow Shark",
+        "Classic Rainbow Clownfish",
+        "Classic Squid",
+        "Classic Cthulhu's Eye",
+        "Classic Jellyfish"
+      ]
+    }
+  ]
+}

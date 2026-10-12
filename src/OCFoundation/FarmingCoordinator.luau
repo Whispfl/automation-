@@ -84,7 +84,11 @@ function FarmingCoordinator:Observe()
 		end
 		self.Cycle.LastBalances = table.clone(balances)
 	end
-	local gains = self.Metrics:Observe(balances, now)
+	local gains
+	if self.Controller.RewardAttributionBlocked and self.Controller:RewardAttributionBlocked() then
+		self.Metrics.Last = { At = now, Balances = table.clone(balances) }
+		gains = {} -- Delayed playtime/box credits remain outside farming-rate evidence.
+	else gains = self.Metrics:Observe(balances, now) end
 	local live = self.Reader:GetLiveProfile()
 	local amount = live and live.Bubble and live.Bubble.Amount
 	if self.Controller.State == "RUNNING" and self.Metrics.Active and type(amount) == "number" and type(self.LastBubbleAmount) == "number"

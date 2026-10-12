@@ -23,11 +23,23 @@ return function(customConfig)
 		controller:Log("INIT", "Phase " .. tostring(controller:GetStatus().Phase) .. " initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | Overworld discovery owner-confirmed in session; rejoin persistence and world purchases pending")
 		controller:Log("SCOPE", "One Brain/scheduler: configured progression and actual-shortage stationary Coins/Gems farming on The Void/Zen; bubbles require a real bubble objective.")
 		if config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE then controller:Log("SCOPE", "Phase 4: actual owned-team/native egg estimates; hatch and equipment require separate Config authorization; destructive actions OFF; final odds/total time may remain UNKNOWN.") end
+		if config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL or config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME
+			or config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES or config.ANTIAFK_SETTINGS.ENABLE_ANTI_AFK then
+			controller:Log("SCOPE", string.format("Local scoped features | selected-egg travel=%s; playtime=%s; owned ordinary box=%s; guarded ScrollLock anti-AFK=%s | no additional hatch/spend permission; owner live verification pending",
+				tostring(config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL), tostring(config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME),
+				tostring(config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES), tostring(config.ANTIAFK_SETTINGS.ENABLE_ANTI_AFK)))
+		end
 		controller:Log("FARM][BULK", "Paced genuine loaded registry IDs, up to " .. tostring(config.PICKUP_SETTINGS.STATIONARY_MAXIMUM_BATCH_SIZE) .. " per stationary batch; distances observed, server validation unchanged; only LocalData balances verify credit.")
 		-- Release the previous action authority before starting this instance.
 		if type(shared) == "table" then
 			local previous = shared.__OC_PHASE1_INSTANCE
 			if previous and previous ~= controller and type(previous.Destroy) == "function" then previous:Destroy() end
+			local oldMechanics = previous and previous.Farming and previous.Farming.Mechanics
+			if oldMechanics and oldMechanics.AntiAFKHeldInput then
+				local releasedOK, released, reason = pcall(oldMechanics.ReleaseAntiAFKInput, oldMechanics)
+				assert(releasedOK and released == true and oldMechanics.AntiAFKHeldInput == nil,
+					"Prior tracked ScrollLock release remains uncertain; replacement/start blocked: " .. tostring(releasedOK and reason or released))
+			end
 			shared.__OC_PHASE1_INSTANCE = controller
 		end
 		if config.GENERAL_SETTINGS.AUTO_START then

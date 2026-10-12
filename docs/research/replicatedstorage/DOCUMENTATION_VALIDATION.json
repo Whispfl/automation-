@@ -1,0 +1,55 @@
+{
+  "evidenceDate": "2026-10-11",
+  "validationScope": "Local documentation structure/counts/references and preservation hashes only; not OC build/tests or live gameplay verification",
+  "fileCountBeforeValidationRecord": 59,
+  "parseProblems": [],
+  "missingMarkdownLinks": [],
+  "coverageProblems": [],
+  "missingCoverageDocRefs": [],
+  "jsonlCounts": {
+    "catalogs/CURRENCY_FACTS.jsonl": 49,
+    "catalogs/ECONOMY_SOURCE_COVERAGE.jsonl": 50,
+    "catalogs/EGG_FACTS.jsonl": 218,
+    "catalogs/PET_BASE_STATS.jsonl": 2166,
+    "catalogs/SOURCE_COVERAGE_ROOT.jsonl": 52,
+    "inventory/Assets.jsonl": 49295,
+    "inventory/Client.jsonl": 761,
+    "inventory/DEPENDENCY_REFERENCES.jsonl": 4116,
+    "inventory/FastFlags.jsonl": 1,
+    "inventory/REMAINING_SEMANTIC_REVIEW.jsonl": 518,
+    "inventory/Remotes.jsonl": 7,
+    "inventory/Shared.jsonl": 568,
+    "inventory/source_metadata_001-100.jsonl": 100,
+    "inventory/source_metadata_101-200.jsonl": 100,
+    "inventory/source_metadata_201-300.jsonl": 100,
+    "inventory/source_metadata_301-400.jsonl": 100,
+    "inventory/source_metadata_401-500.jsonl": 100,
+    "inventory/source_metadata_501-600.jsonl": 100,
+    "inventory/source_metadata_601-700.jsonl": 100,
+    "inventory/source_metadata_701-701.jsonl": 1,
+    "NAVIGATION_FISHING_SOURCE_COVERAGE.jsonl": 80,
+    "SOURCE_COVERAGE.jsonl": 702,
+    "SOURCE_COVERAGE_ARCHITECTURE_NATIVE.jsonl": 40
+  },
+  "preservation": {
+    "baselineFiles": 50,
+    "changedFiles": 0,
+    "changedPaths": []
+  },
+  "unexpectedSourceArtifacts": [],
+  "repositoryReadOnlyChecks": {
+    "head": "114caa4e18e05ba8881a4a93e83470b993273ecc",
+    "headUnchangedFromBaseline": true,
+    "statusShort": "?? docs/research/",
+    "existingTrackedChanges": false,
+    "buildOrOcTestsRun": false,
+    "gitWriteOrSynchronizationAttempted": false
+  },
+  "studioFinalReadOnlyState": {
+    "mode": "Edit",
+    "availableDataModels": ["Edit"],
+    "playStateChangedByResearch": false,
+    "gameplayOrLuauExecuted": false
+  },
+  "fullAuditClaimed": false
+}

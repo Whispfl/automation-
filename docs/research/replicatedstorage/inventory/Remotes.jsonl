@@ -1,0 +1,7 @@
+{"observationIndex":1,"parentName":"ReplicatedStorage","fullPath":"ReplicatedStorage.Remotes","name":"Remotes","className":"Folder"}
+{"observationIndex":2,"parentName":"Remotes","fullPath":"ReplicatedStorage.Remotes.PlayerDataLoaded","name":"PlayerDataLoaded","className":"RemoteEvent"}
+{"observationIndex":3,"parentName":"Remotes","fullPath":"ReplicatedStorage.Remotes.PlayerDataChanged","name":"PlayerDataChanged","className":"RemoteEvent"}
+{"observationIndex":4,"parentName":"Remotes","fullPath":"ReplicatedStorage.Remotes.PlayerDataFailed","name":"PlayerDataFailed","className":"RemoteEvent"}
+{"observationIndex":5,"parentName":"Remotes","fullPath":"ReplicatedStorage.Remotes.Pickups","name":"Pickups","className":"Folder"}
+{"observationIndex":6,"parentName":"Pickups","fullPath":"ReplicatedStorage.Remotes.Pickups.SpawnPickups","name":"SpawnPickups","className":"RemoteEvent"}
+{"observationIndex":7,"parentName":"Pickups","fullPath":"ReplicatedStorage.Remotes.Pickups.CollectPickup","name":"CollectPickup","className":"RemoteEvent"}

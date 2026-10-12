@@ -39,7 +39,7 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/main/dist/OC.lua"))()(Config)
 -- Controls: OC:Pause(), OC:Resume(), OC:Stop(). Full estimates: OC:GetStatus().Pets.Analysis
 -- Detailed comparison on demand: OC:PrintPetTeam(). AUTO_EQUIP remains OFF in this default Test A.
 -- Manual movement is allowed. Native egg models may need to stream in near an egg.

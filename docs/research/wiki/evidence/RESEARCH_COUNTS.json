@@ -1,0 +1,52 @@
+{
+  "accessDate": "2026-10-11",
+  "sourceAccessRecords": 83,
+  "claimRecords": 153,
+  "distinctExternalUrls": 72,
+  "bodyEvidenceAccessRecords": 61,
+  "distinctBodyEvidenceUrls": 53,
+  "distinctUrlsWithoutBodyEvidence": 19,
+  "classificationCounts": {
+    "NATIVE_CORROBORATED": 71,
+    "OWNER_LIVE_CORROBORATED": 5,
+    "EXTERNAL_ONLY": 21,
+    "CONTRADICTED_BY_NATIVE": 28,
+    "HISTORICAL_OR_REMOVED": 10,
+    "VERSION_DEPENDENT": 51,
+    "UNKNOWN_SERVER_RULE": 45,
+    "NEEDS_LIVE_VERIFICATION": 50
+  },
+  "workstreams": [
+    {
+      "key": "EGG",
+      "title": "Eggs, pets and probability",
+      "sources": 13,
+      "claims": 48
+    },
+    {
+      "key": "MASTERY",
+      "title": "Mastery, rewards and shops",
+      "sources": 22,
+      "claims": 53
+    },
+    {
+      "key": "WORLD",
+      "title": "Worlds, seasonal opportunities and activities",
+      "sources": 32,
+      "claims": 36
+    },
+    {
+      "key": "ROOT",
+      "title": "Identity, community and synthesis",
+      "sources": 16,
+      "claims": 16
+    }
+  ],
+  "scopeNotes": [
+    "Access records preserve duplicate URLs and failure histories.",
+    "Body evidence means actual body, published table or selected article-section access, including two historical cached data pages; it does not mean exhaustive article/tab review.",
+    "Forwarded child records do not represent independent child full-body reads.",
+    "Eight fresh Notion context pages are separate from external/public source counts.",
+    "Classification labels overlap; totals are not a partition."
+  ]
+}

@@ -44,5 +44,5 @@ local Config = {
 		LOG_ACCOUNT_DETAILS = true, LOG_DEPENDENCIES = true }, -- Existing detail controls apply when ENABLE_DEBUG_LOGGING=true.
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/ryanrooflead-source/OCscript/main/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/main/dist/OC.lua"))()(Config)
 -- OC:Pause(), OC:Resume(), OC:Stop(); OC:GetStatus().Snapshot.ProgressionGraph
