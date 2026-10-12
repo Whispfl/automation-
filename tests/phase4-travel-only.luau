@@ -59,12 +59,12 @@ local function fixture(manual)
 		for _, model in ipairs(s.Models) do
 			if not model.Root then continue end
 			table.insert(eggs, { Name = model.Name, Model = model, World = "The Overworld", Island = not s.Surface and "Zen" or nil, Loaded = s.NotLoaded ~= true,
-				Accessible = true, Distance = (model.Root.Position - s.Root.Position).Magnitude, Cost = s.Definitions[model.Name].Cost })
+				Accessible = true, LocationVerified = true, LocationEvidence = "SYNTHETIC_PHYSICAL_ORIGINAL", Distance = (model.Root.Position - s.Root.Position).Magnitude, Cost = s.Definitions[model.Name].Cost })
 		end
 		return { Ready = s.Ready ~= false, Balances = { Coins = 0 }, UnlockedWorlds = s.Profile.WorldsUnlocked,
 			UnlockedIslands = s.Profile.AreasUnlocked, ProgressionGraph = { Worlds = { { Name = "Next", Unlocked = false,
 				Cost = { Type = "Currency", Currency = "Coins", Amount = 1000000000 } } } } },
-			{ Currency = s.Currency, EggAvailability = eggs, Eggs = eggs, Inventory = nil,
+			{ Currency = s.Currency, EggLocations = eggs, EggAvailability = eggs, Eggs = eggs, Inventory = nil,
 				AccountId = s.Player.UserId, BaselineIncomplete = true, Error = "Native owned search incomplete" }
 	end }
 	s.Controller.EggTravel = Travel.new(s.Controller) s.Manager = s.Controller.EggTravel
@@ -122,7 +122,8 @@ test("TRAVEL_ONLY AUTO is independent of incomplete owned benchmark zero funds a
 		assert(s.Config.HATCH_SETTINGS.MAXIMUM_SESSION_COST == 0 and not s.Config.PET_SETTINGS.AUTO_HATCH)
 		assert(s.Manager.DiagnosticConsumed and #s.Commands == 0)
 		local result = s.Manager:Definition(decision, 1).Execute(s.Token)
-		assert(result.Verified and s.Manager.LastResult.Status == "TRAVEL_ONLY_ARRIVAL_OBSERVED" and s.Manager.DiagnosticEnded)
+		assert(result.Verified and s.Manager.LastResult.Status == "PHYSICAL_ARRIVAL_OBSERVED" and s.Manager.DiagnosticEnded)
+		assert(s.Manager.LastResult.PhysicalArrivalVerified and s.Manager.LastResult.InteractionVerified)
 		assert(not s.Manager:OwnsLocation() and not s.Manager:HatchEligible({ Name = s.Egg.Name, Model = s.Egg }))
 		assert(s.Manager.LastResult.HatchCommands == 0 and s.Manager.LastResult.Spending == 0 and #s.Commands == 0 and s.Profile.Coins == 0)
 		local logs = table.concat(s.Logs, "\n")
@@ -159,11 +160,15 @@ test("TRAVEL_ONLY still rejects locked missing premium event and removed native 
 	end
 end)
 
-test("TRAVEL_ONLY rejects ambiguous original identity and ignores visual duplicates without the native interface", function()
+test("TRAVEL_ONLY retains a verified physical original while reporting ambiguous hatch identity separately", function()
 	simulated(function()
 		local s = fixture() s:AddEgg(s.Egg.Name, 100)
 		local owner, decision = s:Select()
-		assert(owner == "PHASE4_WAIT" and decision.Reason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
+		assert(owner == "EGG_TRAVEL" and decision.Record.Model == s.Egg and s.Manager.BrainIntent.Model == s.Egg)
+		assert(s.Manager:Definition(decision, 1).Execute(s.Token).Verified)
+		assert(s.Manager.LastResult.PhysicalArrivalVerified and not s.Manager.LastResult.InteractionVerified)
+		assert(s.Manager.LastResult.HatchInteraction == "HATCH_INTERACTION_UNVERIFIED")
+		assert(s.Manager.LastResult.InteractionReason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
 		assert(#s.Commands == 0 and not s.Manager:OwnsLocation())
 		s = fixture()
 		table.insert(s.Models, { Name = s.Egg.Name, Parent = true, IsDescendantOf = function() return true end,

@@ -229,7 +229,7 @@ test("Standing clearance observes full avatar bounds, ceiling and unknown avatar
 		local record = s.Manager:Resolve()
 		local standing = s.Manager:ResolveStanding(record)
 		assert(standing and math.abs(standing.Position.Y - 3.15) < 0.001 and queries == 1)
-		ceiling = true queries = 0 assert(s.Manager:ResolveStanding(record) == nil and queries == 4, "Ceiling collision blocks every candidate")
+		ceiling = true queries = 0 assert(s.Manager:ResolveStanding(record) == nil and queries == 5, "Ceiling collision blocks center and every bounded fallback candidate")
 		s.Character.GetBoundingBox = nil queries = 0 assert(s.Manager:ResolveStanding(record) == nil and queries == 0)
 	end, debug.traceback)
 	CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType = oldCFrame, oldRay, oldOverlap, oldEnum

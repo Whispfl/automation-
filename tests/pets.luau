@@ -15,8 +15,30 @@ local function registerNativeEggFixture(knowledge, model, scene)
 			workspace.FindFirstChild = previousFind
 			return previousClose(self)
 		end
-		folder = { Name = "Chunker", Parent = rendered }
+		folder = { Name = "Chunker", Parent = rendered, IsA = function(_, kind) return kind == "Folder" end }
 		knowledge.NativeEggFixtureFolder = folder
+		-- Source-shaped current geometry, distinct from the registration table.
+		-- Each world has an actual Spawn and each defined island has a live pivot.
+		local worlds, worldRows = {}, {}
+		for worldName, definition in pairs(knowledge:Get("Worlds") or {}) do
+			local world = { Name = worldName, Parent = worlds }
+			local x = worldName == "The Overworld" and 0 or 10000 + #worldRows * 10000
+			local spawn = { Parent = world, Position = Vector3.new(x, 0, 0), IsA = function(_, kind) return kind == "BasePart" end }
+			local islands, rows = {}, {}
+			for index, entry in ipairs(definition.Islands or {}) do
+				local position = Vector3.new(x, entry.Height or scene.Root.Position.Y + (index - 1) * 3000, 0)
+				local island = { GetPivot = function() return { Position = position } end, FindFirstChild = function() return nil end }
+				rows[entry.Name] = { FindFirstChild = function(_, name) return name == "Island" and island or nil end }
+			end
+			islands.FindFirstChild = function(_, name) return rows[name] end
+			world.FindFirstChild = function(_, name) if name == "Spawn" then return spawn elseif name == "Islands" then return islands end end
+			worlds[worldName] = world table.insert(worldRows, world)
+		end
+		worlds.GetChildren = function() return worldRows end
+		worlds.FindFirstChild = function(_, name) return worlds[name] end
+		local renderedFind = workspace.FindFirstChild
+		workspace.FindFirstChild = function(self, name) if name == "Worlds" then return worlds end return renderedFind(self, name) end
+		knowledge.NativeEggFixtureWorlds = worlds
 		local receiver = { Mode = "3D", _chunkSize = 128, RenderDistance = 2, _folder = folder,
 			_chunks = { fixture = {} }, _loaded = { fixture = true } }
 		knowledge.NativeEggFixtureReceiver = receiver
@@ -37,7 +59,8 @@ local function registerNativeEggFixture(knowledge, model, scene)
 	prompt.IsDescendantOf = prompt.IsDescendantOf or root.IsDescendantOf
 	model.IsA = model.IsA or function(_, kind) return kind == "Model" end
 	model.IsDescendantOf = model.IsDescendantOf or function(self) return self.Parent ~= nil end
-	local plate, cost = {}, {}
+	local plate = { Parent = model, Position = root.Position, IsA = function(_, kind) return kind == "BasePart" end }
+	local cost = { Parent = model, Position = root.Position, IsA = function(_, kind) return kind == "BasePart" end }
 	model.FindFirstChild = function(_, name)
 		if name == "Root" then return root elseif name == "Prompt" then return prompt
 		elseif name == "Plate" then return plate elseif name == "Cost" then return cost end
@@ -77,9 +100,29 @@ local function mockNativeEggIdentity(knowledge)
 		if expectedModel and model ~= expectedModel then return nil, "Brain selected original egg model changed; no stale travel" end
 		if not ids[model] then nextId += 1 ids[model] = "SYNTHETIC_EGG_" .. nextId end
 		local definition = (self:Get("Eggs") or {})[name] or {}
+		local prompt = model:FindFirstChild("Prompt")
+		local engine = prompt.FindFirstChildOfClass and prompt:FindFirstChildOfClass("ProximityPrompt")
 		return { Model = model, Root = model:FindFirstChild("Root"), Prompt = model:FindFirstChild("Prompt"),
 			World = definition.World, Island = model:GetAttribute("Island") or definition.Island,
-			IdentityId = ids[model], IdentityEvidence = "SYNTHETIC_REGISTERED_NATIVE_ORIGINAL" }
+			IdentityId = ids[model], IdentityEvidence = "SYNTHETIC_REGISTERED_NATIVE_ORIGINAL",
+			PromptCacheMember = engine ~= nil and engine.Parent == prompt, NativePrompt = engine }
+	end
+	function knowledge:ResolveEggLocation(name, force, expectedModel, characterRoot)
+		local models = {}
+		for _, model in ipairs(self:InteractiveEggModels(force)) do
+			if model.Name == name and (not expectedModel or model == expectedModel) then table.insert(models, model) end
+		end
+		if #models == 0 then return nil, "EGG_LOCATION_SELECTED_INSTANCE_UNAVAILABLE: synthetic physical original missing" end
+		if characterRoot then table.sort(models, function(a, b)
+			return (a:FindFirstChild("Root").Position - characterRoot.Position).Magnitude < (b:FindFirstChild("Root").Position - characterRoot.Position).Magnitude
+		end) end
+		local model = models[1]
+		if not ids[model] then nextId += 1 ids[model] = "SYNTHETIC_EGG_" .. nextId end
+		local definition = (self:Get("Eggs") or {})[name] or {}
+		return { Model = model, Root = model:FindFirstChild("Root"), Prompt = model:FindFirstChild("Prompt"),
+			World = definition.World, Island = model:GetAttribute("Island") or definition.Island, IdentityId = ids[model],
+			LocationVerified = true, LocationAnchor = model:FindFirstChild("Root"), LocationAnchorPosition = model:FindFirstChild("Root").Position,
+			LocationEvidence = "SYNTHETIC_SOURCE_ASSOCIATED_PHYSICAL_ORIGINAL", InteractionVerified = false }
 	end
 end
 

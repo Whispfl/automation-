@@ -85,8 +85,43 @@ local function finite(value)
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
 end
 
+local function diagnosticSummary(status, previous, now)
+	local travel, snapshot = status.EggTravel or {}, status.Snapshot or {}
+	local result, ledger = travel.LastResult or {}, travel.Lease or travel.LastResult or {}
+	local intent, pets = travel.BrainIntent or {}, status.Pets or {}
+	local hatch = pets.Hatch or {}
+	local blocker = status.Error or travel.LastPreflightReason or travel.Reason
+	if not blocker and not snapshot.Ready then blocker = snapshot.Status or "account data unavailable" end
+	local stage = travel.LastPreflightReason and "PREFLIGHT_BLOCKED" or result.Status
+		or travel.Reason and "BLOCKED" or travel.Lease and travel.Lease.Status or "waiting"
+	local parts = {
+		tostring(status.State),
+		"goal=TRAVEL_ONLY:" .. tostring(intent.EggName or result.EggName or "waiting for accessible native egg"),
+		"egg travel=" .. tostring(stage),
+		"direct attempts=" .. (ledger.DirectPositionAttempted == true and "1" or "0"),
+		"native travel attempts=" .. (ledger.NativeTravelAttempted == true and "1" or "0"),
+		"hatch commands=" .. tostring(hatch.RequestedHatches or result.HatchCommands or 0),
+		"equipment commands=" .. tostring(pets.EquipmentCommands or 0),
+		"spending=" .. tostring(result.Spending or 0),
+	}
+	if result.HatchInteraction then table.insert(parts, "hatch interaction=" .. tostring(result.HatchInteraction)) end
+	for _, currency in ipairs({ "Coins", "Gems" }) do
+		local value, old = (snapshot.Balances or {})[currency], (previous.Balances or {})[currency]
+		local delta = finite(value) and finite(old) and string.format("%+.0f", value - old) or "unknown"
+		table.insert(parts, currency .. "=" .. (finite(value) and string.format("%.0f", value) or "unknown") .. " (balance change " .. delta .. ")")
+	end
+	table.insert(parts, "blocker=" .. tostring(blocker or "none observed"):gsub("[\r\n]+", " "):sub(1, 220))
+	table.insert(parts, string.format("interval %.1fs; owner live acceptance pending", math.max(0, now - previous.At)))
+	return table.concat(parts, " | ")
+end
+
 -- Console-only formatting. One previous displayed balance baseline; never sum batch results or visual cleanup.
 function AccountPresentation.Summary(status, previous, now, config)
+	-- The retained diagnostic reason is the same preflight result printed by the
+	-- Brain/manager. A separate paid pet/farming WAIT must not hide that blocker.
+	if status.EggTravel and status.EggTravel.Mode == "TRAVEL_ONLY" then
+		return diagnosticSummary(status, previous, now)
+	end
 	local snapshot, farming, world = status.Snapshot or {}, status.Farming or {}, status.WorldProgression or {}
 	local goal = status.Plan and status.Plan.Objective
 	local balances, metadata = snapshot.Balances or {}, goal and goal.Metadata or {}

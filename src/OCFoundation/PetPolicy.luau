@@ -569,6 +569,10 @@ end
 
 function PetPolicy.EggPlanText(config, report, details)
 	local h, coverage = config.HATCH_SETTINGS, report.Coverage or {}
+	if (config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY" and not details then
+		return string.format("TRAVEL_ONLY | physical original locations=%s; unique hatch models=%s (separate verification) | owned native benchmark=%s; comparisons=%s; global optimum UNKNOWN | hatch/equipment/pickups OFF; spending=0; target selection/physical arrival pending",
+			tostring(coverage.PhysicalLocations or "UNKNOWN"), tostring(coverage.LoadedModels or "UNKNOWN"), tostring(report.Team.ProjectedScore or "UNKNOWN"), tostring(report.Team.Evaluations or "UNKNOWN"))
+	end
 	local lines = { string.format("%s | actual equipped native score=%s; feasible owned benchmark=%s (bounded heuristic) | loaded=%s; pool analyses=%s/%s limit; native definitions=%s (%s permanent); limited loaded-model coverage | mode=%s; AUTO_HATCH=%s; egg/session budgets=%s/%s | recommendation=%s",
 		tostring(report.Currency), tostring(report.Team.CurrentScore or "UNKNOWN"), tostring(report.Team.ProjectedScore or "UNKNOWN"), tostring(coverage.LoadedModels or "UNKNOWN"), tostring(coverage.Evaluated or #report.Eggs),
 		tostring(coverage.Limit or h.MAXIMUM_EGGS_ANALYZED), tostring(coverage.Definitions or "UNKNOWN"), tostring(coverage.PermanentDefinitions or "UNKNOWN"),

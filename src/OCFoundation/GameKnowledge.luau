@@ -2,6 +2,7 @@
 -- ReplicatedStorage knowledge facade. Reuses the approved reader's dependency cache;
 -- it neither loads future systems nor executes actions or substitutes account/world facts.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
 local GameKnowledge = {}
 local PetPolicy = require(script.Parent.PetPolicy)
 GameKnowledge.__index = GameKnowledge
@@ -70,7 +71,10 @@ local function native(object, method, ...)
 end
 
 local function point(value)
-	return value and PetPolicy.Finite(value.X) and PetPolicy.Finite(value.Y) and PetPolicy.Finite(value.Z)
+	-- Coordinates are signed. PetPolicy.Finite deliberately rejects negative
+	-- economic values and must never validate a world-space component.
+	local function component(n) return type(n) == "number" and n == n and math.abs(n) < math.huge end
+	return value and component(value.X) and component(value.Y) and component(value.Z)
 end
 
 local function eggParts(model)
@@ -192,6 +196,113 @@ function GameKnowledge:ResolveEggInstance(name, force, expectedModel)
 	elseif expectedModel and chosen.Model ~= expectedModel then reason = "Brain selected exact egg Instance changed; no name/path replacement or retarget" end
 	observed.Reason = reason or "UNIQUE_VERIFIED_INTERACTIVE_INSTANCE"
 	return not reason and chosen or nil, reason, observed
+end
+
+function GameKnowledge:EggLocationCandidates(name, force)
+	local definitions, worlds = self:Get("Eggs") or {}, self:Get("Worlds") or {}
+	local def, profile = definitions[name], self.Reader:GetLiveProfile()
+	local candidates, observations = {}, { Name = name, Count = 0, VerifiedCount = 0, LocationCount = 0, LocationVerifiedCount = 0, Candidates = {} }
+	if type(def) ~= "table" or type(def.World) ~= "string" or def.Event or def.ProductId or def.IsAdminEgg or name == "Infinity Egg" then
+		observations.Reason = "EGG_LOCATION_UNSUPPORTED: permanent native world/egg definition required" return candidates, observations
+	end
+	local worldDef = worlds[def.World]
+	if type(worldDef) ~= "table" or worldDef.Removed or worldDef.Event or not profile or type(profile.WorldsUnlocked) ~= "table"
+		or profile.WorldsUnlocked[def.World] == nil or type(profile.AreasUnlocked) ~= "table" then
+		observations.Reason = "EGG_LOCATION_ACCESS_BLOCKED: actual world/island facts locked or unavailable" return candidates, observations
+	end
+	local sceneWorlds = workspace:FindFirstChild("Worlds")
+	local worldModel = sceneWorlds and sceneWorlds:FindFirstChild(def.World)
+	if not worldModel then observations.Reason = "EGG_LOCATION_WORLD_GEOMETRY_UNAVAILABLE" return candidates, observations end
+	local function spatialArea(position)
+		-- Mirrors native WorldUtil:12-38 and WorldMap:GetLocation:457-475 using
+		-- current scene geometry, with conservative tie/missing-data rejection.
+		local nearestWorld, distance, tie = nil, math.huge, false
+		local worldNames = {}
+		for _, entry in ipairs(sceneWorlds:GetChildren()) do
+			if worldNames[entry.Name] then return nil, "EGG_LOCATION_AMBIGUOUS_WORLD_GEOMETRY" end
+			worldNames[entry.Name] = true
+			local spawn = entry:FindFirstChild("Spawn")
+			if not spawn or not spawn:IsA("BasePart") or not point(spawn.Position) then return nil, "EGG_LOCATION_WORLD_SPAWN_UNAVAILABLE" end
+			local delta = Vector3.new(position.X - spawn.Position.X, 0, position.Z - spawn.Position.Z).Magnitude
+			if delta < distance - 0.05 then nearestWorld, distance, tie = entry.Name, delta, false
+			elseif math.abs(delta - distance) <= 0.05 then tie = true end
+		end
+		if tie or nearestWorld ~= def.World then return nil, "EGG_LOCATION_WORLD_SPATIAL_MISMATCH_OR_TIE" end
+		local spawn = worldModel:FindFirstChild("Spawn")
+		local closest, vertical, areaTie = def.World, math.abs(position.Y - spawn.Position.Y), false
+		local islands = worldModel:FindFirstChild("Islands")
+		local areaNames = {}
+		for _, entry in ipairs(worldDef.Islands or {}) do
+			if areaNames[entry.Name] then return nil, "EGG_LOCATION_AMBIGUOUS_ISLAND_DEFINITION" end
+			areaNames[entry.Name] = true
+			local folder = islands and islands:FindFirstChild(entry.Name)
+			local island = folder and folder:FindFirstChild("Island")
+			local ok, pivot = pcall(function() return island:GetPivot() end)
+			if not ok or not pivot or not point(pivot.Position) then return nil, "EGG_LOCATION_ISLAND_GEOMETRY_UNAVAILABLE: " .. tostring(entry.Name) end
+			local delta = math.abs(position.Y - pivot.Position.Y)
+			if delta < vertical - 0.05 then closest, vertical, areaTie = entry.Name, delta, false
+			elseif math.abs(delta - vertical) <= 0.05 then areaTie = true end
+		end
+		if areaTie then return nil, "EGG_LOCATION_AMBIGUOUS_VERTICAL_AREA" end
+		return closest
+	end
+	for _, model in ipairs(self:EggModels(force)) do
+		if model.Name ~= name then continue end
+		local observed = self:ObserveEggModel(model)
+		observations.Count += 1 table.insert(observations.Candidates, observed)
+		if observed.Verified then observations.VerifiedCount += 1 end
+		if not model.Parent or not model:IsDescendantOf(workspace) then observed.LocationReason = "EGG_LOCATION_STREAMED_OUT" continue end
+		local root, prompt = eggParts(model)
+		if not root then observed.LocationReason = "EGG_LOCATION_ORIGINAL_INTERFACE_UNAVAILABLE: display/decor is not a spatial anchor" continue end
+		local parent, rendered = model.Parent, workspace:FindFirstChild("Rendered")
+		local chunkedOriginal = parent:IsA("Folder") and parent.Name == "Chunker" and parent.Parent == rendered and rendered ~= nil
+		local okTag, tagged = pcall(function() return CollectionService:HasTag(model, "Egg") end)
+		local worldOriginal = model:IsDescendantOf(worldModel) and okTag and tagged == true
+		if not chunkedOriginal and not worldOriginal then
+			observed.LocationReason = "EGG_LOCATION_SOURCE_ASSOCIATION_UNVERIFIED: original interface lacks native placement/tag or chunked ancestry" continue
+		end
+		local island = model:GetAttribute("Island") or def.Island
+		if island ~= nil and (type(island) ~= "string" or profile.AreasUnlocked[island] == nil) then
+			observed.LocationReason = "EGG_LOCATION_ISLAND_ACCESS_BLOCKED" continue
+		end
+		local area, spatialReason = spatialArea(root.Position)
+		if not area or area ~= (island or def.World) then
+			observed.LocationReason = spatialReason or "EGG_LOCATION_ISLAND_SPATIAL_MISMATCH: annotation and native scene area disagree" continue
+		end
+		observed.LocationVerified, observed.LocationReason = true, "NATIVE_ORIGINAL_SPATIAL_ANCHOR"
+		observations.LocationCount += 1
+		observations.LocationVerifiedCount = observations.LocationCount
+		observed.LocationEvidence = "ClientScript:658-674,747 original interface/reparenting + WorldUtil:12-38 world Spawn + WorldMap:457-475 area geometry; current LocalData access"
+		table.insert(candidates, { Model = model, Root = root, Prompt = prompt, World = def.World, Island = island,
+			IdentityId = observed.IdentityId, IdentityEvidence = observed.IdentityEvidence, LocationVerified = true,
+			LocationAnchor = root, LocationAnchorPosition = root.Position, InteractionVerified = false, RegistrationVerified = observed.Verified == true,
+			LocationEvidence = observed.LocationEvidence })
+	end
+	if #candidates == 0 then
+		local reason = observations.Candidates[1] and observations.Candidates[1].LocationReason
+		-- Prefer a physical-original rejection over a decorative-copy explanation.
+		for _, row in ipairs(observations.Candidates) do if row.Root and row.LocationReason then reason = row.LocationReason break end end
+		observations.Reason = reason or "EGG_LOCATION_NOT_LOADED: no trustworthy physical original"
+	else observations.Reason = "PHYSICAL_LOCATION_VERIFIED; hatch eligibility remains independent" end
+	return candidates, observations
+end
+
+function GameKnowledge:ResolveEggLocation(name, force, expectedModel, characterRoot)
+	local candidates, observations = self:EggLocationCandidates(name, force)
+	if expectedModel then
+		for _, candidate in ipairs(candidates) do if candidate.Model == expectedModel then return candidate, nil, observations end end
+		return nil, "EGG_LOCATION_SELECTED_INSTANCE_UNAVAILABLE: retained exact target lost, moved area, or access changed; " .. observations.Reason, observations
+	end
+	if #candidates == 0 then return nil, observations.Reason, observations end
+	local character = self.Reader.Player and self.Reader.Player.Character
+	local root = characterRoot or character and character:FindFirstChild("HumanoidRootPart")
+	if #candidates > 1 and (not root or not point(root.Position)) then return nil, "EGG_LOCATION_SELECTION_POSITION_UNAVAILABLE", observations end
+	for _, candidate in ipairs(candidates) do candidate.Distance = root and (candidate.Root.Position - root.Position).Magnitude or math.huge end
+	table.sort(candidates, function(a, b)
+		if a.Distance ~= b.Distance then return a.Distance < b.Distance end
+		return a.IdentityId < b.IdentityId
+	end)
+	return candidates[1], nil, observations
 end
 
 function GameKnowledge:NativeEggRangeEligible(egg, root, force)
@@ -323,6 +434,22 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 	end
 	local currentWorld = native(self:Get("WorldUtil"), "GetPlayerWorld", self.Reader.Player)
 	local root = tracker:Root()
+	if (self.Reader.Config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY" then
+		context.EggLocations, context.EggLocationDiagnostics = {}, {}
+		local seen = {}
+		for _, model in ipairs(self:EggModels()) do
+			if seen[model.Name] then continue end seen[model.Name] = true
+			local locations, observation = self:EggLocationCandidates(model.Name)
+			context.EggLocationDiagnostics[model.Name] = observation
+			for _, location in ipairs(locations) do
+				location.Name, location.Loaded, location.Accessible = model.Name, true, true
+				location.Distance = root and (location.Root.Position - root.Position).Magnitude
+				location.Cost = definitions[model.Name].Cost
+				table.insert(context.EggLocations, location)
+			end
+		end
+		coverage.PhysicalLocations = #context.EggLocations
+	end
 	local byName = {}
 	context.EggIdentityDiagnostics = {}
 	for _, model in ipairs(self:EggModels()) do

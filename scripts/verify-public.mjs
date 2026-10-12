@@ -47,6 +47,9 @@ console.log(`[OC] Public main ${commit}; ${localFiles.size} Git file paths/blob 
 const representative = [
   'dist/OC.lua', 'dist/OC.local.lua', 'src/OC.luau', 'src/OCFoundation/OCConfig.luau',
   'src/OCFoundation/EggTravelManager.luau', 'src/OCFoundation/RewardsManager.luau', 'src/OCFoundation/AntiAFKManager.luau',
+  'src/OCFoundation/GameKnowledge.luau', 'src/OCFoundation/OCBrain.luau', 'src/OCFoundation/GameMechanics.luau',
+  'src/OCFoundation/AccountPresentation.luau', 'docs/PHASE4-EGG-LOCATION-EVIDENCE.md',
+  'tests/phase4-egg-location.luau', 'tests/phase4-location-logging.luau', 'tests/phase4-standing-location.luau',
   'scripts/build.mjs', 'scripts/test.mjs', 'package.json', 'docs/ARCHITECTURE.md', 'docs/LOCAL_FEATURES.md',
   'docs/research/replicatedstorage/README.md', 'docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md',
   'docs/research/replicatedstorage/catalogs/EGG_FACTS.jsonl',
@@ -86,6 +89,13 @@ for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau', 'exampl
   assert((await get(`${rawRoot}/${priorTestRelease}/${artifact}`)).equals(expected), 'Prior Test A/B pin differs: ' + artifact);
   checks.push({ artifact, ref: priorTestRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
+const priorTravelRelease = 'phase4-travel-a0ee412ac828';
+const priorTravelCommit = git('rev-parse', priorTravelRelease + '^{}');
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau']) {
+  const expected = execFileSync('git', ['show', `${priorTravelCommit}:${artifact}`], { cwd: root });
+  assert((await get(`${rawRoot}/${priorTravelRelease}/${artifact}`)).equals(expected), 'Prior owner-tested travel pin differs: ' + artifact);
+  checks.push({ artifact, ref: priorTravelRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
+}
 // Historical action-OFF examples intentionally retain their accepted migration
 // pin. Compare its own bundle, never pretend it is the current candidate build.
 const historicalRelease = 'migration-005f77211830';
@@ -101,7 +111,7 @@ const report = { dateUTC: new Date().toISOString(), repository, branch: 'main', 
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };
-const reportPath = path.join(root, '.test-output/phase4-egg-identity-public-verification.json');
+const reportPath = path.join(root, '.test-output/phase4-egg-location-public-verification.json');
 await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 console.log('[OC] Public verification PASS: ' + checks.length + ' raw content comparisons; bundle build ' + buildId);

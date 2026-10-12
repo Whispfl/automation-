@@ -62,7 +62,7 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -289,7 +289,8 @@ options.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false
 local instance = requireOC("OCController").new(config(options))
 local settings = instance.Config
 assert(settings.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and settings.PET_SETTINGS.AUTO_HATCH == ${!travelOnly})
-assert(settings.HATCH_SETTINGS.EGG_SELECTION_MODE == "AUTO" and #settings.HATCH_SETTINGS.SELECTED_EGGS == 0)
+assert(settings.HATCH_SETTINGS.EGG_SELECTION_MODE == "${travelOnly ? 'MANUAL' : 'AUTO'}")
+assert(${travelOnly ? '#settings.HATCH_SETTINGS.SELECTED_EGGS == 1 and settings.HATCH_SETTINGS.SELECTED_EGGS[1] == "Common Egg"' : '#settings.HATCH_SETTINGS.SELECTED_EGGS == 0'})
 assert(settings.EGG_TRAVEL_SETTINGS.MODE == "${travelOnly ? 'TRAVEL_ONLY' : 'NORMAL'}")
 assert(settings.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL == ${travelOnly} and settings.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL == ${travelOnly} and settings.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING == ${travelOnly})
 assert(settings.HATCH_SETTINGS.HATCH_ONE_EGG_ONCE == ${!travelOnly} and settings.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES == 1 and settings.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES == 1)

@@ -36,7 +36,7 @@ test("TRAVEL_ONLY repeated unresolved preflight prints one blocker and never con
 		assert(s.Logs[1]:find("preflight unresolved; no arrival claimed", 1, true))
 		assert(not s.Manager.DiagnosticConsumed and not s.Manager.Lease and next(s.Manager.Attempts) == nil)
 		clock.Time = 30 s:Select()
-		assert(#s.Logs == 2, "An unchanged blocker can emit only one bounded 30-second reminder")
+		assert(#s.Logs == 1, "Unchanged preflight evidence stays quiet; the separate 15-second summary retains its reason")
 	end)
 end)
 
@@ -49,13 +49,14 @@ test("TRAVEL_ONLY changed blocker target resolution and cancellation are immedia
 		assert(#s.Logs == 2, "A new blocker is immediate while A/B/A alternation cannot defeat per-key throttling")
 		s.Blocker = nil
 		local selected, decision = s:Select()
-		assert(selected and decision.Kind == "EGG_TRAVEL" and #s.Logs == 3)
+		assert(selected and decision.Kind == "EGG_TRAVEL" and #s.Logs == 4)
 		assert(s.Logs[3]:find("TARGET_SELECTED", 1, true) and s.Manager.DiagnosticConsumed)
+		assert(s.Logs[4]:find("PHYSICAL_TARGET_RESOLVED", 1, true) and s.Logs[4]:find("direct attempts=0; native travel attempts=0", 1, true))
 		s.Manager:DiagnosticTrace("PREFLIGHT_BLOCKED", nil, original)
-		assert(#s.Logs == 4, "A blocker recurrence after real target resolution is immediately visible")
+		assert(#s.Logs == 5, "A blocker recurrence after real target resolution is immediately visible")
 		s.Controller.State = "PAUSED" s.Manager:Halt(false)
-		assert(#s.Logs == 5 and s.Logs[5]:find("TRAVEL_BLOCKED", 1, true))
-		assert(s.Logs[5]:find("direct attempts=0; native travel attempts=0", 1, true))
+		assert(#s.Logs == 6 and s.Logs[6]:find("TRAVEL_BLOCKED", 1, true))
+		assert(s.Logs[6]:find("direct attempts=0; native travel attempts=0", 1, true))
 		s.Controller.State = "RUNNING" s:Select()
 		local count = #s.Logs
 		for _ = 1, 20 do s:Select() end

@@ -49,6 +49,22 @@ test("Actual direct assignment reports pending observation rather than verified 
 	assert(assigned and s.Assignments == 1 and s.Root.Position == s.Frame.Position and reason:find("pending", 1, true))
 end)
 
+test("Actual adapter permits signed physical anchor coordinates without requiring hatch registration", function()
+	local s = fixture() s.Frame = frame(Vector3.new(-10, -5, -79))
+	local validate = s.Manager.Validate
+	s.Manager.Validate = function(...)
+		local fresh, reason = validate(...)
+		if fresh then
+			fresh.LocationOnly, fresh.LocationVerified, fresh.InteractionVerified = true, true, false
+			fresh.Range, fresh.PhysicalRange, fresh.RangeOrigin = 6.5, 6.5, { Position = s.Frame.Position }
+		end
+		return fresh, reason
+	end
+	local assigned, reason = s:Position()
+	assert(assigned and s.Assignments == 1 and s.Root.Position == s.Frame.Position and reason:find("pending", 1, true))
+	assert(not s:Position() and s.Assignments == 1, "A physical-only location still gets one guarded assignment")
+end)
+
 test("Actual position adapter skips an already valid native range including entry during guards", function()
 	for _, late in ipairs({ false, true }) do
 		local s = fixture()

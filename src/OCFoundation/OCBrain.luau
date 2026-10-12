@@ -490,7 +490,7 @@ function OCBrain:PlanEggTravelDiagnostic(snapshot, context, definitions, worlds,
 		or retainedIntent.SelectionMode ~= selectedMode or type(retainedIntent.EggName) ~= "string" or not retainedIntent.Model) then
 		return { Kind = "WAIT", OwnsLocation = false, Reason = "Acquired diagnostic selection scope/mode/identity changed; no retarget" }
 	end
-	for _, egg in ipairs(context.EggAvailability or context.Eggs or {}) do
+	for _, egg in ipairs(context.EggLocations or context.EggAvailability or context.Eggs or {}) do
 		if retainedIntent and (egg.Name ~= retainedIntent.EggName or egg.Model ~= retainedIntent.Model) then continue end
 		if not PetPolicy.EggSelected(self.Config, egg.Name) then continue end
 		local definition = definitions[egg.Name]
@@ -513,7 +513,7 @@ function OCBrain:PlanEggTravelDiagnostic(snapshot, context, definitions, worlds,
 			table.insert(candidates, { Egg = egg, World = world, Island = island, OrdinaryCost = ordinary == true,
 				Distance = PetPolicy.Finite(egg.Distance) and egg.Distance or math.huge })
 		end
-		if reason and #reasons < self.Config.HATCH_SETTINGS.MAXIMUM_PLAN_CANDIDATES then table.insert(reasons, tostring(egg.Name) .. ": " .. reason) end
+		if reason and #reasons < math.min(2, self.Config.HATCH_SETTINGS.MAXIMUM_PLAN_CANDIDATES) then table.insert(reasons, tostring(egg.Name) .. ": " .. reason) end
 	end
 	table.sort(candidates, function(a, b)
 		if a.OrdinaryCost ~= b.OrdinaryCost then return a.OrdinaryCost end
@@ -522,29 +522,38 @@ function OCBrain:PlanEggTravelDiagnostic(snapshot, context, definitions, worlds,
 	end)
 	local candidate = candidates[1]
 	if not candidate then
+		if #reasons == 0 then
+			local names = {} for name in pairs(context.EggLocationDiagnostics or {}) do
+				if PetPolicy.EggSelected(self.Config, name) then table.insert(names, name) end
+			end table.sort(names)
+			for _, name in ipairs(names) do
+				if #reasons >= math.min(2, self.Config.HATCH_SETTINGS.MAXIMUM_PLAN_CANDIDATES) then break end
+				table.insert(reasons, name .. ": " .. tostring(context.EggLocationDiagnostics[name].Reason))
+			end
+		end
 		return { Kind = "WAIT", OwnsLocation = false, Reason = #reasons > 0 and "TRAVEL_ONLY no eligible destination | " .. table.concat(reasons, "; ")
 			or "TRAVEL_ONLY no eligible loaded native egg; no catalog-only or random travel" }
 	end
 	local egg = candidate.Egg
 	return { Kind = "EGG_TRAVEL", Scope = "TRAVEL_ONLY", DecisionSource = "BRAIN_TRAVEL_DIAGNOSTIC", SelectionMode = selectedMode,
 		EggName = egg.Name, Model = egg.Model, IdentityId = egg.IdentityId, IdentityEvidence = egg.IdentityEvidence,
+		LocationVerified = egg.LocationVerified, LocationEvidence = egg.LocationEvidence,
 		World = candidate.World, Island = candidate.Island, OwnsLocation = true,
 		DefinitionReference = "ReplicatedStorage.Shared.Data.Eggs[" .. egg.Name .. "]",
 		AccessSource = "Received LocalData.WorldsUnlocked/AreasUnlocked + actual loaded original egg model",
-		GeometrySource = "Actual original Root/Prompt; native initial prompt/opened scanner; floor/full-avatar clearance required",
+		GeometrySource = "Verified original Root + native world/island scene correspondence; floor/full-avatar clearance; physical arrival and hatch interaction observed separately",
 		EconomicSelection = "DIAGNOSTIC_PHYSICAL_TARGET; optimal economic choice not claimed",
 		Reason = string.format("TRAVEL_ONLY %s selected %s @ %s/%s | actual loaded permanent egg/access; %s; %s | observed distance=%s; economic ROI/affordability/reserves do not authorize or block this zero-spend diagnostic; hatch/equipment/pickups OFF; native path, geometry and stable range still required",
 			selectedMode, egg.Name, candidate.World, tostring(candidate.Island or "surface"), candidate.OrdinaryCost and "ordinary native currency cost observed; diagnostic physical selection, no optimal ROI claim" or "price unavailable/unsupported for spending; diagnostic physical selection, no optimal ROI claim",
-			retainedIntent and "retained acquired exact original model; character movement/new proximity does not select another egg" or "closest observed supported destination, deterministic name tie",
+			retainedIntent and "retained acquired exact original model; character movement/new proximity does not select another egg" or "closest source-associated physical original after native spatial/access checks; distance is travel policy, not hatch identity proof",
 			candidate.Distance < math.huge and tostring(candidate.Distance) or "UNKNOWN") }
 end
 
 function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
 	if (self.Config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY" then
 		local blocker = self:TravelDiagnosticBlocker()
-		if blocker then controller.EggTravel:DiagnosticTrace("TRAVEL_BLOCKED", nil, blocker) return "PHASE4_WAIT", { Kind = "WAIT", Reason = blocker, OwnsLocation = false } end
+		if blocker then controller.EggTravel.Reason = blocker controller.EggTravel:DiagnosticTrace("PREFLIGHT_BLOCKED", nil, blocker) return "PHASE4_WAIT", { Kind = "WAIT", Reason = blocker, OwnsLocation = false } end
 		local snapshot, context = controller.Pets:Fresh()
-		controller.EggTravel:ReportInstanceDiagnostics(context and context.EggIdentityDiagnostics)
 		local retained = controller.EggTravel.Lease and controller.EggTravel.BrainIntent
 		local goalId = plan and plan.Objective and plan.Objective.Id or "TRAVEL_ONLY_DIAGNOSTIC"
 		if retained and (retained.GoalId ~= goalId or retained.Generation ~= controller.Generation
@@ -553,7 +562,14 @@ function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
 			return "PHASE4_WAIT", { Kind = "WAIT", Reason = "Acquired diagnostic goal/generation/revision changed", OwnsLocation = false }
 		end
 		local intent = self:PlanEggTravelDiagnostic(snapshot, context, controller.Knowledge:Get("Eggs"), controller.Knowledge:Get("Worlds"), retained)
-		if intent.Kind ~= "EGG_TRAVEL" then controller.EggTravel:DiagnosticTrace("PREFLIGHT_BLOCKED", nil, intent.Reason) return "PHASE4_WAIT", intent end
+		if intent.Kind ~= "EGG_TRAVEL" then
+			controller.EggTravel.Reason = intent.Reason
+			local names = {} for name in pairs(context and context.EggLocationDiagnostics or {}) do
+				if PetPolicy.EggSelected(self.Config, name) then table.insert(names, name) end
+			end table.sort(names)
+			if names[1] then controller.EggTravel:ReportInstanceDiagnostics({ [names[1]] = context.EggLocationDiagnostics[names[1]] }) end
+			controller.EggTravel:DiagnosticTrace("PREFLIGHT_BLOCKED", nil, intent.Reason) return "PHASE4_WAIT", intent
+		end
 		intent.Generation, intent.AccountId = controller.Generation, controller.Reader.Player and controller.Reader.Player.UserId
 		intent.SelectionRevision = self.Config.EGG_TRAVEL_SETTINGS.SELECTION_REVISION
 		intent.GoalId = goalId

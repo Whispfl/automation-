@@ -54,6 +54,11 @@ function EggTravelManager:Report(message, key, force)
 end
 function EggTravelManager:DiagnosticTrace(event, record, reason)
 	if (self:Settings().MODE or "NORMAL") ~= "TRAVEL_ONLY" then return end
+	if event == "PREFLIGHT_BLOCKED" then
+		self.Reason, self.LastPreflightReason = reason, reason
+	elseif event == "TARGET_SELECTED" then
+		self.Reason, self.LastPreflightReason = nil, nil
+	end
 	local intent = self.BrainIntent or {}
 	local distance = record and finite(record.Distance) and string.format("%.2f", record.Distance) or "UNKNOWN"
 	local name, world = tostring(record and record.EggName or intent.EggName or "UNSELECTED"), tostring(record and record.World or intent.World or "UNKNOWN")
@@ -81,14 +86,18 @@ function EggTravelManager:DiagnosticTrace(event, record, reason)
 	end
 	self.LastDiagnosticStage = event
 	local key = table.concat({ tostring(self.DiagnosticReportEpoch or 0), event, name, world, island, generation, revision, tostring(identity or "UNRESOLVED"), reason }, "|")
+	self.DiagnosticEventKeys = self.DiagnosticEventKeys or {}
+	if self.DiagnosticEventKeys[event] == key then return end
+	self.DiagnosticEventKeys[event] = key
 	-- Fresh geometry records do not carry the lease's adapter-attempt ledger.
 	local attempted = self.Lease or self.LastResult or record
 	local direct = event ~= "PREFLIGHT_BLOCKED" and attempted and attempted.DirectPositionAttempted == true
 	local native = event ~= "PREFLIGHT_BLOCKED" and attempted and attempted.NativeTravelAttempted == true
-	local evidence = record and "access=LocalData unlock membership + resolved native egg; geometry=actual Root/Prompt; clearance/arrival verified separately"
+	local evidence = record and (record.LocationOnly and "access=LocalData unlock membership; location=verified native physical original Root; physical radius is diagnostic policy, hatch eligibility separate"
+		or "access=LocalData unlock membership + resolved native egg; geometry=actual Root/Prompt; clearance/arrival verified separately")
 		or "access/instance/standing geometry=preflight unresolved; no arrival claimed"
-	self:Report(string.format("%s | egg=%s; instance=%s | world=%s; island=%s | generation=%s; revision=%s | distance=%s; native range=%s | %s | %s | direct attempts=%d; native travel attempts=%d; hatch commands=0; spending=0",
-		event, name, tostring(identity or "UNRESOLVED"), world, island, generation, revision, distance, tostring(record and record.Range or "UNKNOWN"), evidence, reason,
+	self:Report(string.format("%s | egg=%s; instance=%s | world=%s; island=%s | generation=%s; revision=%s | distance=%s; %s radius=%s | %s | %s | direct attempts=%d; native travel attempts=%d; hatch commands=0; spending=0",
+		event, name, tostring(identity or "UNRESOLVED"), world, island, generation, revision, distance, record and record.LocationOnly and "physical policy" or "native", tostring(record and record.Range or "UNKNOWN"), evidence, reason,
 		direct and 1 or 0, native and 1 or 0), "DIAGNOSTIC:" .. key)
 end
 function EggTravelManager:Key()
@@ -98,32 +107,55 @@ function EggTravelManager:Key()
 	return prefix .. name .. ":" .. tostring((self:Settings() or {}).SELECTION_REVISION or 0), nil, name
 end
 
-function EggTravelManager:ReportInstanceDiagnostics(diagnostics)
+function EggTravelManager:ReportInstanceDiagnostics(diagnostics, expandedRequested)
 	if (self:Settings().MODE or "NORMAL") ~= "TRAVEL_ONLY" then return end
 	local knowledge = self.Controller.Knowledge
+	local expanded = expandedRequested == true or self.Controller.Config.DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING == true
+	local diagnosticScope = expanded and "EXPLICIT_EXPANDED" or "UNSELECTED_DIAGNOSTIC_SAMPLE"
 	local function position(part)
 		return part and vector(part.Position) and string.format("(%.3f,%.3f,%.3f)", part.Position.X, part.Position.Y, part.Position.Z) or "ABSENT/UNKNOWN"
 	end
 	local names = {} for name in pairs(diagnostics or {}) do table.insert(names, name) end table.sort(names)
+	if not expanded then
+		local selectedName = self.BrainIntent and self.BrainIntent.EggName
+		if not selectedName and self.Controller.Config.HATCH_SETTINGS.EGG_SELECTION_MODE == "MANUAL" then
+			selectedName = self.Controller.Config.HATCH_SETTINGS.SELECTED_EGGS[1]
+		end
+		if selectedName and diagnostics and diagnostics[selectedName] then diagnosticScope = "SELECTED_TARGET" end
+		-- A blocked Brain may have no selected target. One clearly labelled sample
+		-- exposes the evidence gap without turning a diagnostic name into authority.
+		selectedName = selectedName and diagnostics and diagnostics[selectedName] and selectedName or names[1]
+		names = selectedName and diagnostics and diagnostics[selectedName] and { selectedName } or {}
+	end
 	self.InstanceDiagnosticReports = self.InstanceDiagnosticReports or {}
 	self.InstanceDiagnosticReportOrder = self.InstanceDiagnosticReportOrder or {}
 	for index, name in ipairs(names) do
 		if index > 40 then break end
 		local observation, lines = diagnostics[name], {}
-		for candidateIndex, candidate in ipairs(observation.Candidates or {}) do
-			if candidateIndex > 20 then break end
+		local candidates = table.clone(observation.Candidates or {})
+		if not expanded then
+			table.sort(candidates, function(a, b)
+				local function rank(candidate) return candidate.LocationVerified and 3 or candidate.Verified and 2 or candidate.Root and 1 or 0 end
+				if rank(a) ~= rank(b) then return rank(a) > rank(b) end
+				return tostring(a.IdentityId) < tostring(b.IdentityId)
+			end)
+		end
+		for candidateIndex, candidate in ipairs(candidates) do
+			if candidateIndex > (expanded and 20 or 4) then break end
 			local model, ancestry, attrs = candidate.Model, {}, {}
 			local ancestor = model and model.Parent
-			for _ = 1, 8 do
-				if not ancestor or not ancestor.Name then break end
-				table.insert(ancestry, ancestor.Name .. "[" .. knowledge:InstanceId(ancestor) .. "]") ancestor = ancestor.Parent
-			end
-			for _, key in ipairs({ "World", "Island", "Unlocked", "Offset", "Size", "BonusLuck" }) do
-				local value = model and model:GetAttribute(key)
-				if value ~= nil then table.insert(attrs, key .. "=" .. tostring(value)) end
+			if expanded then
+				for _ = 1, 8 do
+					if not ancestor or not ancestor.Name then break end
+					table.insert(ancestry, ancestor.Name .. "[" .. knowledge:InstanceId(ancestor) .. "]") ancestor = ancestor.Parent
+				end
+				for _, key in ipairs({ "World", "Island", "Unlocked", "Offset", "Size", "BonusLuck" }) do
+					local value = model and model:GetAttribute(key)
+					if value ~= nil then table.insert(attrs, key .. "=" .. tostring(value)) end
+				end
 			end
 			local engine = candidate.NativePrompt
-			local interface = candidate.Verified and "REGISTERED" or "UNVERIFIED/EXCLUDED"
+			local interface = candidate.Verified and "REGISTERED" or candidate.LocationVerified and "LOCATION_VERIFIED; HATCH_INTERACTION_UNVERIFIED" or "UNVERIFIED/EXCLUDED"
 			local raw = self.Controller.Reader:GetLiveProfile()
 			local opened = raw and type(raw.EggsOpened) == "table" and raw.EggsOpened[name] ~= nil and model:GetAttribute("Unlocked") == true
 			local interaction = opened and "opened Root<=16; global Visible=0; nearest registered check still required"
@@ -133,18 +165,30 @@ function EggTravelManager:ReportInstanceDiagnostics(diagnostics)
 			local promptEligible = engine and engine.Parent == candidate.Prompt and engine.Enabled == true and engine.RequiresLineOfSight == false
 				and finite(engine.MaxActivationDistance) and engine.MaxActivationDistance > 0 and candidate.PromptCacheMember == true
 			local interfaceEligible = candidate.Verified and worldAccess and islandAccess and (opened or promptEligible)
-			table.insert(lines, string.format("id=%s; path=%s; parents=%s; attrs={%s}; Root=%s; Prompt=%s; world=%s; island=%s; eligibility=%s (%s); cached prompt=%s; prompt enabled=%s; max distance=%s; %s",
-				tostring(candidate.IdentityId), tostring(candidate.Path or "UNKNOWN"), table.concat(ancestry, " <- "), table.concat(attrs, ","),
-				position(candidate.Root), position(candidate.Prompt), tostring(candidate.World or "UNKNOWN"), tostring(candidate.Island or "surface/UNKNOWN"),
-				interface, tostring(candidate.IdentityEvidence or candidate.Reason), tostring(candidate.PromptCacheMember == true), tostring(engine and engine.Enabled),
-				tostring(engine and engine.MaxActivationDistance), interaction .. "; interface/access eligible=" .. tostring(interfaceEligible == true) .. "; actual stable range pending"))
+			if expanded then
+				table.insert(lines, string.format("id=%s; path=%s; parents=%s; attrs={%s}; Root=%s; Prompt=%s; world=%s; island=%s; eligibility=%s (%s); cached prompt=%s; prompt enabled=%s; max distance=%s; %s",
+					tostring(candidate.IdentityId), tostring(candidate.Path or "UNKNOWN"), table.concat(ancestry, " <- "), table.concat(attrs, ","),
+					position(candidate.Root), position(candidate.Prompt), tostring(candidate.World or "UNKNOWN"), tostring(candidate.Island or "surface/UNKNOWN"),
+					interface, tostring(candidate.LocationEvidence or candidate.LocationReason or candidate.IdentityEvidence or candidate.Reason), tostring(candidate.PromptCacheMember == true), tostring(engine and engine.Enabled),
+					tostring(engine and engine.MaxActivationDistance), interaction .. "; interface/access eligible=" .. tostring(interfaceEligible == true) .. "; actual stable range pending"))
+			else
+				local parent = model and model.Parent
+				local parentLabel = parent and parent.Name and (parent.Name .. "[" .. knowledge:InstanceId(parent) .. "]") or "UNKNOWN"
+				local nativeState = candidate.Verified and "VERIFIED" or tostring(candidate.Reason):find("PENDING", 1, true) and "PENDING" or "UNVERIFIED"
+				table.insert(lines, string.format("id=%s%s; parent=%s; Root=%s; Prompt=%s; location=%s; registered=%s; access=%s; native=%s",
+					tostring(candidate.IdentityId), self.BrainIntent and self.BrainIntent.Model == model and " SELECTED" or "", parentLabel,
+					position(candidate.Root), position(candidate.Prompt), tostring(candidate.LocationVerified == true),
+					tostring(candidate.Verified == true), tostring(worldAccess and islandAccess or false), nativeState))
+			end
 		end
-		local message = string.format("INSTANCE_DIAGNOSTIC_READ_ONLY | egg=%s; matching Models=%d; registered=%d; shown=%d | %s\n%s",
-			name, observation.Count or 0, observation.VerifiedCount or 0, #lines, tostring(observation.Reason), table.concat(lines, "\n"))
+		local selectedId = self.BrainIntent and self.BrainIntent.EggName == name and self.BrainIntent.Model and knowledge:InstanceId(self.BrainIntent.Model) or "UNSELECTED"
+		local message = string.format("INSTANCE_DIAGNOSTIC_READ_ONLY | scope=%s; egg=%s; selected=%s; matching Models=%d; location verified=%d; registered=%d; shown=%d; omitted=%d | %s\n%s",
+			diagnosticScope, name, selectedId, observation.Count or 0, observation.LocationVerifiedCount or observation.LocationCount or 0, observation.VerifiedCount or 0, #lines,
+			math.max(0, #candidates - #lines), tostring(observation.Reason), table.concat(lines, "\n"))
 		-- Full evidence forms the key: changed membership/ancestry/geometry prints
-		-- immediately; unchanged observations are paced by the shared log ledger.
+		-- immediately; unchanged observations remain silent between summaries.
 		local previous = self.InstanceDiagnosticReports[name]
-		if not previous or previous.Message ~= message or os.clock() - previous.At >= 30 then
+		if not previous or previous.Message ~= message then
 			if not previous then
 				table.insert(self.InstanceDiagnosticReportOrder, name)
 				if #self.InstanceDiagnosticReportOrder > 64 then self.InstanceDiagnosticReports[table.remove(self.InstanceDiagnosticReportOrder, 1)] = nil end
@@ -187,8 +231,42 @@ function EggTravelManager:RevalidateIntent()
 	return true
 end
 
+function EggTravelManager:HatchInteractionAt(record, position, force)
+	-- This read-only question is deliberately separate from physical travel.
+	-- Exact current registration plus real initial/opened range semantics remain
+	-- mandatory before reporting a hatch-range observation, even with AUTO_HATCH off.
+	local c = self.Controller
+	local identity, reason = c.Knowledge:ResolveEggInstance(record.EggName, force, record.Model)
+	if not identity then return false, reason or "Exact native egg interaction identity unavailable" end
+	if identity.Model ~= record.Model or identity.Root ~= record.TargetRoot then return false, "Native interaction anchor differs from selected physical original" end
+	local profile = c.Reader:GetLiveProfile()
+	if not profile or type(profile.EggsOpened) ~= "table" then return false, "Native egg opened-state facts unavailable; physical location remains separate" end
+	local prompt = child(record.Model, "Prompt")
+	local native = table.clone(record)
+	native.LocationOnly = false
+	native.Opened = profile and type(profile.EggsOpened) == "table" and profile.EggsOpened[record.EggName] ~= nil
+		and record.Model:GetAttribute("Unlocked") == true
+	native.RangeOrigin, native.Range = record.TargetRoot, 16
+	if native.Opened then
+		local prompts = c.Knowledge:Get("ProximityPrompt")
+		if type(prompts) ~= "table" or prompts.Visible ~= 0 then return false, "Native opened-egg prompt visibility unavailable/blocked" end
+	else
+		if identity.PromptCacheMember ~= true then return false, "Exact initial native prompt registration is unverified; physical location remains separate" end
+		if not live(prompt) or not vector(prompt.Position) then return false, "Actual native initial egg Prompt geometry unavailable" end
+		local engine = prompt:FindFirstChildOfClass("ProximityPrompt")
+		if not engine or engine.Parent ~= prompt or engine.Enabled ~= true or engine.RequiresLineOfSight ~= false
+			or not finite(engine.MaxActivationDistance) or engine.MaxActivationDistance <= 0 then
+			return false, "Native initial egg prompt eligibility unavailable/disabled"
+		end
+		native.RangeOrigin, native.Range = prompt, math.min(6.5, engine.MaxActivationDistance)
+	end
+	local eligible, blocker = self:RangeEligibleAt(native, position, force)
+	return eligible, blocker or "Exact native interaction identity and actual range observed", native
+end
+
 function EggTravelManager:Resolve(force)
 	local c, settings = self.Controller, self:Settings()
+	local diagnostic = (settings and settings.MODE or "NORMAL") == "TRAVEL_ONLY"
 	if self.Destroyed or not settings or not settings.ENABLE_SELECTED_EGG_TRAVEL then return nil, "Selected-egg travel disabled" end
 	local key, reason, name = self:Key()
 	if not key then return nil, reason end
@@ -196,7 +274,7 @@ function EggTravelManager:Resolve(force)
 	if not permitted then return nil, blocker end
 	local profile, snapshot = c.Reader:GetLiveProfile(), c.Reader:GetSnapshot()
 	if not profile or not snapshot or not snapshot.Ready or type(profile.WorldsUnlocked) ~= "table"
-		or type(profile.AreasUnlocked) ~= "table" or type(profile.EggsOpened) ~= "table" then return nil, "Fresh account world/island/egg access unavailable" end
+		or type(profile.AreasUnlocked) ~= "table" or not diagnostic and type(profile.EggsOpened) ~= "table" then return nil, "Fresh account world/island/egg access unavailable" end
 	local root, humanoid = c.Farming.Tracker:Root()
 	local character = c.Reader.Player and c.Reader.Player.Character
 	if not character or not root or not humanoid or not vector(root.Position) then return nil, "Living character unavailable" end
@@ -213,21 +291,32 @@ function EggTravelManager:Resolve(force)
 	local worldUtil = c.Knowledge:Get("WorldUtil")
 	local okWorld, currentWorld = pcall(function() return worldUtil:GetPlayerWorld(c.Reader.Player) end)
 	if not okWorld or type(currentWorld) ~= "string" then return nil, "Native current-world observation unavailable" end
-	local identity, identityReason, observations = c.Knowledge:ResolveEggInstance(name, force, self.BrainIntent and self.BrainIntent.Model)
+	local identity, identityReason, observations
+	if diagnostic then
+		identity, identityReason, observations = c.Knowledge:ResolveEggLocation(name, force, self.BrainIntent and self.BrainIntent.Model, root)
+	else
+		identity, identityReason, observations = c.Knowledge:ResolveEggInstance(name, force, self.BrainIntent and self.BrainIntent.Model)
+	end
 	if observations then self:ReportInstanceDiagnostics({ [name] = observations }) end
 	if not identity then return nil, identityReason end
 	local model, part = identity.Model, identity.Root
-	if not live(part) or not vector(part.Position) then return nil, "Registered egg Root geometry unavailable" end
+	if not live(part) or not vector(part.Position) then return nil, "Selected physical egg Root geometry unavailable" end
+	if diagnostic and identity.LocationVerified ~= true then return nil, "Selected native physical egg location is unverified; no travel" end
+	if diagnostic and identity.World ~= world then return nil, "Verified physical egg world differs from the selected native definition" end
 	local bestDistance = (part.Position - root.Position).Magnitude
-	local island = model:GetAttribute("Island") or def.Island
+	local island = identity.Island or model:GetAttribute("Island") or def.Island
 	if island ~= nil and (type(island) ~= "string" or profile.AreasUnlocked[island] == nil) then
 		return nil, "Selected egg island access locked or unknown; no discovery or purchase"
 	end
 	local opened = model:GetAttribute("Unlocked") == true and type(profile.EggsOpened) == "table" and profile.EggsOpened[name] ~= nil
 	local prompt = child(model, "Prompt")
-	if not live(prompt) or not vector(prompt.Position) then return nil, "Actual egg Prompt geometry unavailable" end
+	if not diagnostic and (not live(prompt) or not vector(prompt.Position)) then return nil, "Actual egg Prompt geometry unavailable" end
 	local rangeOrigin, range, nativePrompt, visible = part, 16
-	if opened then
+	if diagnostic then
+		-- A conservative near-Root travel policy is not native hatch-range proof.
+		-- Missing registration/Prompt state must not block an evidenced location.
+		range = 6.5
+	elseif opened then
 		local prompts = c.Knowledge:Get("ProximityPrompt")
 		visible = type(prompts) == "table" and prompts.Visible
 		if not finite(visible) or visible < 0 or visible % 1 ~= 0 then return nil, "Native opened-egg prompt visibility unavailable" end
@@ -254,10 +343,12 @@ function EggTravelManager:Resolve(force)
 	end
 	if not live(destination) then destination = nil end
 	local record = { SelectionKey = key, EggName = name, Model = model, IdentityId = identity.IdentityId, IdentityEvidence = identity.IdentityEvidence,
+		LocationOnly = diagnostic, LocationVerified = diagnostic and identity.LocationVerified == true or identity.Verified == true,
+		LocationEvidence = identity.LocationEvidence, PhysicalRange = diagnostic and range or nil,
 		TargetRoot = part, PromptPart = prompt, NativePrompt = nativePrompt,
 		TargetPosition = part.Position, Character = character, CharacterRoot = root, Humanoid = humanoid,
 		World = world, Island = island, CurrentWorld = currentWorld, Range = range, Opened = opened,
-		RangeOrigin = rangeOrigin, RangeOriginPosition = rangeOrigin.Position, PromptPosition = prompt.Position, PromptVisible = visible,
+		RangeOrigin = rangeOrigin, RangeOriginPosition = rangeOrigin.Position, PromptPosition = live(prompt) and vector(prompt.Position) and prompt.Position or nil, PromptVisible = visible,
 		Distance = (rangeOrigin.Position - root.Position).Magnitude, RootDistance = bestDistance,
 		-- Surface eggs also require their native area arrival when coming from an
 		-- island. Absence of an Island annotation cannot authorize a vertical jump.
@@ -265,12 +356,22 @@ function EggTravelManager:Resolve(force)
 		Destination = destination, DestinationPath = path, NativeAreaKnown = known == true }
 	local eligible, rangeBlocker = self:RangeEligibleAt(record, root.Position)
 	record.InRange, record.RangeBlocker = currentWorld == world and eligible, rangeBlocker
+	if diagnostic then
+		local interaction, interactionReason = self:HatchInteractionAt(record, root.Position, force)
+		record.InteractionVerified, record.InteractionReason = currentWorld == world and interaction, interactionReason
+	end
 	return record
 end
 
 function EggTravelManager:RangeEligibleAt(record, position, force)
 	if not vector(position) or not live(record.RangeOrigin) then return false, "Native range geometry unavailable" end
 	local distance = (position - record.RangeOrigin.Position).Magnitude
+	if record.LocationOnly then
+		if record.LocationVerified ~= true or record.RangeOrigin ~= record.TargetRoot or not finite(record.PhysicalRange)
+			or record.PhysicalRange <= 0 then return false, "Physical egg location identity/anchor unavailable" end
+		if distance <= record.PhysicalRange then return true end
+		return false, "Outside diagnostic physical arrival radius; native hatch eligibility is separate"
+	end
 	if distance > record.Range then return false, "Outside the actual native egg range origin" end
 	if record.Opened then
 		local prompts = self.Controller.Knowledge:Get("ProximityPrompt")
@@ -295,19 +396,20 @@ function EggTravelManager:Validate(record, token, force)
 	if not fresh then return nil, reason end
 	-- A first authorized hatch can change the native initial-prompt interface to
 	-- the opened scanner. Refresh observed range only; never reposition on it.
-	if lease.Status == "ARRIVED" and not lease.Opened and fresh.Opened and self.Controller.Pets
+	if not lease.LocationOnly and lease.Status == "ARRIVED" and not lease.Opened and fresh.Opened and self.Controller.Pets
 		and (self.Controller.Pets.Hatch.RequestedHatches or 0) > 0 then
 		lease.Opened, lease.NativePrompt, lease.RangeOrigin, lease.Range = fresh.Opened, fresh.NativePrompt, fresh.RangeOrigin, fresh.Range
 		lease.RangeOriginPosition, lease.PromptVisible = fresh.RangeOriginPosition, fresh.PromptVisible
 	end
 	if fresh.SelectionKey ~= lease.SelectionKey or fresh.Model ~= lease.Model or fresh.TargetRoot ~= lease.TargetRoot
-		or fresh.PromptPart ~= lease.PromptPart or fresh.NativePrompt ~= lease.NativePrompt or fresh.Opened ~= lease.Opened
+		or fresh.LocationOnly ~= lease.LocationOnly or fresh.LocationOnly and fresh.LocationVerified ~= true
+		or not lease.LocationOnly and (fresh.PromptPart ~= lease.PromptPart or fresh.NativePrompt ~= lease.NativePrompt or fresh.Opened ~= lease.Opened)
 		or fresh.RangeOrigin ~= lease.RangeOrigin or fresh.Range ~= lease.Range
 		or fresh.Character ~= lease.Character or fresh.CharacterRoot ~= lease.CharacterRoot
 		or fresh.World ~= lease.World or fresh.Island ~= lease.Island then return nil, "Selection, target, access or character changed; no position restoration" end
 	if (fresh.TargetPosition - lease.TargetPosition).Magnitude > 0.5 then return nil, "Selected egg moved; new geometry requires explicit rearm" end
-	if (fresh.PromptPosition - lease.PromptPosition).Magnitude > 0.5
-		or (fresh.RangeOriginPosition - lease.RangeOriginPosition).Magnitude > 0.5 then return nil, "Egg prompt/range geometry changed; explicit rearm required" end
+	if not lease.LocationOnly and (fresh.PromptPosition - lease.PromptPosition).Magnitude > 0.5
+		or (fresh.RangeOriginPosition - lease.RangeOriginPosition).Magnitude > 0.5 then return nil, "Egg location/prompt geometry changed; explicit rearm required" end
 	local movement = fresh.Humanoid.MoveDirection
 	if lease.Status == "TRAVELING" and vector(movement) and movement.Magnitude > 0.05 then
 		return nil, "Manual movement during arrival; explicit rearm required"
@@ -347,7 +449,10 @@ function EggTravelManager:ResolveStanding(record)
 		overlap.RespectCanCollide = true
 		local radius = math.min(4, record.Range / 2)
 		local pos = target.Position
-		for _, offset in ipairs({ Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }) do
+		-- Try the source-associated anchor X/Z first. Visible egg overlap alone is
+		-- not collision: only actual CanCollide geometry blocks the avatar volume.
+		-- Keep collidable Rendered platforms/egg parts in the floor/clearance query.
+		for _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }) do
 			local horizontal = pos + offset
 			local result = workspace:Raycast(horizontal + Vector3.new(0, record.Range, 0), Vector3.new(0, -record.Range * 2, 0), ray)
 			local floor = result and result.Instance
@@ -355,7 +460,14 @@ function EggTravelManager:ResolveStanding(record)
 				and vector(result.Normal) and result.Normal.Y >= 0.98 then
 				local standing = Vector3.new(horizontal.X, result.Position.Y + height, horizontal.Z)
 				if (standing - pos).Magnitude <= record.Range - 0.25 and self:RangeEligibleAt(record, standing) then
-					local frame = CFrame.lookAt(standing, Vector3.new(pos.X, standing.Y, pos.Z))
+					local facing = Vector3.new(pos.X - standing.X, 0, pos.Z - standing.Z)
+					if facing.Magnitude < 0.05 then
+						local observed = root.CFrame.LookVector
+						if not vector(observed) then return "Observed avatar facing unavailable at the physical anchor" end
+						facing = Vector3.new(observed.X, 0, observed.Z)
+						if facing.Magnitude < 0.05 then return "Observed avatar facing has no upright standing direction" end
+					end
+					local frame = CFrame.lookAt(standing, standing + facing)
 					overlap.FilterDescendantsInstances = { record.Character, floor }
 					local blocked = false
 					for _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * bodyOffset, bodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do
@@ -365,7 +477,8 @@ function EggTravelManager:ResolveStanding(record)
 				end
 			end
 		end
-		return "No supported floor and clear full avatar volume within native hatch range; manual approach required"
+		return record.LocationOnly and "No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required"
+			or "No supported floor and clear full avatar volume within native hatch range; manual approach required"
 	end)
 	if not ok then return nil, "Standing-geometry observation failed: " .. tostring(frameOrReason) end
 	if type(frameOrReason) == "string" then return nil, frameOrReason end
@@ -428,7 +541,9 @@ end
 function EggTravelManager:Select(_plan, intent)
 	local diagnostic = (self:Settings().MODE or "NORMAL") == "TRAVEL_ONLY"
 	if diagnostic and self.DiagnosticConsumed and (self.DiagnosticEnded or not self.Lease) then
-		self:DiagnosticTrace("TRAVEL_BLOCKED", nil, "One bounded diagnostic consumed; no retry or revision rearm")
+		if not self.LastResult or self.LastResult.PhysicalArrivalVerified ~= true then
+			self:DiagnosticTrace("TRAVEL_BLOCKED", nil, "One bounded diagnostic consumed; no retry or revision rearm")
+		end
 		return false, { Kind = "WAIT", Reason = "One bounded TRAVEL_ONLY attempt consumed; no automatic retry or revision rearm", OwnsLocation = false }
 	end
 	if intent then
@@ -484,6 +599,7 @@ function EggTravelManager:Select(_plan, intent)
 	record.StartedAt, record.Deadline = os.clock(), os.clock() + settings.MAXIMUM_LOCATION_SECONDS
 	self.Lease = record
 	self:DiagnosticTrace("TARGET_SELECTED", record, self.BrainIntent and self.BrainIntent.Reason or "Exact owner-selected native destination")
+	self:DiagnosticTrace("PHYSICAL_TARGET_RESOLVED", record, "Exact accessible egg Instance and native physical Root resolved; safe standing geometry is checked before assignment; hatch interaction separate")
 	return true, { Kind = "EGG_TRAVEL", Record = record, OwnsLocation = true }
 end
 
@@ -515,6 +631,7 @@ function EggTravelManager:Execute(record, token)
 		fresh, reason = self:Validate(lease, token)
 		if not fresh then self:Release(reason, true) return { Verified = false, Reason = reason } end
 		lease.DirectPositionAttempted = true -- Retain even on uncertain adapter error; no automatic repeat.
+		lease.RequestedStandingPosition = frame.Position
 		self:DiagnosticTrace("DIRECT_POSITION_ATTEMPTED", fresh, "One existing guarded HRP CFrame adapter attempt; standing surface/full-avatar clearance observed; assignment does not certify arrival")
 		local ok, why = c.Farming.Mechanics:PositionSelectedEgg(self, fresh, frame, token)
 		if not ok then self:DiagnosticTrace("DIRECT_POSITION_FAILED", fresh, why or "Direct assignment failed/unconfirmed") self:Release(why or "Direct positioning failed/unconfirmed", true) return { Verified = false, Reason = self.Reason } end
@@ -526,31 +643,47 @@ function EggTravelManager:Execute(record, token)
 		local position = fresh.CharacterRoot.Position
 		local move = fresh.Humanoid.MoveDirection
 		if vector(move) and move.Magnitude > 0.05 then self:Release("Manual movement during arrival; explicit rearm required", true) return { Verified = false, Reason = self.Reason } end
-		if fresh.InRange and (not stablePosition or (position - stablePosition).Magnitude <= 0.35) then
+		local requestedPositionObserved = not lease.RequestedStandingPosition or (position - lease.RequestedStandingPosition).Magnitude <= 0.5
+		if fresh.InRange and requestedPositionObserved and (not stablePosition or (position - stablePosition).Magnitude <= 0.35) then
 			stableAt, stablePosition = stableAt or os.clock(), stablePosition or position
 			if os.clock() - stableAt >= settings.STABILITY_SECONDS then
 				local guardOK, allowed, blocker = pcall(function()
-					if type(c.Farming.Mechanics.LocalFeatureGuard) ~= "function" then return false, "Native interaction guard unavailable" end
+					if type(c.Farming.Mechanics.LocalFeatureGuard) ~= "function" then return false, "Foreground presentation guard unavailable" end
 					return c.Farming.Mechanics:LocalFeatureGuard()
 				end)
-				if not guardOK or not allowed then self:Release(blocker or "Native interaction eligibility unavailable", true) return { Verified = false, Reason = self.Reason } end
+				if not guardOK or not allowed then self:Release(blocker or "Foreground presentation eligibility unavailable", true) return { Verified = false, Reason = self.Reason } end
 				fresh, reason = self:Validate(lease, token)
 				if not fresh or not fresh.InRange or (fresh.CharacterRoot.Position - stablePosition).Magnitude > 0.35 then
-					self:Release(reason or "Actual native range eligibility changed during final guards", true) return { Verified = false, Reason = self.Reason }
+					self:Release(reason or "Actual arrival eligibility changed during final guards", true) return { Verified = false, Reason = self.Reason }
 				end
 				lease.Status, lease.ArrivedAt = "ARRIVED", os.clock()
-				self.LastResult = { Status = "HATCH_RANGE_OBSERVED", EggName = fresh.EggName, Distance = fresh.Distance, Range = fresh.Range,
+				local diagnostic = self.BrainIntent and self.BrainIntent.Scope == "TRAVEL_ONLY"
+				self.LastResult = { Status = diagnostic and "PHYSICAL_ARRIVAL_OBSERVED" or "HATCH_RANGE_OBSERVED", EggName = fresh.EggName, Distance = fresh.Distance, Range = fresh.Range,
 					StabilitySeconds = settings.STABILITY_SECONDS, DirectPositionAttempted = lease.DirectPositionAttempted == true,
 					NativeTravelAttempted = lease.NativeTravelAttempted == true, HatchCommands = 0, Spending = 0,
 					RangeOrigin = fresh.Opened and "EGG_ROOT" or "INITIAL_PROMPT", PromptVisible = fresh.PromptVisible,
 					Reason = "Observed stable native range/interaction guards; separate hatch budget/capacity/cooldown and server acceptance remain required" }
-				local diagnostic = self.BrainIntent and self.BrainIntent.Scope == "TRAVEL_ONLY"
 				if diagnostic then
-					self.LastResult.Status, self.LastResult.Scope = "TRAVEL_ONLY_ARRIVAL_OBSERVED", "TRAVEL_ONLY"
+					local interaction, interactionReason, native = self:HatchInteractionAt(fresh, fresh.CharacterRoot.Position, true)
+					local physical, physicalReason = self:Validate(lease, token, true)
+					if not physical or not physical.InRange or (physical.CharacterRoot.Position - stablePosition).Magnitude > 0.35
+						or lease.RequestedStandingPosition and (physical.CharacterRoot.Position - lease.RequestedStandingPosition).Magnitude > 0.5 then
+						self:Release(physicalReason or "Physical arrival changed during final interaction observation", true)
+						return { Verified = false, Reason = self.Reason }
+					end
+					self.LastResult.Status, self.LastResult.Scope = "PHYSICAL_ARRIVAL_OBSERVED", "TRAVEL_ONLY"
 					self.LastResult.World, self.LastResult.Island = fresh.World, fresh.Island
-					self.LastResult.Reason = "One bounded travel diagnostic observed stable native interaction range; hatch/equipment/pickups disabled; owner live acceptance still required"
+					self.LastResult.PhysicalArrivalVerified, self.LastResult.InteractionVerified = true, interaction == true
+					self.LastResult.IdentityId = fresh.IdentityId
+					self.LastResult.HatchInteraction = interaction and "HATCH_RANGE_OBSERVED" or "HATCH_INTERACTION_UNVERIFIED"
+					self.LastResult.InteractionReason = interactionReason
+					self.LastResult.NativeRange = native and native.Range
+					self.LastResult.RangeOrigin = "VERIFIED_PHYSICAL_EGG_ROOT; diagnostic 6.5-stud policy"
+					self.LastResult.Reason = "Stable physical arrival near the exact verified egg Root observed; native hatch eligibility is a separate read-only result; owner live acceptance still required"
+					self.Reason, self.LastPreflightReason = nil, nil
 					self.DiagnosticEnded, self.Lease = true, nil
-					self:DiagnosticTrace("HATCH_RANGE_OBSERVED", fresh, "Actual native interaction range/stability observed for travel diagnostic; this is no hatch authorization or server hatch result")
+					self:DiagnosticTrace("PHYSICAL_ARRIVAL_OBSERVED", fresh, "Actual character position stable near the exact physical original; no hatch/equipment/pickups or spending")
+					self:DiagnosticTrace(self.LastResult.HatchInteraction, fresh, interactionReason)
 				end
 				self:Report(string.format("%s | %s | distance=%.2f/%s; stability=%ss; direct attempt=%s; native travel attempt=%s; hatch commands=0; spending=0",
 					fresh.EggName, self.LastResult.Status, fresh.Distance, tostring(fresh.Range), tostring(settings.STABILITY_SECONDS), tostring(lease.DirectPositionAttempted == true), tostring(lease.NativeTravelAttempted == true)))
@@ -559,8 +692,10 @@ function EggTravelManager:Execute(record, token)
 		else stableAt, stablePosition = nil, nil end
 		task.wait(0.1)
 	end
-	self:DiagnosticTrace("ARRIVAL_UNCONFIRMED", fresh, "Stable native interaction arrival unconfirmed; no retry or old-position restore")
-	self:Release("Stable hatch-range arrival unconfirmed; no retry or old-position restore", true)
+	local arrivalReason = record.LocationOnly and "Stable physical arrival at the requested standing destination unconfirmed; no retry or old-position restore"
+		or "Stable hatch-range arrival unconfirmed; no retry or old-position restore"
+	self:DiagnosticTrace("ARRIVAL_UNCONFIRMED", fresh, arrivalReason)
+	self:Release(arrivalReason, true)
 	return { Verified = false, Reason = self.Reason }
 end
 
@@ -584,7 +719,7 @@ function EggTravelManager:Destroy() if self.Destroyed then return end self:Halt(
 function EggTravelManager:GetStatus()
 	return { Enabled = self:Settings() and self:Settings().ENABLE_SELECTED_EGG_TRAVEL == true,
 		Lease = self.Lease, OwnsLocation = self:OwnsLocation(), Attempts = table.clone(self.Attempts),
-		LastResult = self.LastResult, Reason = self.Reason, BrainIntent = self.BrainIntent,
+		LastResult = self.LastResult, Reason = self.Reason, LastPreflightReason = self.LastPreflightReason, BrainIntent = self.BrainIntent,
 		Mode = (self:Settings() or {}).MODE or "NORMAL", DiagnosticConsumed = self.DiagnosticConsumed == true, DiagnosticEnded = self.DiagnosticEnded == true,
 		HatchPermission = "SEPARATE", LiveVerification = "OWNER_PENDING" }
 end

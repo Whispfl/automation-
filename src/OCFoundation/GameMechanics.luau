@@ -810,7 +810,8 @@ function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 	fresh, reason = manager:Validate(record, token)
 	if not fresh then return false, reason end
 	if fresh.NeedsNativeTravel then return false, "Correct unlocked native area must be reached first" end
-	if fresh.InRange then return true, "Already in observed native hatch range; no direct positioning needed" end
+	if fresh.InRange then return true, fresh.LocationOnly and "Already inside diagnostic physical arrival radius; no direct positioning needed"
+		or "Already in observed native hatch range; no direct positioning needed" end
 	local clearedFrame, clearanceReason = manager:ResolveStanding(fresh)
 	if not clearedFrame then return false, clearanceReason end
 	if typeof(frame) ~= "CFrame" or (frame.Position - clearedFrame.Position).Magnitude > 0.25 then return false, "Standing geometry changed during guards; explicit rearm required" end
@@ -818,12 +819,15 @@ function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 	if typeof(frame) ~= "CFrame" or not featureFinite(frame.Position.X) or not featureFinite(frame.Position.Y)
 		or not featureFinite(frame.Position.Z) or not fresh.RangeOrigin
 		or (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range
-		or not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, "Validated standing transform unavailable or outside actual native hatch eligibility" end
+		or not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, fresh.LocationOnly
+			and "Validated standing transform unavailable or outside verified physical arrival radius"
+			or "Validated standing transform unavailable or outside actual native hatch eligibility" end
 	if self.LastEggPositionLease == record.LeaseId then return false, "Direct position already attempted for this lease" end
 	local final, finalReason = manager:Validate(record, token, true)
 	if not final or final.CharacterRoot ~= fresh.CharacterRoot or final.NeedsNativeTravel then return false, finalReason or "Selected egg/character/area changed during final positioning guards" end
 	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled or selected-egg scheduler ownership changed" end
-	if final.InRange then return true, "Already in observed native hatch range after guards; no assignment" end
+	if final.InRange then return true, final.LocationOnly and "Already inside diagnostic physical arrival radius after guards; no assignment"
+		or "Already in observed native hatch range after guards; no assignment" end
 	self.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.
 	local assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)
 	return assigned, assigned and "Direct CFrame assigned; observed arrival/stability/range still pending" or "Direct position failed: " .. tostring(err)

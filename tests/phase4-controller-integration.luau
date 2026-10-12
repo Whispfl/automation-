@@ -131,7 +131,7 @@ local function travelOnlyPipeline(s)
 	assert(s.Controller.Brain:TravelDiagnosticBlocker() == nil, "Integration fixture must satisfy the actual zero-spend diagnostic scope")
 end
 
-test("Actual travel-only knowledge Brain and manager retain the registered far instance despite a nearer physical copy", function()
+test("Actual travel-only knowledge Brain and manager retain the physical original despite a nearer decor copy", function()
 	simulated(function()
 		local s = pipelineFixture() local c = s.Controller
 		travelOnlyPipeline(s)
@@ -140,11 +140,16 @@ test("Actual travel-only knowledge Brain and manager retain the registered far i
 		local stale = table.clone(s.Egg)
 		registerNativeEggFixture(c.Knowledge, stale)
 		assert(table.remove(c.Knowledge.NativeEggFixtureReceiver._chunks.fixture) == stale)
+		-- Registration absence is not a travel-location rejection. This copy is
+		-- explicitly decor under Generic, outside source-defined original placement.
+		stale.Parent = { Name = "Generic", Parent = c.Knowledge.NativeEggFixtureFolder.Parent,
+			IsA = function(_, kind) return kind == "Folder" end }
 		stale.Root.Position, stale.Prompt.Position = s.Root.Position + Vector3.new(1, 0, 0), s.Root.Position + Vector3.new(1, 0, 0)
 		c.Knowledge.EggModels = function() return { stale, s.Egg } end
-		assert(stale:GetFullName() == s.Egg:GetFullName() and stale.Parent == s.Egg.Parent)
+		assert(stale:GetFullName() == s.Egg:GetFullName() and stale.Parent ~= s.Egg.Parent)
 		local _, context = c.Pets:Fresh()
 		assert(#context.EggAvailability == 1 and context.EggAvailability[1].Model == s.Egg)
+		assert(#context.EggLocations == 1 and context.EggLocations[1].Model == s.Egg)
 		local owner, decision = s:Arbitrate()
 		assert(owner == "EGG_TRAVEL" and decision.Record.Model == s.Egg and c.EggTravel.BrainIntent.Model == s.Egg)
 		assert(decision.Record.IdentityId == context.EggAvailability[1].IdentityId)
@@ -157,7 +162,7 @@ test("Actual travel-only knowledge Brain and manager retain the registered far i
 	end)
 end)
 
-test("Actual travel-only shared identity blocks two registered same-name originals before acquiring a movement lease", function()
+test("Actual travel-only shared location retains one exact same-name original while paid identity stays ambiguous", function()
 	simulated(function()
 		local s = pipelineFixture() local c = s.Controller
 		travelOnlyPipeline(s)
@@ -168,9 +173,12 @@ test("Actual travel-only shared identity blocks two registered same-name origina
 		local _, context = c.Pets:Fresh()
 		assert(#context.EggAvailability == 1 and context.EggAvailability[1].Model == nil)
 		assert(context.EggAvailability[1].IdentityReason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
+		assert(#context.EggLocations == 2 and context.EggLocations[1].Model ~= context.EggLocations[2].Model)
 		local owner, decision = s:Arbitrate()
-		assert(owner == "PHASE4_WAIT" and decision.Reason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
-		assert(not c.EggTravel.Lease and not c.EggTravel.DiagnosticConsumed and next(c.EggTravel.Attempts) == nil)
+		assert(owner == "EGG_TRAVEL" and decision.Record.Model == s.Egg and c.EggTravel.BrainIntent.Model == s.Egg)
+		assert(c.EggTravel.Lease and c.EggTravel.DiagnosticConsumed and next(c.EggTravel.Attempts) == nil)
+		local interaction, reason = c.EggTravel:HatchInteractionAt(decision.Record, s.Root.Position, true)
+		assert(not interaction and reason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
 		assert(#s.Commands == 0 and #s.Teleports == 0 and #s.Calls == 0 and c.Pets.EquipCommands == 0)
 		assert(c.Pets.Hatch.RequestedHatches == 0 and c.Pets.Hatch.RequestCost == 0)
 		s:Close()

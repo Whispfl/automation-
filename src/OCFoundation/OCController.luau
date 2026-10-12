@@ -326,6 +326,14 @@ function OCController:PrintPetTeam()
 	return self.Pets:PrintTeam()
 end
 
+function OCController:PrintEggLocations(name)
+	local selected = name or self.EggTravel.BrainIntent and self.EggTravel.BrainIntent.EggName
+	if type(selected) ~= "string" or selected == "" then return false, "Provide one exact native egg name for expanded read-only location diagnostics" end
+	local _, observation = self.Knowledge:EggLocationCandidates(selected, true)
+	self.EggTravel:ReportInstanceDiagnostics({ [selected] = observation }, true)
+	return observation
+end
+
 function OCController:PrintAccount(limit)
 	if not self.Config.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING then return false, "Console logging is disabled" end
 	limit = limit or self.Config.DIAGNOSTIC_SETTINGS.MAXIMUM_LOG_ENTRIES

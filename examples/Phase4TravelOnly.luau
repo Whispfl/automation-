@@ -1,13 +1,14 @@
 -- TEST A: one physical diagnostic attempt. No hatch, equip, pickups or spending.
--- AUTO requires one uniquely registered physical Instance per egg name.
--- Duplicate paths are diagnostic labels only; unresolved registration stays blocked.
--- MANUAL may choose one exact name, but cannot bypass Instance verification.
+-- One ordinary accessible physical egg; hatch eligibility is verified separately.
+-- Signed coordinates, actual world/island geometry and exact Instance retention.
+-- Visual overlap may be valid; standing support and real collision clearance apply.
+-- Expanded read-only evidence on demand: OC:PrintEggLocations("Common Egg").
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
 	PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = true, OBJECTIVE_CURRENCY = "Coins", AUTO_HATCH = false,
 		AUTO_EQUIP = false, EQUIP_OWNED_TEAM_ONCE = false, AUTO_DELETE_PETS = false, AUTO_CRAFT_SHINY = false, AUTO_FUSE_PETS = false,
 		MAXIMUM_TEAM_EVALUATIONS = 1000 },
-	HATCH_SETTINGS = { EGG_SELECTION_MODE = "AUTO", SELECTED_EGGS = {}, HATCH_ONE_EGG_ONCE = false,
+	HATCH_SETTINGS = { EGG_SELECTION_MODE = "MANUAL", SELECTED_EGGS = { "Common Egg" }, HATCH_ONE_EGG_ONCE = false,
 		ALLOWED_CURRENCIES = { "Coins" }, MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0,
 		MAXIMUM_SESSION_HATCHES = 1, MAXIMUM_BATCH_HATCHES = 1, PRESERVE_PROGRESSION_RESERVE = true, ENABLE_BACKGROUND_PICKUPS = false },
 	EGG_TRAVEL_SETTINGS = { MODE = "TRAVEL_ONLY", ENABLE_SELECTED_EGG_TRAVEL = true, ENABLE_NATIVE_ISLAND_TRAVEL = true,
@@ -26,5 +27,5 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-travel-a0ee412ac828/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-travel-0d5caa499c8c/dist/OC.lua"))()(Config)
 return OC
