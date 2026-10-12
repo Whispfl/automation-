@@ -498,7 +498,8 @@ function OCBrain:PlanEggTravelDiagnostic(snapshot, context, definitions, worlds,
 		local worldDefinition = world and worlds[world]
 		local island = egg.Island or type(definition) == "table" and definition.Island
 		local reason
-		if egg.Loaded ~= true or not egg.Model then reason = "original native model not loaded"
+		if egg.IdentityReason then reason = egg.IdentityReason
+		elseif egg.Loaded ~= true or not egg.Model then reason = "original native model not loaded"
 		elseif type(definition) ~= "table" or definition.Event or definition.ProductId or definition.IsAdminEgg or egg.Name == "Infinity Egg" then
 			reason = "unsupported event/premium/special or unknown native definition"
 		elseif type(world) ~= "string" or type(worldDefinition) ~= "table" or worldDefinition.Removed or worldDefinition.Event then
@@ -526,7 +527,8 @@ function OCBrain:PlanEggTravelDiagnostic(snapshot, context, definitions, worlds,
 	end
 	local egg = candidate.Egg
 	return { Kind = "EGG_TRAVEL", Scope = "TRAVEL_ONLY", DecisionSource = "BRAIN_TRAVEL_DIAGNOSTIC", SelectionMode = selectedMode,
-		EggName = egg.Name, Model = egg.Model, World = candidate.World, Island = candidate.Island, OwnsLocation = true,
+		EggName = egg.Name, Model = egg.Model, IdentityId = egg.IdentityId, IdentityEvidence = egg.IdentityEvidence,
+		World = candidate.World, Island = candidate.Island, OwnsLocation = true,
 		DefinitionReference = "ReplicatedStorage.Shared.Data.Eggs[" .. egg.Name .. "]",
 		AccessSource = "Received LocalData.WorldsUnlocked/AreasUnlocked + actual loaded original egg model",
 		GeometrySource = "Actual original Root/Prompt; native initial prompt/opened scanner; floor/full-avatar clearance required",
@@ -542,6 +544,7 @@ function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
 		local blocker = self:TravelDiagnosticBlocker()
 		if blocker then controller.EggTravel:DiagnosticTrace("TRAVEL_BLOCKED", nil, blocker) return "PHASE4_WAIT", { Kind = "WAIT", Reason = blocker, OwnsLocation = false } end
 		local snapshot, context = controller.Pets:Fresh()
+		controller.EggTravel:ReportInstanceDiagnostics(context and context.EggIdentityDiagnostics)
 		local retained = controller.EggTravel.Lease and controller.EggTravel.BrainIntent
 		local goalId = plan and plan.Objective and plan.Objective.Id or "TRAVEL_ONLY_DIAGNOSTIC"
 		if retained and (retained.GoalId ~= goalId or retained.Generation ~= controller.Generation
@@ -550,7 +553,7 @@ function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
 			return "PHASE4_WAIT", { Kind = "WAIT", Reason = "Acquired diagnostic goal/generation/revision changed", OwnsLocation = false }
 		end
 		local intent = self:PlanEggTravelDiagnostic(snapshot, context, controller.Knowledge:Get("Eggs"), controller.Knowledge:Get("Worlds"), retained)
-		if intent.Kind ~= "EGG_TRAVEL" then controller.EggTravel:DiagnosticTrace("TRAVEL_BLOCKED", nil, intent.Reason) return "PHASE4_WAIT", intent end
+		if intent.Kind ~= "EGG_TRAVEL" then controller.EggTravel:DiagnosticTrace("PREFLIGHT_BLOCKED", nil, intent.Reason) return "PHASE4_WAIT", intent end
 		intent.Generation, intent.AccountId = controller.Generation, controller.Reader.Player and controller.Reader.Player.UserId
 		intent.SelectionRevision = self.Config.EGG_TRAVEL_SETTINGS.SELECTION_REVISION
 		intent.GoalId = goalId

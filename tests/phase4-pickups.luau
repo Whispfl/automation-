@@ -24,7 +24,9 @@ local function fixture(currency, excluded)
 	local part = { Position = s.Root.Position + Vector3.new(2,0,0), IsA = function(_, kind) return kind == "BasePart" end }
 	s.Egg = { Name = "Test Egg", Parent = true, IsDescendantOf = function() return true end,
 		FindFirstChild = function(_, name) return name == "Root" and part or {} end,
-		GetAttribute = function() return true end }
+		GetAttribute = function(_, name) if name == "Unlocked" then return true end end }
+	s.Dependencies.Eggs = { ["Test Egg"] = { World = "The Overworld", Island = not excluded and "The Void" or nil } }
+	registerNativeEggFixture(s.Controller.Knowledge, s.Egg, s)
 	s.Controller.Knowledge.EggModels = function() return { s.Egg } end
 	s.Manager = Manager.new(s.Controller) s.Controller.Pets = s.Manager
 	s.Manager.Hatch.Location = { EggName = "Test Egg", Model = s.Egg, World = "The Overworld", Island = not excluded and "The Void" or nil }

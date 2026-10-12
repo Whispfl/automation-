@@ -76,6 +76,7 @@ local function pipelineFixture()
 		GetAttribute = function(_, name) if name == "Unlocked" then return s.Opened elseif name == "Island" then return "The Void" end end }
 	local c = s.Controller
 	c.Farming, c.Knowledge = s.Coordinator, s.Coordinator.Knowledge
+	registerNativeEggFixture(c.Knowledge, s.Egg, s)
 	c.Knowledge.EggModels = function() return { s.Egg } end
 	c.Plan = { Objective = { Id = "PHASE4_NATIVE_TEST", Metadata = {} } }
 	c.Pets, c.EggTravel = Pets.new(c), Travel.new(c)
@@ -117,6 +118,64 @@ local function pipelineFixture()
 	function s:Close() c.Scheduler:Destroy() close(self) end
 	return s
 end
+
+local function travelOnlyPipeline(s)
+	local c = s.Controller.Config
+	c.EGG_TRAVEL_SETTINGS.MODE, c.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING = "TRAVEL_ONLY", true
+	c.PET_SETTINGS.AUTO_HATCH, c.PET_SETTINGS.AUTO_EQUIP, c.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE = false, false, false
+	c.HATCH_SETTINGS.HATCH_ONE_EGG_ONCE, c.HATCH_SETTINGS.MAXIMUM_EGG_COST, c.HATCH_SETTINGS.MAXIMUM_SESSION_COST = false, 0, 0
+	c.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION, c.WORLD_SETTINGS.AUTO_DISCOVER_ISLANDS = false, false
+	c.WORLD_SETTINGS.AUTO_UNLOCK_WORLDS, c.WORLD_SETTINGS.AUTO_TRAVEL_FOR_PROGRESSION, c.WORLD_SETTINGS.AUTO_FARM_UNLOCK_REQUIREMENTS = false, false, false
+	c.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST = 0
+	c.ISLAND_SETTINGS.AUTO_TRAVEL_BEST_ISLAND, c.ISLAND_SETTINGS.AUTO_EXPLORE_UNLOCKED_ISLANDS = false, false
+	assert(s.Controller.Brain:TravelDiagnosticBlocker() == nil, "Integration fixture must satisfy the actual zero-spend diagnostic scope")
+end
+
+test("Actual travel-only knowledge Brain and manager retain the registered far instance despite a nearer physical copy", function()
+	simulated(function()
+		local s = pipelineFixture() local c = s.Controller
+		travelOnlyPipeline(s)
+		s.EggRoot.Position = s.Root.Position + Vector3.new(120, 0, 0)
+		s.Prompt.Position = s.EggRoot.Position
+		local stale = table.clone(s.Egg)
+		registerNativeEggFixture(c.Knowledge, stale)
+		assert(table.remove(c.Knowledge.NativeEggFixtureReceiver._chunks.fixture) == stale)
+		stale.Root.Position, stale.Prompt.Position = s.Root.Position + Vector3.new(1, 0, 0), s.Root.Position + Vector3.new(1, 0, 0)
+		c.Knowledge.EggModels = function() return { stale, s.Egg } end
+		assert(stale:GetFullName() == s.Egg:GetFullName() and stale.Parent == s.Egg.Parent)
+		local _, context = c.Pets:Fresh()
+		assert(#context.EggAvailability == 1 and context.EggAvailability[1].Model == s.Egg)
+		local owner, decision = s:Arbitrate()
+		assert(owner == "EGG_TRAVEL" and decision.Record.Model == s.Egg and c.EggTravel.BrainIntent.Model == s.Egg)
+		assert(decision.Record.IdentityId == context.EggAvailability[1].IdentityId)
+		local resolved = c.EggTravel:Resolve(true)
+		assert(resolved and resolved.Model == s.Egg and resolved.TargetRoot == s.EggRoot and resolved.PromptPart == s.Prompt)
+		assert(not resolved.InRange and resolved.RootDistance == 120)
+		assert(#s.Commands == 0 and #s.Teleports == 0 and #s.Calls == 0 and c.Pets.EquipCommands == 0)
+		assert(c.Pets.Hatch.RequestedHatches == 0 and c.Pets.Hatch.RequestCost == 0 and next(c.EggTravel.Attempts) == nil)
+		s:Close()
+	end)
+end)
+
+test("Actual travel-only shared identity blocks two registered same-name originals before acquiring a movement lease", function()
+	simulated(function()
+		local s = pipelineFixture() local c = s.Controller
+		travelOnlyPipeline(s)
+		local second = table.clone(s.Egg)
+		registerNativeEggFixture(c.Knowledge, second)
+		second.Root.Position, second.Prompt.Position = s.Root.Position + Vector3.new(150, 0, 0), s.Root.Position + Vector3.new(150, 0, 0)
+		c.Knowledge.EggModels = function() return { s.Egg, second } end
+		local _, context = c.Pets:Fresh()
+		assert(#context.EggAvailability == 1 and context.EggAvailability[1].Model == nil)
+		assert(context.EggAvailability[1].IdentityReason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
+		local owner, decision = s:Arbitrate()
+		assert(owner == "PHASE4_WAIT" and decision.Reason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true))
+		assert(not c.EggTravel.Lease and not c.EggTravel.DiagnosticConsumed and next(c.EggTravel.Attempts) == nil)
+		assert(#s.Commands == 0 and #s.Teleports == 0 and #s.Calls == 0 and c.Pets.EquipCommands == 0)
+		assert(c.Pets.Hatch.RequestedHatches == 0 and c.Pets.Hatch.RequestCost == 0)
+		s:Close()
+	end)
+end)
 
 test("Actual AUTO pipeline selects, arrives, dispatches one hatch and releases only after result plus idle presentation", function()
 	simulated(function()
@@ -210,6 +269,7 @@ test("Continuing AUTO reranks only after confirmed inventory and idle presentati
 			end,
 			GetAttribute = function(_, name) if name == "Unlocked" then return true elseif name == "Island" then return "The Void" end end }
 		s.Profile.EggsOpened[alternative.Name] = 0
+		registerNativeEggFixture(c.Knowledge, alternative)
 		c.Knowledge.EggModels = function() return { s.Egg, alternative } end
 		d.GetEggPool = function(name)
 			return { { Chance = 1, Item = { Type = "Pet", Name = name == alternative.Name and "Better" or "New" } } }

@@ -62,7 +62,7 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -277,7 +277,7 @@ assert.equal(autoOnceRun.status, 0, 'AUTO one-hatch Config isolation failed');
 for (const [filename, travelOnly] of [['Phase4TravelOnly.luau', true], ['Phase4OneHatchPrepared.luau', false]]) {
   const example = await readFile(path.join(root, 'examples', filename), 'utf8');
   const prefix = configPrefix(example);
-  assert(example.includes('/phase4-tests-' + generated.buildId + '/dist/OC.lua'), 'Test loader needs current immutable pin: ' + filename);
+  assert(example.includes(travelOnly ? '/phase4-travel-' + generated.buildId + '/dist/OC.lua' : '/phase4-tests-141b7608bedf/dist/OC.lua'), 'Test loader needs its intended immutable pin: ' + filename);
   const compilation = spawnSync(compiler, ['--null', path.join(root, 'examples', filename)], { encoding: 'utf8' });
   assert.equal(compilation.status, 0, filename + ' must compile: ' + compilation.stderr);
   const check = `

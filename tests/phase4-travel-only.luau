@@ -52,6 +52,7 @@ local function fixture(manual)
 		Farming = { Tracker = { Root = function() return s.Root, s.Humanoid end }, Mechanics = {} },
 		Rewards = { Select = function() error("TRAVEL_ONLY must not select rewards") end },
 		AntiAFK = { Select = function() error("TRAVEL_ONLY must not select idle input") end } }
+	mockNativeEggIdentity(s.Controller.Knowledge)
 	s.Controller.Brain = Brain.new(s.Config)
 	s.Controller.Pets = { Fresh = function()
 		local eggs = {}
@@ -289,7 +290,7 @@ test("TRAVEL_ONLY preserves existing surface-area restriction and rejects missin
 	local owner, decision = s:Select()
 	assert(owner == "PHASE4_WAIT" and decision.Reason:find("native area travel", 1, true))
 	assert(#s.Commands == 0 and not s.Manager:OwnsLocation())
-	assert(table.concat(s.Logs, "\n"):find("TRAVEL_BLOCKED", 1, true))
+	assert(table.concat(s.Logs, "\n"):find("PREFLIGHT_BLOCKED", 1, true))
 end)
 
 test("TRAVEL_ONLY stale generation and character respawn cancel old selected geometry", function()

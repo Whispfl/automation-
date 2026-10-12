@@ -33,6 +33,7 @@ local function fixture()
 			if name == "ProximityPrompt" and not s.UnknownPrompts then return s.Prompts end
 		end, EggModels = function() return s.Loaded and (s.OtherEgg and { s.Egg, s.OtherEgg } or { s.Egg }) or {} end },
 		Farming = { Tracker = { Root = function() if s.Dead then return nil end return s.Root, s.Humanoid end }, Mechanics = {} } }
+	mockNativeEggIdentity(s.Controller.Knowledge)
 	s.Controller.Farming.Mechanics.LocalFeatureGuard = function() return s.GuardBlocked ~= true, "Synthetic native UI/input guard blocks" end
 	s.Controller.Farming.Mechanics.TravelSelectedEgg = function(_, manager, record, token)
 		assert(manager:Validate(record, token))

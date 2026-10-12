@@ -69,21 +69,129 @@ local function native(object, method, ...)
 	return nil
 end
 
+local function point(value)
+	return value and PetPolicy.Finite(value.X) and PetPolicy.Finite(value.Y) and PetPolicy.Finite(value.Z)
+end
+
+local function eggParts(model)
+	if not model or not model:IsA("Model") then return nil end
+	local root, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
+	if root and prompt and root.Parent == model and prompt.Parent == model
+		and root:IsA("BasePart") and prompt:IsA("BasePart") and point(root.Position) and point(prompt.Position)
+		and model:FindFirstChild("Plate") and model:FindFirstChild("Cost") then return root, prompt end
+end
+
+local function eggReceiver(receiver)
+	local rendered = workspace:FindFirstChild("Rendered")
+	return type(receiver) == "table" and receiver.Mode == "3D" and receiver._chunkSize == 128
+		and receiver.RenderDistance == 2 and type(receiver._chunks) == "table" and type(receiver._loaded) == "table"
+		and receiver._folder and receiver._folder.Parent == rendered and rendered ~= nil
+end
+
+function GameKnowledge:InstanceId(instance)
+	if not instance then return "NONE" end
+	self.InstanceIds = self.InstanceIds or setmetatable({}, { __mode = "k" })
+	if not self.InstanceIds[instance] then
+		self.InstanceSequence = (self.InstanceSequence or 0) + 1
+		self.InstanceIds[instance] = string.format("I%04d", self.InstanceSequence)
+	end
+	return self.InstanceIds[instance]
+end
+
 function GameKnowledge:EggModels(force)
 	if force or os.clock() - (self.LastEggScan or -math.huge) >= self.Reader.Config.PET_SETTINGS.ANALYSIS_INTERVAL_SECONDS then
 		self.LastEggScan, self.NativeEggModels = os.clock(), {}
 		local eggs = self:Get("Eggs") or {}
-		-- Native tags are removed by ClientScript:674. Keep original Root/Prompt/
-		-- Plate/Cost models, including actual Rendered.Chunker receivers; visual
-		-- Generic egg clones lack this interface. No object mutation or hidden scan.
+		-- All catalog-named Models are observations, not proof of registration.
+		-- Include rendered copies in diagnostics; tags/names/paths are not identity.
 		for _, model in ipairs(workspace:GetDescendants()) do
-			if model:IsA("Model") and eggs[model.Name] and model:FindFirstChild("Root")
-				and model:FindFirstChild("Prompt") and model:FindFirstChild("Plate") and model:FindFirstChild("Cost") then
+			if model:IsA("Model") and eggs[model.Name] then
 				table.insert(self.NativeEggModels, model)
 			end
 		end
 	end
 	return self.NativeEggModels or {}
+end
+
+function GameKnowledge:ObserveEggModel(model)
+	local def = (self:Get("Eggs") or {})[model.Name]
+	local record = { Model = model, IdentityId = self:InstanceId(model), Verified = false, World = def and def.World,
+		Island = model:GetAttribute("Island") or def and def.Island }
+	local ok, path = pcall(function() return model:GetFullName() end)
+	record.Path = ok and path or "UNKNOWN"
+	record.ParentId = self:InstanceId(model.Parent)
+	local root, prompt = eggParts(model)
+	record.Root, record.Prompt = root, prompt
+	if not model.Parent or not model:IsDescendantOf(workspace) then record.Reason = "UNLOADED_INSTANCE" return record end
+	if not root then
+		-- Native visual Clone gets Offset/Size and a Hitbox, not the original interface.
+		record.Reason = "NON_INTERACTIVE_REPRESENTATION: original Root/Prompt/Plate/Cost interface absent"
+		return record
+	end
+	local prompts = self:Get("ProximityPrompt")
+	local engine = prompt:FindFirstChildOfClass("ProximityPrompt")
+	record.NativePrompt = engine
+	record.PromptCacheMember = engine ~= nil and type(prompts) == "table" and type(prompts._cache) == "table" and prompts._cache[engine] == true
+	if record.PromptCacheMember and engine.Parent == prompt then
+		record.Verified, record.IdentityEvidence = true, "EXACT_INITIAL_PROMPT_CACHE_MEMBERSHIP (ProximityPrompt:13,29-51; ClientScript:622)"
+	end
+	local registered, receivers = 0, 0
+	for receiver in pairs(self.NativeEggChunkers or {}) do
+		if not eggReceiver(receiver) then continue end
+		receivers += 1
+		if model.Parent ~= receiver._folder then continue end
+		for coord in pairs(receiver._loaded) do
+			local values = receiver._chunks[coord]
+			if type(values) == "table" and table.find(values, model) then registered += 1 break end
+		end
+	end
+	record.RegisteredReceivers = registered
+	if self.EggObservationFinished and receivers == 1 then
+		-- One source-matching receiver observed after native Update; membership is
+		-- actual Instance equality. A same-parent/path captured copy is not a member.
+		record.Verified = registered == 1
+		record.IdentityEvidence = registered == 1 and "EXACT_LOADED_EGG_CHUNKER_MEMBERSHIP (ClientScript:375-376,747; Chunker:99-117,148-152)" or nil
+	elseif self.EggObservationFinished and receivers > 1 then
+		record.Verified = false record.Reason = "AMBIGUOUS_EGG_REGISTRATION_RECEIVER"
+	end
+	record.Reason = record.Reason or (record.Verified and "REGISTERED_INTERACTIVE_INSTANCE"
+		or self.EggObservationFinished and "UNREGISTERED_PHYSICAL_REPRESENTATION_OR_UNKNOWN_REGISTRY"
+		or "NATIVE_EGG_REGISTRATION_PENDING: bounded passive observation; no structural/name/path selection")
+	return record
+end
+
+function GameKnowledge:InteractiveEggModels(force)
+	self:ObserveEggChunker()
+	local models = {}
+	for _, model in ipairs(self:EggModels(force)) do
+		if self:ObserveEggModel(model).Verified then table.insert(models, model) end
+	end
+	return models
+end
+
+function GameKnowledge:ResolveEggInstance(name, force, expectedModel)
+	self:ObserveEggChunker()
+	local observed = { Name = name, Candidates = {}, Count = 0, VerifiedCount = 0 }
+	local receivers = 0 for receiver in pairs(self.NativeEggChunkers or {}) do if eggReceiver(receiver) then receivers += 1 end end
+	local completeRegistry = self.EggObservationFinished and receivers == 1
+	local chosen, unknown = nil, false
+	for _, model in ipairs(self:EggModels(force)) do
+		if model.Name ~= name then continue end
+		local record = self:ObserveEggModel(model)
+		observed.Count += 1 table.insert(observed.Candidates, record)
+		if record.Verified then chosen = record observed.VerifiedCount += 1
+		elseif record.Root and not completeRegistry then unknown = true end
+	end
+	local reason
+	if observed.VerifiedCount > 1 then
+		reason = "AMBIGUOUS_NATIVE_EGG_MODEL: multiple independently registered interactive Instances; exact target unresolved; no nearest/path substitution"
+	elseif unknown then reason = self.EggObservationFinished and "NATIVE_EGG_IDENTITY_UNVERIFIED: unresolved physical candidates; native egg receiver unavailable/ambiguous; no travel attempt"
+		or "NATIVE_EGG_REGISTRATION_PENDING: physical candidates lack complete current registration evidence; no travel attempt"
+	elseif not chosen then reason = observed.Count == 0 and "Selected egg model not loaded; no force-load"
+		or "NATIVE_EGG_IDENTITY_UNVERIFIED: no unique current interactive registration; names/paths/attributes cannot authorize travel"
+	elseif expectedModel and chosen.Model ~= expectedModel then reason = "Brain selected exact egg Instance changed; no name/path replacement or retarget" end
+	observed.Reason = reason or "UNIQUE_VERIFIED_INTERACTIVE_INSTANCE"
+	return not reason and chosen or nil, reason, observed
 end
 
 function GameKnowledge:NativeEggRangeEligible(egg, root, force)
@@ -97,6 +205,8 @@ function GameKnowledge:NativeEggRangeEligible(egg, root, force)
 	local ok, eligible, range = pcall(function()
 		local model = egg and egg.Model
 		if not model or not model.Parent or not model:IsDescendantOf(workspace) or not root or not point(root.Position) then return false end
+		local identity = self:ResolveEggInstance(model.Name, force, model)
+		if not identity then return false end
 		local part, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
 		if not part or not part:IsA("BasePart") or not point(part.Position) then return false end
 		local raw = self.Reader:GetLiveProfile()
@@ -117,7 +227,7 @@ function GameKnowledge:NativeEggRangeEligible(egg, root, force)
 		if opened then
 			local prompts = self:Get("ProximityPrompt")
 			if not prompts or prompts.Visible ~= 0 then return false, record end
-			for _, other in ipairs(self:EggModels(force)) do
+			for _, other in ipairs(self:InteractiveEggModels(force)) do
 				local otherRoot = other ~= model and other.Parent and other:IsDescendantOf(workspace) and other:FindFirstChild("Root")
 				if otherRoot and otherRoot:IsA("BasePart") and point(otherRoot.Position) and other:GetAttribute("Unlocked") == true
 					and (otherRoot.Position - root.Position).Magnitude <= record.Distance + 0.05 then return false, record end
@@ -214,14 +324,21 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 	local currentWorld = native(self:Get("WorldUtil"), "GetPlayerWorld", self.Reader.Player)
 	local root = tracker:Root()
 	local byName = {}
+	context.EggIdentityDiagnostics = {}
 	for _, model in ipairs(self:EggModels()) do
 		if not model.Parent or not model:IsDescendantOf(workspace) then continue end
-		local part = model:FindFirstChild("Root")
-		if not part or not part:IsA("BasePart") then continue end
-		local distance = root and (part.Position - root.Position).Magnitude
-		local old = byName[model.Name]
-		if old and (old.Distance or math.huge) <= (distance or math.huge) then continue end
+		if byName[model.Name] then continue end
 		local def = definitions[model.Name]
+		local identity, identityReason, observed = self:ResolveEggInstance(model.Name)
+		context.EggIdentityDiagnostics[model.Name] = observed
+		if not identity then
+			byName[model.Name] = { Name = model.Name, Loaded = false, Accessible = false, World = def.World, Island = def.Island,
+				AccessStatus = "BLOCKED_INSTANCE_IDENTITY", IdentityReason = identityReason, Cost = def.Cost, Reason = identityReason }
+			continue
+		end
+		model = identity.Model
+		local part = identity.Root
+		local distance = root and (part.Position - root.Position).Magnitude
 		local island = model:GetAttribute("Island") or def.Island
 		local world = def.World
 		local accessible = world ~= nil and not def.Event and not def.ProductId and not def.IsAdminEgg and model.Name ~= "Infinity Egg"
@@ -241,7 +358,8 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 		local access = not world and "UNKNOWN_ACCESS" or (def.Event or def.ProductId or def.IsAdminEgg or model.Name == "Infinity Egg") and "UNSUPPORTED"
 			or accessible and "ACCESSIBLE" or "LOCKED_OR_UNKNOWN_UNLOCK"
 		local ok, path = pcall(function() return model:GetFullName() end)
-		byName[model.Name] = { Name = model.Name, Model = model, World = world, Island = island, Distance = distance, Range = range,
+		byName[model.Name] = { Name = model.Name, Model = model, IdentityId = identity.IdentityId, IdentityEvidence = identity.IdentityEvidence,
+			World = world, Island = island, Distance = distance, Range = range,
 			ModelPath = ok and path or nil, Position = part.Position,
 			DefinitionCurrency = def.Cost and def.Cost.Type == "Currency" and def.Cost.Currency or nil,
 			AccessStatus = access, Loaded = true, Accessible = accessible == true,
@@ -252,7 +370,10 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			Reason = accessible and "Scene-present native egg; account world/island access confirmed" or "Premium/event/special/locked or unknown access; no hatch action" }
 	end
 	local names = {} for name in pairs(byName) do table.insert(names, name) end table.sort(names)
-	coverage.LoadedModels = #names
+	coverage.ObservedEggNames, coverage.BlockedIdentityNames = #names, 0
+	for _, egg in pairs(byName) do
+		if egg.Loaded then coverage.LoadedModels += 1 else coverage.BlockedIdentityNames += 1 end
+	end
 	-- Availability/funding covers every loaded original model, even when the
 	-- more expensive native team projections reach their configured cap.
 	for _, name in ipairs(names) do table.insert(context.EggAvailability, byName[name]) end
@@ -324,40 +445,97 @@ function GameKnowledge:ReleaseChunkerObserver()
 	self.ChunkerClass, self.ChunkerObserver, self.OriginalChunkerUpdate, self.CleanupRegistry = nil, nil, nil, nil
 end
 
-function GameKnowledge:PickupChunker()
-	if self.NativePickupChunker then return self.NativePickupChunker end
-	if self.ChunkerObserver and os.clock() - self.ChunkerObserverAt >= 5 then
-		self:ReleaseChunkerObserver() self.ChunkerRetryAt = os.clock() + 5
+function GameKnowledge:ObserveEggChunker()
+	if self.Destroyed or self.EggObservationFinished then return end
+	if self.EggObservationDeadline and os.clock() >= self.EggObservationDeadline then
+		self.EggObservationFinished = true self:ReleaseChunkerObserver() return
 	end
-	if os.clock() < (self.ChunkerRetryAt or 0) then return nil, "Native pickup Chunker observation is in backoff" end
+	if self:Get("Chunker") then
+		if not self.EggObservationDeadline then
+			self.EggObservationDeadline = os.clock() + 5
+			-- One bounded observer cleanup, no polling/automation thread.
+			task.delay(5, function()
+				if not self.Destroyed and not self.EggObservationFinished then self.EggObservationFinished = true self:ReleaseChunkerObserver() end
+			end)
+		end
+		self:EnsureChunkerObserver()
+	end
+end
+
+function GameKnowledge:EnsureChunkerObserver()
+	if self.Destroyed then return nil, "Knowledge observation destroyed" end
 	if not self.ChunkerObserver then
-		local class, registry = self:Get("Chunker"), self:ActivePickups()
-		if not class or type(class.Update) ~= "function" or not registry then return nil, "Native Chunker/registry dependency unavailable" end
-		self.ChunkerClass, self.OriginalChunkerUpdate, self.CleanupRegistry = class, class.Update, registry
+		local class = self:Get("Chunker")
+		if not class or type(class.Update) ~= "function" then return nil, "Native Chunker dependency unavailable" end
+		self.ChunkerClass, self.OriginalChunkerUpdate = class, class.Update
 		local original = class.Update
-		self.ChunkerObserver = function(chunker, ...)
+		local observer
+		observer = function(chunker, ...)
 			-- Observe the real receiver; preserve native Update arguments/results and never choose an action here.
 			local result = table.pack(original(chunker, ...))
+			if self.Destroyed or self.ChunkerObserver ~= observer then return table.unpack(result, 1, result.n) end
 			pcall(function() -- Observation failures must never interrupt the game's Update.
 				if type(chunker) == "table" and type(chunker.Remove) == "function" and type(chunker.IsValueLoaded) == "function" then
+					-- Settings alone are shared by pickups/portals/animated objects.
+					-- Egg receiver additionally contains ONLY exact catalog-backed full
+					-- original interfaces. Read memberships after the native Update.
+					if not self.EggObservationFinished and self.EggObservationDeadline and os.clock() < self.EggObservationDeadline
+						and eggReceiver(chunker) then
+						local found, valid, count = false, true, 0
+						local definitions = self:Get("Eggs") or {}
+						for _, values in pairs(chunker._chunks) do
+							if type(values) ~= "table" then valid = false break end
+							for _, value in pairs(values) do
+								count += 1
+								if count > 1000 or typeof(value) ~= "Instance" or not eggParts(value)
+									or not definitions[value.Name] and value.Name ~= "Coming Soon" then valid = false break end
+								-- Source explicitly registers this nonselectable sentinel
+								-- (ClientScript:670-672). It cannot authorize travel.
+								if definitions[value.Name] then found = true end
+							end
+							if not valid then break end
+						end
+						if found and valid then
+							self.NativeEggChunkers = self.NativeEggChunkers or setmetatable({}, { __mode = "k" })
+							self.NativeEggChunkers[chunker] = true
+						end
+					end
 					for _, pickup in pairs(self.CleanupRegistry or {}) do
 						if pickup.Parent and pickup.Parent == chunker._folder and chunker:IsValueLoaded(pickup) then
-							self.NativePickupChunker = chunker self:ReleaseChunkerObserver() break
+							self.NativePickupChunker = chunker
+							if not self.EggObservationDeadline or self.EggObservationFinished then self:ReleaseChunkerObserver() end
+							break
 						end
 					end
 				end
 			end)
 			return table.unpack(result, 1, result.n)
 		end
+		self.ChunkerObserver = observer
 		local ok = pcall(function() class.Update = self.ChunkerObserver end)
 		if not ok then self:ReleaseChunkerObserver() return nil, "Native Chunker receiver observation unavailable" end
 		self.ChunkerObserverAt = os.clock()
 	end
+	return true
+end
+
+function GameKnowledge:PickupChunker()
+	if self.NativePickupChunker then return self.NativePickupChunker end
+	if self.ChunkerObserver and os.clock() - self.ChunkerObserverAt >= 5 then
+		self:ReleaseChunkerObserver() self.ChunkerRetryAt = os.clock() + 5
+	end
+	if os.clock() < (self.ChunkerRetryAt or 0) then return nil, "Native pickup Chunker observation is in backoff" end
+	local registry = self:ActivePickups()
+	if not registry then return nil, "Native pickup registry dependency unavailable" end
+	local ok, reason = self:EnsureChunkerObserver()
+	if not ok then return nil, reason end
+	self.CleanupRegistry = registry
 	return nil, "Waiting for native pickup Chunker receiver; no request or visual mutation yet"
 end
 
 function GameKnowledge:Destroy()
-	self:ReleaseChunkerObserver() self.NativePickupChunker = nil
+	self.Destroyed, self.EggObservationFinished = true, true
+	self:ReleaseChunkerObserver() self.NativePickupChunker, self.NativeEggChunkers = nil, nil
 end
 
 function GameKnowledge:RewardContract()

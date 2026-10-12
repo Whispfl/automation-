@@ -49,6 +49,7 @@ local function integrationFixture()
 			elseif name == "HatchPresentation" then return { IsHatching = function() return s.PresentationActive == true end } end
 		end, EggModels = function() return s.Loaded and { s.Egg } or {} end },
 		Farming = { Tracker = { Root = function() return s.Root, s.Humanoid end }, Mechanics = {} } }
+	mockNativeEggIdentity(s.Controller.Knowledge)
 	s.Controller.Pets = { Fresh = function()
 		s.Context.Currency = s.Currency
 		s.Context.Eggs = { { Name = "Brain Egg", Model = s.Egg, World = "The Overworld", Island = "Zen" } }

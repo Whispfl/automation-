@@ -1,3 +1,88 @@
+-- Test-only native registration fixtures. Production observation stays strict:
+-- these tables explicitly model an original in a loaded native 3D egg chunk.
+local function registerNativeEggFixture(knowledge, model, scene)
+	local folder = knowledge.NativeEggFixtureFolder
+	if not folder then
+		assert(scene, "First native registration fixture requires scene cleanup ownership")
+		local previousFind = workspace.FindFirstChild
+		local rendered = previousFind(workspace, "Rendered") or { Name = "Rendered", Parent = workspace }
+		workspace.FindFirstChild = function(self, name)
+			if name == "Rendered" then return rendered end
+			return previousFind(self, name)
+		end
+		local previousClose = scene.Close
+		scene.Close = function(self)
+			workspace.FindFirstChild = previousFind
+			return previousClose(self)
+		end
+		folder = { Name = "Chunker", Parent = rendered }
+		knowledge.NativeEggFixtureFolder = folder
+		local receiver = { Mode = "3D", _chunkSize = 128, RenderDistance = 2, _folder = folder,
+			_chunks = { fixture = {} }, _loaded = { fixture = true } }
+		knowledge.NativeEggFixtureReceiver = receiver
+		knowledge.NativeEggChunkers = { [receiver] = true }
+		knowledge.EggObservationFinished = true
+	end
+	local root, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
+	if root.Parent and root.Parent ~= model and root.Parent ~= true then root = table.clone(root) end
+	if not prompt or not prompt.IsA or not prompt:IsA("BasePart") then
+		prompt = { Position = root.Position, IsA = function(_, kind) return kind == "BasePart" end }
+	elseif prompt.Parent and prompt.Parent ~= model and prompt.Parent ~= true then
+		prompt = table.clone(prompt)
+	end
+	if prompt == root then prompt = table.clone(prompt) end
+	model.Root, model.Prompt = root, prompt
+	root.Parent, prompt.Parent, model.Parent = model, model, folder
+	root.IsDescendantOf = root.IsDescendantOf or function(self) return self.Parent ~= nil and self.Parent.Parent ~= nil end
+	prompt.IsDescendantOf = prompt.IsDescendantOf or root.IsDescendantOf
+	model.IsA = model.IsA or function(_, kind) return kind == "Model" end
+	model.IsDescendantOf = model.IsDescendantOf or function(self) return self.Parent ~= nil end
+	local plate, cost = {}, {}
+	model.FindFirstChild = function(_, name)
+		if name == "Root" then return root elseif name == "Prompt" then return prompt
+		elseif name == "Plate" then return plate elseif name == "Cost" then return cost end
+	end
+	local nativePrompt = prompt.FindFirstChildOfClass and prompt:FindFirstChildOfClass("ProximityPrompt")
+	if not nativePrompt or nativePrompt.Parent ~= prompt then
+		nativePrompt = { Parent = prompt, Enabled = true, MaxActivationDistance = 6.5, RequiresLineOfSight = false }
+		prompt.FindFirstChildOfClass = function() return nativePrompt end
+	end
+	local prompts = knowledge:Get("ProximityPrompt")
+	if prompts then prompts._cache = prompts._cache or {} prompts._cache[nativePrompt] = true end
+	table.insert(knowledge.NativeEggFixtureReceiver._chunks.fixture, model)
+	return model
+end
+
+-- Manager-only mock knowledge intentionally supplies an explicit identity
+-- contract; it does not create a production interface-only fallback.
+local function mockNativeEggIdentity(knowledge)
+	local ids, nextId = {}, 0
+	function knowledge:InteractiveEggModels(force)
+		local models = {}
+		for _, model in ipairs(self:EggModels(force)) do
+			if model.Parent and model:IsDescendantOf(workspace) then
+				local root, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
+				if root and root.IsA and root:IsA("BasePart") and prompt and prompt.IsA and prompt:IsA("BasePart")
+					and model:FindFirstChild("Plate") and model:FindFirstChild("Cost") then table.insert(models, model) end
+			end
+		end
+		return models
+	end
+	function knowledge:ResolveEggInstance(name, force, expectedModel)
+		local models = {}
+		for _, model in ipairs(self:InteractiveEggModels(force)) do if model.Name == name then table.insert(models, model) end end
+		if #models > 1 then return nil, "AMBIGUOUS_NATIVE_EGG_MODEL: synthetic registered original instances remain ambiguous" end
+		if #models == 0 then return nil, "Selected original egg model is not loaded; no force-load or event chase" end
+		local model = models[1]
+		if expectedModel and model ~= expectedModel then return nil, "Brain selected original egg model changed; no stale travel" end
+		if not ids[model] then nextId += 1 ids[model] = "SYNTHETIC_EGG_" .. nextId end
+		local definition = (self:Get("Eggs") or {})[name] or {}
+		return { Model = model, Root = model:FindFirstChild("Root"), Prompt = model:FindFirstChild("Prompt"),
+			World = definition.World, Island = model:GetAttribute("Island") or definition.Island,
+			IdentityId = ids[model], IdentityEvidence = "SYNTHETIC_REGISTERED_NATIVE_ORIGINAL" }
+	end
+end
+
 do
 -- Synthetic native helpers/contracts. No real account, probability or server proof.
 local before = tests
@@ -72,6 +157,7 @@ local function fixture(overrides)
 		GetAttribute = function(_, name) if name == "Unlocked" then return s.Unlocked ~= false end end }
 	s.EggPart = part
 	s.Controller.Knowledge = s.Coordinator.Knowledge
+	registerNativeEggFixture(s.Controller.Knowledge, s.Egg, s)
 	s.Controller.Knowledge.EggModels = function() return { s.Egg } end
 	s.Controller.Farming = s.Coordinator
 	s.Manager = Manager.new(s.Controller)
@@ -352,14 +438,18 @@ test("Pet task uses the same scheduler lease and cancellation prevents stale act
 	end)
 end)
 
-test("Native egg observation keeps original interfaces and excludes decorative visual clones", function()
+test("Native egg observation retains diagnostics and excludes decorative clones from interaction", function()
 	simulated(function()
 		local s = fixture() local knowledge = s.Controller.Knowledge
 		knowledge.EggModels = nil
 		local savedDescendants = workspace.GetDescendants
-		local clone = { Name = "Test Egg", IsA = function() return true end, FindFirstChild = function() return nil end }
+		local clone = { Name = "Test Egg", Parent = knowledge.NativeEggFixtureFolder,
+			IsA = function() return true end, IsDescendantOf = function() return true end,
+			GetAttribute = function() return nil end, FindFirstChild = function() return nil end }
 		workspace.GetDescendants = function() return { clone, s.Egg } end
-		local models = knowledge:EggModels() assert(#models == 1 and models[1] == s.Egg)
+		local models = knowledge:EggModels() assert(#models == 2)
+		local interactive = knowledge:InteractiveEggModels() assert(#interactive == 1 and interactive[1] == s.Egg)
+		assert(knowledge:ResolveEggInstance("Test Egg").Model == s.Egg)
 		workspace.GetDescendants = savedDescendants s:Close()
 	end)
 end)
@@ -693,6 +783,7 @@ test("Egg coverage reports loaded scope cap and prioritized selected candidate",
 		local s = fixture({ HATCH_SETTINGS = { MAXIMUM_EGGS_ANALYZED = 1 } })
 		s.Dependencies.Eggs["A Egg"] = table.clone(s.Dependencies.Eggs["Test Egg"])
 		local a = table.clone(s.Egg) a.Name = "A Egg"
+		registerNativeEggFixture(s.Controller.Knowledge, a)
 		s.Controller.Knowledge.EggModels = function() return { a, s.Egg } end
 		local r = eggReport(s) assert(r.Coverage.LoadedModels == 2 and r.Coverage.Evaluated == 1 and r.Coverage.LimitReached)
 		assert(r.Eggs[1].Name == "Test Egg" and Policy.EggPlanText(s.Controller.Config, r, false):find("limited loaded%-model coverage")) s:Close()
@@ -704,7 +795,7 @@ test("Missing selected egg is distinct from a locked egg or unknown definition",
 		local s = hatchOnce() s.Egg.Parent = nil local r = eggReport(s)
 		assert(r.Eggs[1].AccessStatus == "NOT_LOADED" and r.Coverage.Evaluated == 0 and not s:Dispatch())
 		s.Dependencies.Eggs["Test Egg"] = nil r = eggReport(s) assert(r.Eggs[1].AccessStatus == "UNKNOWN_DEFINITION")
-		s.Dependencies.Eggs["Test Egg"] = { World = "The Overworld", Island = "The Void" } s.Egg.Parent = true s.Profile.AreasUnlocked["The Void"] = nil
+		s.Dependencies.Eggs["Test Egg"] = { World = "The Overworld", Island = "The Void" } s.Egg.Parent = s.Controller.Knowledge.NativeEggFixtureFolder s.Profile.AreasUnlocked["The Void"] = nil
 		r = eggReport(s) assert(r.Eggs[1].AccessStatus == "LOCKED_OR_UNKNOWN_UNLOCK" and not s:Dispatch() and #s.Commands == 0) s:Close()
 	end)
 end)
@@ -1026,6 +1117,7 @@ test("Dynamic egg ranking follows native efficiency and current received team", 
 	simulated(function()
 		local s = eggAnalysisFixture() local other = table.clone(s.Egg) other.Name = "Better Scene Egg"
 		s.Dependencies.Eggs[other.Name] = table.clone(s.Dependencies.Eggs["Test Egg"])
+		registerNativeEggFixture(s.Controller.Knowledge, other)
 		s.Controller.Knowledge.EggModels = function() return { s.Egg, other } end
 		s.Dependencies.StatsUtil.GetEggCost = function(_, _, _, name) return { Type = "Currency", Currency = "Coins", Amount = name == other.Name and 5 or s.Cost } end
 		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
@@ -1042,6 +1134,7 @@ test("Loaded availability remains complete when expensive pool projections reach
 		local s = eggAnalysisFixture() s.Controller.Config.HATCH_SETTINGS.MAXIMUM_EGGS_ANALYZED = 1
 		local other = table.clone(s.Egg) other.Name = "Other Scene Egg"
 		s.Dependencies.Eggs[other.Name] = table.clone(s.Dependencies.Eggs["Test Egg"])
+		registerNativeEggFixture(s.Controller.Knowledge, other)
 		s.Controller.Knowledge.EggModels = function() return { s.Egg, other } end
 		local a, b = s.Manager:Fresh() local r = Policy.Analyze(s.Controller.Config, a, b)
 		assert(#r.Eggs == 1 and #r.CoinsAvailability == 2 and r.Coverage.LimitReached and r.Coverage.LoadedModels == 2)

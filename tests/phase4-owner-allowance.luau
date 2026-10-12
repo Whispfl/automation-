@@ -71,7 +71,10 @@ local function hatchFixture()
 	s.Controller.Farming,s.Controller.Knowledge=s.Coordinator,s.Coordinator.Knowledge
 	s.EggPart={Position=s.Root.Position+Vector3.new(2,0,0),IsA=function(_,kind) return kind=="BasePart" end}
 	s.Egg={Name="Test Egg",Parent=true,IsDescendantOf=function() return true end,
-		FindFirstChild=function(_,name) return name=="Root" and s.EggPart or {} end,GetAttribute=function() return true end}
+		FindFirstChild=function(_,name) return name=="Root" and s.EggPart or {} end,
+		GetAttribute=function(_,name) if name=="Unlocked" then return true end end}
+	d.Eggs={ ["Test Egg"]={World="The Overworld",Island="The Void"} }
+	registerNativeEggFixture(s.Controller.Knowledge,s.Egg,s)
 	s.Controller.Knowledge.EggModels=function() return {s.Egg} end
 	s.Controller.HatchTestAllowance=Allowance.new(s.Controller)
 	s.Manager=Manager.new(s.Controller) s.Controller.Pets=s.Manager

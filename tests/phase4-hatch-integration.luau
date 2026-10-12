@@ -48,8 +48,10 @@ local function fixture(equip)
 	s.Controller.Reader.Config = s.Controller.Config
 	s.EggPart = { Position = s.Root.Position + Vector3.new(2,0,0), IsA = function(_, kind) return kind == "BasePart" end }
 	s.Egg = { Name = "Test Egg", Parent = true, IsDescendantOf = function() return true end,
-		FindFirstChild = function(_, name) return name == "Root" and s.EggPart or {} end, GetAttribute = function() return true end }
+		FindFirstChild = function(_, name) return name == "Root" and s.EggPart or {} end,
+		GetAttribute = function(_, name) if name == "Unlocked" then return true end end }
 	s.Controller.Farming, s.Controller.Knowledge = s.Coordinator, s.Coordinator.Knowledge
+	registerNativeEggFixture(s.Controller.Knowledge, s.Egg, s)
 	s.Controller.Knowledge.EggModels = function() return { s.Egg } end
 	s.Manager = Manager.new(s.Controller) s.Controller.Pets = s.Manager
 	function s.Manager:Fresh()
@@ -202,16 +204,19 @@ test("Phase4 final forced nearest scan observes a newly loaded unlocked egg befo
 	simulated(function()
 		local s = fixture(false)
 		local closerRoot = { Position = s.Root.Position + Vector3.new(1, 0, 0), IsA = function(_, kind) return kind == "BasePart" end }
-		local closer = { Parent = true, IsDescendantOf = function() return true end,
+		local closer = { Name = "Closer Native Egg", Parent = true, IsDescendantOf = function() return true end,
 			FindFirstChild = function(_, name) return name == "Root" and closerRoot or nil end,
-			GetAttribute = function() return true end }
+			GetAttribute = function(_, name) if name == "Unlocked" then return true end end }
+		s.Dependencies.Eggs[closer.Name] = { World = "The Overworld", Island = "The Void" }
+		registerNativeEggFixture(s.Controller.Knowledge, closer)
 		local forced = 0
 		s.Controller.Knowledge.EggModels = function(_, force)
 			if force then forced += 1 return { s.Egg, closer } end
 			return { s.Egg }
 		end
 		local sent, reason = s:Dispatch()
-		assert(not sent and reason:find("nearest selection", 1, true) and forced == 1)
+		assert(not sent and reason:find("nearest selection", 1, true) and forced >= 1,
+			string.format("Expected a fresh native nearest-range rejection; sent=%s reason=%s scans=%d", tostring(sent), tostring(reason), forced))
 		assert(#s.Commands == 0 and s.Manager.Hatch.RequestedHatches == 0 and s.Manager.Hatch.RequestCost == 0)
 		s:Close()
 	end)

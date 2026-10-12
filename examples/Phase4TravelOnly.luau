@@ -1,6 +1,7 @@
 -- TEST A: one physical diagnostic attempt. No hatch, equip, pickups or spending.
--- AUTO chooses a currently accessible loaded native model, not an economic optimum.
--- MANUAL fallback: set EGG_SELECTION_MODE="MANUAL" and one exact SELECTED_EGGS name.
+-- AUTO requires one uniquely registered physical Instance per egg name.
+-- Duplicate paths are diagnostic labels only; unresolved registration stays blocked.
+-- MANUAL may choose one exact name, but cannot bypass Instance verification.
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
 	PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = true, OBJECTIVE_CURRENCY = "Coins", AUTO_HATCH = false,
@@ -25,5 +26,5 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-tests-141b7608bedf/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-travel-a0ee412ac828/dist/OC.lua"))()(Config)
 return OC
