@@ -23,6 +23,11 @@ return function(customConfig)
 		controller:Log("INIT", "Phase " .. tostring(controller:GetStatus().Phase) .. " initialized | PlaceId=" .. tostring(game.PlaceId) .. " | build=__OC_BUILD_ID__ | Overworld discovery owner-confirmed in session; rejoin persistence and world purchases pending")
 		controller:Log("SCOPE", "One Brain/scheduler: configured progression and actual-shortage stationary Coins/Gems farming on The Void/Zen; bubbles require a real bubble objective.")
 		if config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE then controller:Log("SCOPE", "Phase 4: actual owned-team/native egg estimates; hatch and equipment require separate Config authorization; destructive actions OFF; final odds/total time may remain UNKNOWN.") end
+		if config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE then
+			controller:Log("SCOPE", "Egg mode=" .. config.EGG_TRAVEL_SETTINGS.MODE .. " | OWNER_ONE_HATCH_TEST_ALLOWANCE="
+				.. tostring(config.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE)
+				.. " | normal world goal unchanged; exceptional one-request consumption persists only in this client VM")
+		end
 		if config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL or config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME
 			or config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES or config.ANTIAFK_SETTINGS.ENABLE_ANTI_AFK then
 			controller:Log("SCOPE", string.format("Local scoped features | selected-egg travel=%s; playtime=%s; owned ordinary box=%s; guarded ScrollLock anti-AFK=%s | no additional hatch/spend permission; owner live verification pending",

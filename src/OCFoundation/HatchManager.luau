@@ -52,6 +52,7 @@ function HatchManager:Observe(raw)
 		-- pre-request owned-team benchmark; status exposes only its evidence.
 		self.ResultBaseline = pending.UsefulnessBaseline
 		self.LastResult = { Status = confirmed and "INVENTORY_GAIN_OBSERVED" or "UNCONFIRMED", EggName = pending.EggName,
+			OwnerAllowance = pending.OwnerAllowance,
 			Quantity = gained, RequestedQuantity = pending.Count, CounterBefore = pending.Counter, CounterAfter = counter, CounterDelta = delta, Changes = changes,
 			BeforeBalance = pending.BeforeBalance, AfterBalance = raw and raw[pending.Currency], Balances = balances,
 			TeamBefore = pending.TeamBefore, TeamAfter = inv and table.clone(inv.Team), TeamIndexBefore = pending.TeamIndex,
@@ -74,6 +75,7 @@ function HatchManager:Observe(raw)
 			self.LastResult.Reason = self.Fault self.EndReason = self.Fault
 		end
 		self.Pending = nil
+		if self.Once and pending.OwnerAllowance then self.EndReason = self.EndReason or "Owner one-hatch allowance consumed; normal world reserve restored; no further spending" end
 		if self.Once then self.EndReason = self.EndReason or "Single request consumed; hatch result observed; no further spending/equipment" end
 	end
 end
@@ -90,11 +92,14 @@ function HatchManager:ResultText()
 		local value = r.Balances and r.Balances[currency]
 		if value then table.insert(balances, currency .. " net=" .. (value.Delta ~= nil and string.format("%+.3f", value.Delta) or "UNKNOWN")) end
 	end
-	return string.format("%s | %s | requested=%s; matching inventory +%s; egg counter delta=%s | baseline=%s %s pre-hatch owned-team estimate | %s | observed %s (net, attribution unknown) | OC equipment commands during hatch=0 | %s",
+	local owner = r.OwnerAllowance
+	local allowanceText = owner and string.format(" | owner allowance consumed; exact requested price=%s Coins; world reserve draw=%s; net debit=%s (attribution UNKNOWN); %s",
+		tostring(owner.RequestedPrice), tostring(owner.WorldReserveBorrowed), tostring(owner.Result and owner.Result.ObservedNetDebit or "UNKNOWN"), tostring(owner.Persistence)) or ""
+	return string.format("%s | %s | requested=%s; matching inventory +%s; egg counter delta=%s | baseline=%s %s pre-hatch owned-team estimate | %s | observed %s (net, attribution unknown) | OC equipment commands during hatch=0 | %s%s",
 		r.EggName, r.Status, tostring(r.RequestedQuantity), tostring(r.Quantity), tostring(r.CounterDelta or "UNKNOWN"),
 		tostring(r.UsefulnessBaselineScore or "UNKNOWN"), tostring(r.UsefulnessCurrency or "UNKNOWN"),
 		#pets > 0 and table.concat(pets, "; ") or "No matching received pet", #balances > 0 and table.concat(balances, ", ") or "balances UNKNOWN",
-		r.Reason or "Received hatch verified; an upgrade is not guaranteed. Request ledger retained")
+		r.Reason or "Received hatch verified; an upgrade is not guaranteed. Request ledger retained", allowanceText)
 end
 
 function HatchManager:GetStatus()

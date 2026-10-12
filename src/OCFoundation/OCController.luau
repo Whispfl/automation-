@@ -10,6 +10,7 @@ local PetManager = require(script.Parent.PetManager)
 local EggTravelManager = require(script.Parent.EggTravelManager)
 local RewardsManager = require(script.Parent.RewardsManager)
 local AntiAFKManager = require(script.Parent.AntiAFKManager)
+local OwnerHatchTestAllowance = require(script.Parent.OwnerHatchTestAllowance)
 
 local OCController = {}
 OCController.__index = OCController
@@ -18,7 +19,7 @@ local function validate(config)
 	for _, name in ipairs({ "GENERAL_SETTINGS", "ACCOUNT_SETTINGS", "BRAIN_SETTINGS", "RESOURCE_SETTINGS",
 		"TASK_SETTINGS", "BUBBLE_SETTINGS", "FALL_EVENT_SETTINGS", "PET_SETTINGS", "STATUS_UI_SETTINGS", "DIAGNOSTIC_SETTINGS",
 		"FARMING_SETTINGS", "ISLAND_SETTINGS", "PICKUP_SETTINGS", "UPGRADE_SETTINGS", "WORLD_SETTINGS", "HATCH_SETTINGS",
-		"EGG_TRAVEL_SETTINGS", "PLAYTIME_SETTINGS", "MYSTERY_BOX_SETTINGS", "ANTIAFK_SETTINGS" }) do
+		"EGG_TRAVEL_SETTINGS", "OWNER_ONE_HATCH_TEST_SETTINGS", "PLAYTIME_SETTINGS", "MYSTERY_BOX_SETTINGS", "ANTIAFK_SETTINGS" }) do
 		assert(type(config[name]) == "table", "Missing configuration category: " .. name)
 	end
 	for category, entries in pairs(config) do
@@ -95,6 +96,22 @@ local function validate(config)
 	assert(hatch.EGG_SELECTION_MODE == "AUTO" or hatch.EGG_SELECTION_MODE == "MANUAL", "EGG_SELECTION_MODE must be AUTO or MANUAL")
 	local eggTravel, playtime, boxes, idle = config.EGG_TRAVEL_SETTINGS, config.PLAYTIME_SETTINGS,
 		config.MYSTERY_BOX_SETTINGS, config.ANTIAFK_SETTINGS
+	assert(eggTravel.MODE == "NORMAL" or eggTravel.MODE == "TRAVEL_ONLY", "Egg travel MODE must be NORMAL or TRAVEL_ONLY")
+	local allowance = config.OWNER_ONE_HATCH_TEST_SETTINGS
+	assert(type(allowance.OWNER_ONE_HATCH_TEST_ALLOWANCE) == "boolean", "OWNER_ONE_HATCH_TEST_ALLOWANCE must be boolean")
+	if eggTravel.MODE == "TRAVEL_ONLY" then
+		local blocker = OCBrain.new(config):TravelDiagnosticBlocker()
+		assert(not blocker, blocker)
+	end
+	if allowance.OWNER_ONE_HATCH_TEST_ALLOWANCE then
+		assert(eggTravel.MODE == "NORMAL" and hatch.HATCH_ONE_EGG_ONCE and pets.AUTO_HATCH
+			and hatch.EGG_SELECTION_MODE == "MANUAL" and #hatch.SELECTED_EGGS == 1,
+			"Owner allowance requires an isolated ONE manual selected-egg hatch; never ordinary AUTO or TRAVEL_ONLY")
+		assert(allowance.MAXIMUM_COIN_ALLOWANCE > 0 and allowance.MAXIMUM_EGG_COST > 0,
+			"Owner allowance needs explicit positive Coin allowance and per-egg ceiling")
+		local blocker = require(script.Parent.OwnerHatchTestAllowance).Isolation(config)
+		assert(not blocker, blocker)
+	end
 	for _, value in ipairs({ eggTravel.ARRIVAL_TIMEOUT_SECONDS, eggTravel.STABILITY_SECONDS, eggTravel.MAXIMUM_LOCATION_SECONDS,
 		playtime.CHECK_INTERVAL_SECONDS, playtime.CLAIM_INTERVAL_SECONDS, playtime.CONFIRMATION_TIMEOUT_SECONDS,
 		boxes.OPEN_INTERVAL_SECONDS, boxes.CONFIRMATION_TIMEOUT_SECONDS }) do
@@ -173,6 +190,7 @@ function OCController.new(config, player)
 	self.Snapshot = self.Reader:GetSnapshot()
 	self.Farming = FarmingCoordinator.new(self, player)
 	self.WorldProgression = WorldProgressionManager.new(self)
+	self.HatchTestAllowance = OwnerHatchTestAllowance.new(self)
 	self.Pets = PetManager.new(self)
 	self.EggTravel = EggTravelManager.new(self)
 	self.Rewards = RewardsManager.new(self)
@@ -373,6 +391,7 @@ function OCController:GetStatus()
 		Pets = self.Pets and self.Pets:GetStatus(), Error = self.Error,
 		EggTravel = self.EggTravel and self.EggTravel:GetStatus(), Rewards = self.Rewards and self.Rewards:GetStatus(),
 		AntiAFK = self.AntiAFK and self.AntiAFK:GetStatus(),
+		OwnerHatchTestAllowance = self.HatchTestAllowance and self.HatchTestAllowance:GetStatus(),
 		Phase = self.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and 4 or self.Config.WORLD_SETTINGS.ENABLE_WORLD_PROGRESSION and 3 or 2 }
 end
 

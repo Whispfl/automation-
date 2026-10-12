@@ -62,7 +62,7 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -233,7 +233,7 @@ assert.equal(migrationRun.status, 0, 'Migration verification Config isolation fa
 
 const autoOnceExample = await readFile(path.join(root, 'examples/Phase4AutoOnce.luau'), 'utf8');
 const autoOnceConfig = configPrefix(autoOnceExample);
-assert(autoOnceExample.includes('/Whispfl/automation-/phase4-auto-' + generated.buildId + '/dist/OC.lua'), 'AUTO example must pin the matching candidate');
+assert(autoOnceExample.includes('/Whispfl/automation-/phase4-auto-890d4713edad/dist/OC.lua'), 'Prior tested AUTO example retains its immutable baseline pin');
 const autoOnceCompile = spawnSync(compiler, ['--null', path.join(root, 'examples/Phase4AutoOnce.luau')], { encoding: 'utf8' });
 assert.equal(autoOnceCompile.status, 0, 'AUTO one-hatch loader must compile: ' + autoOnceCompile.stderr);
 const autoOnceCheck = `
@@ -273,3 +273,45 @@ const autoOnceRun = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(autoOnceRun.stdout || '');
 process.stderr.write(autoOnceRun.stderr || '');
 assert.equal(autoOnceRun.status, 0, 'AUTO one-hatch Config isolation failed');
+
+for (const [filename, travelOnly] of [['Phase4TravelOnly.luau', true], ['Phase4OneHatchPrepared.luau', false]]) {
+  const example = await readFile(path.join(root, 'examples', filename), 'utf8');
+  const prefix = configPrefix(example);
+  assert(example.includes('/phase4-tests-' + generated.buildId + '/dist/OC.lua'), 'Test loader needs current immutable pin: ' + filename);
+  const compilation = spawnSync(compiler, ['--null', path.join(root, 'examples', filename)], { encoding: 'utf8' });
+  assert.equal(compilation.status, 0, filename + ' must compile: ' + compilation.stderr);
+  const check = `
+local options = (function()
+${prefix}
+return Config
+end)()
+options.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false
+local instance = requireOC("OCController").new(config(options))
+local settings = instance.Config
+assert(settings.PET_SETTINGS.ENABLE_PET_INTELLIGENCE and settings.PET_SETTINGS.AUTO_HATCH == ${!travelOnly})
+assert(settings.HATCH_SETTINGS.EGG_SELECTION_MODE == "AUTO" and #settings.HATCH_SETTINGS.SELECTED_EGGS == 0)
+assert(settings.EGG_TRAVEL_SETTINGS.MODE == "${travelOnly ? 'TRAVEL_ONLY' : 'NORMAL'}")
+assert(settings.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL == ${travelOnly} and settings.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL == ${travelOnly} and settings.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING == ${travelOnly})
+assert(settings.HATCH_SETTINGS.HATCH_ONE_EGG_ONCE == ${!travelOnly} and settings.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES == 1 and settings.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES == 1)
+assert(settings.HATCH_SETTINGS.MAXIMUM_EGG_COST == ${travelOnly ? 0 : 1000} and settings.HATCH_SETTINGS.MAXIMUM_SESSION_COST == ${travelOnly ? 0 : 1000} and settings.HATCH_SETTINGS.PRESERVE_PROGRESSION_RESERVE)
+assert(not settings.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE and settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_COIN_ALLOWANCE == 0 and settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_EGG_COST == 0)
+local disabled = {
+ WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
+ FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" }, ISLAND_SETTINGS = { "AUTO_TRAVEL_BEST_ISLAND", "AUTO_EXPLORE_UNLOCKED_ISLANDS" },
+ PICKUP_SETTINGS = { "BULK_COLLECT_PICKUPS", "STATIONARY_ISOLATED_TEST" },
+ BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
+ UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
+ PET_SETTINGS = { "AUTO_EQUIP", "EQUIP_OWNED_TEAM_ONCE", "AUTO_DELETE_PETS", "AUTO_CRAFT_SHINY", "AUTO_FUSE_PETS" }, HATCH_SETTINGS = { "ENABLE_BACKGROUND_PICKUPS" },
+ PLAYTIME_SETTINGS = { "AUTO_CLAIM_PLAYTIME" }, MYSTERY_BOX_SETTINGS = { "AUTO_OPEN_MYSTERY_BOXES", "ENABLE_AUTOMATIC_CONTINUATION" }, ANTIAFK_SETTINGS = { "ENABLE_ANTI_AFK" },
+ FALL_EVENT_SETTINGS = { "ENABLE_FALL_EVENT", "AUTO_REBIRTH", "AUTO_BUY_REBIRTH_UPGRADES", "AUTO_USE_FALL_ELIXIRS", "AUTO_BUY_AUTUMN_SHOP_ITEMS" },
+}
+for category, keys in pairs(disabled) do for _, key in ipairs(keys) do assert(settings[category][key] == false, category .. "." .. key .. " must remain OFF") end end
+assert(settings.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST == 0)
+instance:Destroy()
+print("[OC TEST] ${filename}: full merged Config isolation and owner allowance OFF passed")
+`;
+  await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + check);
+  const result = spawnSync(executable, [testPath], { encoding: 'utf8' });
+  process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || '');
+  assert.equal(result.status, 0, filename + ' complete Config validation failed');
+}

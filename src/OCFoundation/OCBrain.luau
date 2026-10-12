@@ -444,7 +444,119 @@ end
 
 -- Scoped local additions arbitrate through the same Brain and foreground scheduler.
 -- Managers expose eligibility/state; they create no competing gameplay loops.
+function OCBrain:TravelDiagnosticBlocker()
+	local config, pets, hatch = self.Config, self.Config.PET_SETTINGS, self.Config.HATCH_SETTINGS
+	if (config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") ~= "TRAVEL_ONLY" or not config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then
+		return "TRAVEL_ONLY diagnostic mode/selected egg travel is disabled"
+	end
+	if not pets.ENABLE_PET_INTELLIGENCE or not config.GENERAL_SETTINGS.ENABLE_RECOMMENDATIONS then
+		return "TRAVEL_ONLY requires read-only pet intelligence and Brain recommendations"
+	end
+	if pets.AUTO_HATCH or pets.AUTO_EQUIP or pets.EQUIP_OWNED_TEAM_ONCE or hatch.HATCH_ONE_EGG_ONCE
+		or hatch.MAXIMUM_EGG_COST ~= 0 or hatch.MAXIMUM_SESSION_COST ~= 0 or hatch.ENABLE_BACKGROUND_PICKUPS
+		or config.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST ~= 0
+		or config.OWNER_ONE_HATCH_TEST_SETTINGS and config.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE then
+		return "TRAVEL_ONLY requires hatch/equipment/allowance OFF and zero hatch/world purchase budgets"
+	end
+	for category, keys in pairs({
+		WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
+		FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" },
+		ISLAND_SETTINGS = { "AUTO_TRAVEL_BEST_ISLAND", "AUTO_EXPLORE_UNLOCKED_ISLANDS" },
+		PICKUP_SETTINGS = { "BULK_COLLECT_PICKUPS", "STATIONARY_ISOLATED_TEST" },
+		BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
+		UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
+		PET_SETTINGS = { "AUTO_DELETE_PETS", "AUTO_CRAFT_SHINY", "AUTO_FUSE_PETS" },
+		FALL_EVENT_SETTINGS = { "ENABLE_FALL_EVENT", "AUTO_REBIRTH", "AUTO_BUY_REBIRTH_UPGRADES", "AUTO_USE_FALL_ELIXIRS", "AUTO_BUY_AUTUMN_SHOP_ITEMS" },
+		PLAYTIME_SETTINGS = { "AUTO_CLAIM_PLAYTIME" }, MYSTERY_BOX_SETTINGS = { "AUTO_OPEN_MYSTERY_BOXES" },
+		ANTIAFK_SETTINGS = { "ENABLE_ANTI_AFK" },
+	}) do
+		for _, key in ipairs(keys) do if config[category][key] then return "TRAVEL_ONLY requires " .. category .. "." .. key .. " OFF" end end
+	end
+	local mode = PetPolicy.SelectionMode(config)
+	if mode ~= "AUTO" and mode ~= "MANUAL" then return "TRAVEL_ONLY egg selection mode unavailable" end
+	if mode == "MANUAL" and #hatch.SELECTED_EGGS ~= 1 then return "TRAVEL_ONLY MANUAL requires one exact native egg name" end
+	return nil
+end
+
+function OCBrain:PlanEggTravelDiagnostic(snapshot, context, definitions, worlds, retainedIntent)
+	local blocker = self:TravelDiagnosticBlocker()
+	if blocker then return { Kind = "WAIT", OwnsLocation = false, Reason = blocker } end
+	if not snapshot or not snapshot.Ready or type(snapshot.UnlockedWorlds) ~= "table" or type(snapshot.UnlockedIslands) ~= "table"
+		or type(context) ~= "table" or type(definitions) ~= "table" or type(worlds) ~= "table" then
+		return { Kind = "WAIT", OwnsLocation = false, Reason = "TRAVEL_ONLY requires fresh LocalData access and native egg/world definitions" }
+	end
+	local candidates, reasons, selectedMode = {}, {}, PetPolicy.SelectionMode(self.Config)
+	if retainedIntent and (retainedIntent.Scope ~= "TRAVEL_ONLY" or retainedIntent.DecisionSource ~= "BRAIN_TRAVEL_DIAGNOSTIC"
+		or retainedIntent.SelectionMode ~= selectedMode or type(retainedIntent.EggName) ~= "string" or not retainedIntent.Model) then
+		return { Kind = "WAIT", OwnsLocation = false, Reason = "Acquired diagnostic selection scope/mode/identity changed; no retarget" }
+	end
+	for _, egg in ipairs(context.EggAvailability or context.Eggs or {}) do
+		if retainedIntent and (egg.Name ~= retainedIntent.EggName or egg.Model ~= retainedIntent.Model) then continue end
+		if not PetPolicy.EggSelected(self.Config, egg.Name) then continue end
+		local definition = definitions[egg.Name]
+		local world = type(definition) == "table" and definition.World
+		local worldDefinition = world and worlds[world]
+		local island = egg.Island or type(definition) == "table" and definition.Island
+		local reason
+		if egg.Loaded ~= true or not egg.Model then reason = "original native model not loaded"
+		elseif type(definition) ~= "table" or definition.Event or definition.ProductId or definition.IsAdminEgg or egg.Name == "Infinity Egg" then
+			reason = "unsupported event/premium/special or unknown native definition"
+		elseif type(world) ~= "string" or type(worldDefinition) ~= "table" or worldDefinition.Removed or worldDefinition.Event then
+			reason = "native permanent world unavailable/removed"
+		elseif egg.Accessible ~= true or snapshot.UnlockedWorlds[world] == nil or island and snapshot.UnlockedIslands[island] == nil then
+			reason = "actual world/island access locked or unknown"
+		else
+			local cost = egg.Cost or definition.Cost
+			local ordinary = type(cost) == "table" and cost.Type == "Currency" and type(cost.Currency) == "string"
+				and PetPolicy.Finite(cost.Amount)
+			table.insert(candidates, { Egg = egg, World = world, Island = island, OrdinaryCost = ordinary == true,
+				Distance = PetPolicy.Finite(egg.Distance) and egg.Distance or math.huge })
+		end
+		if reason and #reasons < self.Config.HATCH_SETTINGS.MAXIMUM_PLAN_CANDIDATES then table.insert(reasons, tostring(egg.Name) .. ": " .. reason) end
+	end
+	table.sort(candidates, function(a, b)
+		if a.OrdinaryCost ~= b.OrdinaryCost then return a.OrdinaryCost end
+		if a.Distance ~= b.Distance then return a.Distance < b.Distance end
+		return a.Egg.Name < b.Egg.Name
+	end)
+	local candidate = candidates[1]
+	if not candidate then
+		return { Kind = "WAIT", OwnsLocation = false, Reason = #reasons > 0 and "TRAVEL_ONLY no eligible destination | " .. table.concat(reasons, "; ")
+			or "TRAVEL_ONLY no eligible loaded native egg; no catalog-only or random travel" }
+	end
+	local egg = candidate.Egg
+	return { Kind = "EGG_TRAVEL", Scope = "TRAVEL_ONLY", DecisionSource = "BRAIN_TRAVEL_DIAGNOSTIC", SelectionMode = selectedMode,
+		EggName = egg.Name, Model = egg.Model, World = candidate.World, Island = candidate.Island, OwnsLocation = true,
+		DefinitionReference = "ReplicatedStorage.Shared.Data.Eggs[" .. egg.Name .. "]",
+		AccessSource = "Received LocalData.WorldsUnlocked/AreasUnlocked + actual loaded original egg model",
+		GeometrySource = "Actual original Root/Prompt; native initial prompt/opened scanner; floor/full-avatar clearance required",
+		EconomicSelection = "DIAGNOSTIC_PHYSICAL_TARGET; optimal economic choice not claimed",
+		Reason = string.format("TRAVEL_ONLY %s selected %s @ %s/%s | actual loaded permanent egg/access; %s; %s | observed distance=%s; economic ROI/affordability/reserves do not authorize or block this zero-spend diagnostic; hatch/equipment/pickups OFF; native path, geometry and stable range still required",
+			selectedMode, egg.Name, candidate.World, tostring(candidate.Island or "surface"), candidate.OrdinaryCost and "ordinary native currency cost observed; diagnostic physical selection, no optimal ROI claim" or "price unavailable/unsupported for spending; diagnostic physical selection, no optimal ROI claim",
+			retainedIntent and "retained acquired exact original model; character movement/new proximity does not select another egg" or "closest observed supported destination, deterministic name tie",
+			candidate.Distance < math.huge and tostring(candidate.Distance) or "UNKNOWN") }
+end
+
 function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
+	if (self.Config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY" then
+		local blocker = self:TravelDiagnosticBlocker()
+		if blocker then controller.EggTravel:DiagnosticTrace("TRAVEL_BLOCKED", nil, blocker) return "PHASE4_WAIT", { Kind = "WAIT", Reason = blocker, OwnsLocation = false } end
+		local snapshot, context = controller.Pets:Fresh()
+		local retained = controller.EggTravel.Lease and controller.EggTravel.BrainIntent
+		local goalId = plan and plan.Objective and plan.Objective.Id or "TRAVEL_ONLY_DIAGNOSTIC"
+		if retained and (retained.GoalId ~= goalId or retained.Generation ~= controller.Generation
+			or retained.SelectionRevision ~= self.Config.EGG_TRAVEL_SETTINGS.SELECTION_REVISION) then
+			controller.EggTravel:Release("Acquired diagnostic goal/generation/revision changed; no stale travel", true)
+			return "PHASE4_WAIT", { Kind = "WAIT", Reason = "Acquired diagnostic goal/generation/revision changed", OwnsLocation = false }
+		end
+		local intent = self:PlanEggTravelDiagnostic(snapshot, context, controller.Knowledge:Get("Eggs"), controller.Knowledge:Get("Worlds"), retained)
+		if intent.Kind ~= "EGG_TRAVEL" then controller.EggTravel:DiagnosticTrace("TRAVEL_BLOCKED", nil, intent.Reason) return "PHASE4_WAIT", intent end
+		intent.Generation, intent.AccountId = controller.Generation, controller.Reader.Player and controller.Reader.Player.UserId
+		intent.SelectionRevision = self.Config.EGG_TRAVEL_SETTINGS.SELECTION_REVISION
+		intent.GoalId = goalId
+		local owns, decision = controller.EggTravel:Select(plan, intent)
+		return owns and "EGG_TRAVEL" or "PHASE4_WAIT", decision
+	end
 	if petDecision and self.Config.PET_SETTINGS.AUTO_HATCH then
 		-- A sent hatch/verified equipment transaction keeps its foreground authority.
 		-- Observing presentation/result cannot be preempted by travel or rewards.

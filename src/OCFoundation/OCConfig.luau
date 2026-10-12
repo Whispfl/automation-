@@ -224,6 +224,7 @@ return {
 		MAXIMUM_EGGS_ANALYZED = 40, --// Bound scene-present permanent egg projections; excluded and unknown candidates remain visible.
 	},
 	EGG_TRAVEL_SETTINGS = {
+		MODE = "NORMAL", --// TRAVEL_ONLY is an isolated one-attempt diagnostic with all spending/equipment/pickups OFF; NORMAL retains paid Brain eligibility.
 		ENABLE_SELECTED_EGG_TRAVEL = false, --// Own exactly one explicitly selected egg task; this enables no hatching or spending.
 		ENABLE_DIRECT_POSITIONING = false, --// Opt in to one guarded HRP CFrame assignment using observed safe floor geometry; not a native egg teleport.
 		ENABLE_NATIVE_ISLAND_TRAVEL = false, --// Permit verified unlocked native island/return travel for this selected egg only.
@@ -232,6 +233,11 @@ return {
 		MAXIMUM_ATTEMPTS_PER_SELECTION = 1, --// Consume an attempt before dispatch; missing/corrected arrival requires explicit rearming.
 		MAXIMUM_LOCATION_SECONDS = 120, --// Bound an intentional egg location lease, including pauses.
 		SELECTION_REVISION = 0, --// Increment explicitly to authorize a new attempt at the same egg after manual movement or failure.
+	},
+	OWNER_ONE_HATCH_TEST_SETTINGS = {
+		OWNER_ONE_HATCH_TEST_ALLOWANCE = false, --// Separate explicit owner opt-in for ONE manual Coins hatch using capped currently earmarked world funds; ordinary AUTO never enables it.
+		MAXIMUM_COIN_ALLOWANCE = 0, --// Cap the exceptional draw from currently held world-goal Coins; configured resource reserves and the native world goal remain unchanged.
+		MAXIMUM_EGG_COST = 0, --// Separate explicit native per-egg Coin ceiling; normal hatch/session limits still apply and one uncertain dispatch consumes the allowance across same-runtime reloads.
 	},
 	PLAYTIME_SETTINGS = {
 		AUTO_CLAIM_PLAYTIME = false, --// Claim only native eligible sparse unclaimed playtime indices; no other reward systems.

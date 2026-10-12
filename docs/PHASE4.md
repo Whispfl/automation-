@@ -1,7 +1,9 @@
 # Phase 4: account-aware pets and bounded native actions
 
-The owner explicitly authorized Phase 4 development and the controlled AUTO
-travel/one-hatch acceptance candidate on 2026-10-12. Before planning or coding,
+The owner explicitly authorized Phase 4 development, the scoped benchmark/blocker
+fixes and independent travel/one-hatch preparation on 2026-10-12. The positioning
+reference addendum continues that same worktree; it does not reset or replace
+ongoing changes. Before planning or coding,
 the complete [master roadmap](https://app.notion.com/p/3f53d7e9278d81c5a6cacfe227eb4349),
 [Phase 3](https://app.notion.com/p/3f53d7e9278d816c8494da53650aaa10),
 [Phase 4](https://app.notion.com/p/3f53d7e9278d81a796a9d3c505076363),
@@ -11,22 +13,31 @@ reviewed and retained. Current explicit direction supersedes the historical
 analysis-only, equipped-baseline and manual-approach-only delivery decisions below.
 No Notion checkboxes or completion claims were changed.
 
-Current implementation and owner checks are in
-[PHASE4-INTEGRATION.md](PHASE4-INTEGRATION.md). The editable
-[Phase4AutoOnce.luau](../examples/Phase4AutoOnce.luau) enables AUTO selection,
-controlled stable arrival and at most one Coins hatch after protected reserves,
-with one-million-Coins per-egg/session ceilings. Equipment, pickups and unrelated
-actions are OFF. The owned benchmark is a feasible bounded heuristic, not a
-global optimum; incomplete search/native projections, unknown owned records or
-unused Super units block paid selection. Frozen pre-hatch owned facts and actual
-received records support usefulness; server odds remain UNKNOWN. **New gameplay
-acceptance and the full Phase 4 checklist remain pending.**
+Current changes and owner checks are in
+[PHASE4-BLOCKER-FIXES.md](PHASE4-BLOCKER-FIXES.md). Test A is the isolated AUTO
+[Phase4TravelOnly.luau](../examples/Phase4TravelOnly.luau) diagnostic with zero
+paid budgets. Test B is [Phase4OneHatchPrepared.luau](../examples/Phase4OneHatchPrepared.luau):
+one hatch maximum, 1,000-Coin ceilings, full normal world reserve and all travel,
+equipment/pickups OFF. Its optional `OWNER_ONE_HATCH_TEST_ALLOWANCE` is OFF/zero;
+an exact MANUAL egg/price/held-world-fund cap needs separate owner approval.
 
-Current candidate build `890d4713edad` passes **463 main-suite offline cases**,
-official compilation, merged first-test Config isolation and bundle checks.
-All 104 completed research files remain byte-identical to the recovery baseline.
-Public artifact verification is reported with the final commit after publication;
-the owner's live test remains required.
+The bounded owned search retains its 1,000 cap and protected quantities, adds a
+native-validated rank seed, exact ordered-team memo and redundant stack/self-swap
+avoidance, and distinguishes convergence from denied probes or unknown inputs.
+The synthetic 24-record/59-unit/seven-slot fixture uses 46 unique comparisons;
+this does not reproduce private live inventory or establish a global optimum.
+Unknown/failed owned inputs and unused Super units still block paid ROI. Each
+native helper comparison receives isolated detached inputs. Server odds remain
+UNKNOWN. **New gameplay acceptance and the full Phase 4 checklist remain pending.**
+
+The owner's actual `890d4713edad` run initialized and analyzed but stayed in WAIT:
+search limit reached and the locked next world's one-billion-Coins reserve left
+no normal spendable Coins. No travel/hatch/equipment/spend was observed. Its
+463-case offline release record and immutable combined candidate pin are
+historical; [PHASE4-INTEGRATION.md](PHASE4-INTEGRATION.md) retains that delivery.
+Final new compilation/regression/build/public verification is recorded after
+checks finish. All completed research files and previous pinned builds are
+preserved; offline fixtures and reference inspection do not verify gameplay.
 
 The owner's migration test confirms build `005f77211830` loaded, read Coins/Gems
 and stayed idle with actions OFF; it is not proof of this new integration.

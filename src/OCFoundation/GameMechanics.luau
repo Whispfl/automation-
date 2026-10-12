@@ -744,7 +744,12 @@ end
 
 function GameMechanics:TravelSelectedEgg(manager, record, token)
 	local c = self.LocalFeatureController
-	if not c or manager ~= c.EggTravel or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "EGG_TRAVEL" then return false, "Selected-egg task does not own the scheduler" end
+	local active = c and c.Scheduler and c.Scheduler.Active
+	local function owns()
+		return c and c.State == "RUNNING" and manager == c.EggTravel and c.Scheduler.Active == active and active
+			and active.Definition.Owner == "EGG_TRAVEL" and active.Definition.Generation == c.Generation and active.Token == token
+	end
+	if not owns() then return false, "Selected-egg task does not own the scheduler" end
 	if not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL then return false, "Selected-egg native travel disabled" end
 	local fresh, reason = manager:Validate(record, token)
 	if not fresh then return false, reason end
@@ -761,9 +766,14 @@ function GameMechanics:TravelSelectedEgg(manager, record, token)
 	if os.clock() - self.LastTravelAt < self.Config.ISLAND_SETTINGS.TRAVEL_COOLDOWN_SECONDS then return false, "Native travel cooldown; explicit rearm after bounded failure" end
 	local remote = self.Reader:_dependency("Remote")
 	if not remote or type(remote.FireServer) ~= "function" then return false, "Native Remote unavailable" end
-	if token:CheckCancelled() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL then return false, "Cancelled" end
+	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL then return false, "Cancelled or selected-egg scheduler ownership changed" end
+	fresh, reason = manager:Validate(record, token, true)
+	if not fresh or fresh.DestinationPath ~= path or not fresh.NativeAreaKnown then return false, reason or "Native selected-area destination changed before request" end
+	if not fresh.NeedsNativeTravel then return true, "Selected area reached during guards; no native request needed" end
 	local beforePosition = fresh.CharacterRoot.Position
 	local destination = fresh.Destination
+	if type(manager.DiagnosticTrace) == "function" then manager:DiagnosticTrace("AREA_TRAVEL_REQUESTED", fresh, "Native Teleport(" .. path .. ") dispatch; area/range arrival remains unconfirmed") end
+	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_NATIVE_ISLAND_TRAVEL then return false, "Cancelled before native area request" end
 	self.LastTravelAt = os.clock()
 	local sent, err = pcall(function() remote:FireServer("Teleport", path) end)
 	if not sent then return false, "Native area travel delivery uncertain: " .. tostring(err) end
@@ -786,7 +796,12 @@ end
 
 function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 	local c = self.LocalFeatureController
-	if not c or manager ~= c.EggTravel or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "EGG_TRAVEL" then return false, "Selected-egg task does not own the scheduler" end
+	local active = c and c.Scheduler and c.Scheduler.Active
+	local function owns()
+		return c and c.State == "RUNNING" and manager == c.EggTravel and c.Scheduler.Active == active and active
+			and active.Definition.Owner == "EGG_TRAVEL" and active.Definition.Generation == c.Generation and active.Token == token
+	end
+	if not owns() then return false, "Selected-egg task does not own the scheduler" end
 	if not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Direct egg positioning disabled" end
 	local fresh, reason = manager:Validate(record, token)
 	if not fresh then return false, reason end
@@ -795,6 +810,7 @@ function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 	fresh, reason = manager:Validate(record, token)
 	if not fresh then return false, reason end
 	if fresh.NeedsNativeTravel then return false, "Correct unlocked native area must be reached first" end
+	if fresh.InRange then return true, "Already in observed native hatch range; no direct positioning needed" end
 	local clearedFrame, clearanceReason = manager:ResolveStanding(fresh)
 	if not clearedFrame then return false, clearanceReason end
 	if typeof(frame) ~= "CFrame" or (frame.Position - clearedFrame.Position).Magnitude > 0.25 then return false, "Standing geometry changed during guards; explicit rearm required" end
@@ -804,7 +820,10 @@ function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 		or (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range
 		or not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, "Validated standing transform unavailable or outside actual native hatch eligibility" end
 	if self.LastEggPositionLease == record.LeaseId then return false, "Direct position already attempted for this lease" end
-	if token:CheckCancelled() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled" end
+	local final, finalReason = manager:Validate(record, token, true)
+	if not final or final.CharacterRoot ~= fresh.CharacterRoot or final.NeedsNativeTravel then return false, finalReason or "Selected egg/character/area changed during final positioning guards" end
+	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled or selected-egg scheduler ownership changed" end
+	if final.InRange then return true, "Already in observed native hatch range after guards; no assignment" end
 	self.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.
 	local assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)
 	return assigned, assigned and "Direct CFrame assigned; observed arrival/stability/range still pending" or "Direct position failed: " .. tostring(err)

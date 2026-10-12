@@ -1,10 +1,16 @@
-# BGSI OC — controlled Phase 4 AUTO candidate
+# BGSI OC — Phase 4 blocker fixes and separate acceptance tests
 
 Current repository: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, branch **main**. The trailing hyphen is part of the repository name.
 
-The owner authorized the new [Phase 4 integration](docs/PHASE4-INTEGRATION.md). **[examples/Phase4AutoOnce.luau](examples/Phase4AutoOnce.luau)** enables an editable AUTO Config: feasible owned-team/egg analysis, a Brain-selected useful affordable egg, controlled stable arrival and at most **one hatch**, with **1,000,000 Coins** per-egg/session ceilings and the native progression reserve preserved. Equipment, pickups, farming, rewards and unrelated actions remain OFF in this first candidate. Missing access, incomplete owned/Super benchmarking or insufficient reserves means WAIT with no movement/spending. **Live acceptance is pending; Phase 4 remains open.**
+The owner tested build `890d4713edad`: analysis initialized, but an incomplete bounded owned benchmark and the full next-world reserve kept it in WAIT. **No travel, hatch, equipment change or spending was verified.** The immutable older [Phase4AutoOnce.luau](examples/Phase4AutoOnce.luau) pin and equipment acceptance are preserved.
 
-The loader uses the matching public pinned bundle without tokens or authentication. Its Config and final commit/build pin belong to the reviewed release; compilation, regression and public-byte checks are separate from the owner's gameplay test. The earlier owned-team equipment acceptance below is preserved.
+The scoped [blocker fixes and reference comparison](docs/PHASE4-BLOCKER-FIXES.md) make the existing 1,000-comparison owned search more efficient, isolate native helper inputs and separate physical travel from paid eligibility. The synthetic 24-record/59-unit/seven-slot regression completes in 46 unique projections; this is not the owner's new live inventory result or proof of a global optimum.
+
+**Test A — [Phase4TravelOnly.luau](examples/Phase4TravelOnly.luau):** AUTO Brain-selected accessible native egg, one bounded travel/standing-range diagnostic, zero hatch budgets and no hatch, equipment, pickups or unrelated actions. Its physical recommendation can work with zero spendable Coins and is labeled as a diagnostic, not an optimal economic egg.
+
+**Test B — [Phase4OneHatchPrepared.luau](examples/Phase4OneHatchPrepared.luau):** AUTO, at most one hatch with 1,000-Coin per-egg/session ceilings, full normal reserves, all travel/equipment/pickups OFF. `OWNER_ONE_HATCH_TEST_ALLOWANCE` is **OFF with zero ceilings**. A capped MANUAL exception from currently held world-goal Coins requires the owner's separate exact egg/price/allowance approval; ordinary AUTO never enables it. Consumption survives OC reloads only in the same client VM, not a client restart/rejoin.
+
+Both editable examples use the matching public pinned bundle without tokens or authentication. Final build/commit and regression/public-byte checks are recorded with the release. **Live acceptance is pending; Phase 4 remains open.** The earlier [integration record](docs/PHASE4-INTEGRATION.md) describes the historical combined candidate; current test instructions above supersede its initial loader scope.
 
 ## Preserved migration baseline
 

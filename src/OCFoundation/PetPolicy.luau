@@ -1,5 +1,6 @@
 --!nonstrict
 -- Pure Phase 4 analysis. Native helper projections are estimates, never account writes.
+local OwnerHatchTestAllowance = require(script.Parent.OwnerHatchTestAllowance)
 local PetPolicy = {}
 
 function PetPolicy.Finite(value)
@@ -92,9 +93,10 @@ function PetPolicy.TeamText(team, details)
 		local out = {} for _, r in ipairs(rows) do table.insert(out, r.Variant .. " " .. r.Name .. " [" .. r.Id .. "]") end
 		return table.concat(out, ", ")
 	end
-	local header = string.format("%s | team=%s | equipped=%d/native limit=%d | %d records/%d pets | native estimate %.3f -> %.3f | bounded search %d%s",
+	local header = string.format("%s | team=%s | equipped=%d/native limit=%d | %d records/%d pets | native estimate %.3f -> %.3f | search=%s; unique native evaluations=%d/%s; cache hits=%s; duplicate/self skips=%s/%s; rounds=%s | global optimum UNKNOWN",
 		tostring(team.Currency), tostring(team.TeamIndex), team.EquippedCount, team.MaxEquipped, team.RecordCount, team.Quantity,
-		team.CurrentScore, team.ProjectedScore, team.Evaluations, team.SearchBoundReached and " (limit reached)" or " (supported single-swap local optimum)")
+		team.CurrentScore, team.ProjectedScore, tostring(team.SearchStatus or "UNKNOWN"), team.Evaluations, tostring(team.EvaluationLimit or "UNKNOWN"),
+		tostring(team.CacheHits or 0), tostring(team.DuplicateSwapsSkipped or 0), tostring(team.SelfSwapsSkipped or 0), tostring(team.SearchRounds or 0))
 	if not details then return header .. " | proposed: " .. lineup(team.ProposedPets) .. " | details: OC:PrintPetTeam(); earnings impact unmeasured" end
 	local lines = { header, "Current: " .. lineup(team.CurrentPets), "Proposed: " .. lineup(team.ProposedPets) }
 	for _, group in ipairs({ { "CURRENT", team.CurrentPets }, { "PROPOSED", team.ProposedPets } }) do
@@ -102,6 +104,12 @@ function PetPolicy.TeamText(team, details)
 			group[1], r.Slot, r.Variant, r.Name, r.Id, r.OwnedQuantity, r.EquippedCopies, tostring(team.Currency),
 			tostring(r.NativeRoleStat or "UNKNOWN"), tostring(r.RemovalMarginal or "UNKNOWN"), tostring(r.XP or "UNKNOWN"), r.Protection or "none")) end
 	end
+	local seed = team.Seed
+	if seed then table.insert(lines, string.format("Owned rank seed | %s; native FULL-team %s -> %s | hint uses quantities/protected slots; native validation, not an additive/global optimum assertion",
+		seed.Status, tostring(seed.BeforeScore), tostring(seed.Score or "UNKNOWN"))) end
+	table.insert(lines, string.format("Search evidence | complete=%s; native failures=%s; owned stat failures=%s; unknown records=%s; unsupported Super units=%s; denied new probes=%s; memo is exact ordered IDs within this detached analysis",
+		tostring(team.SearchComplete == true), tostring(team.ProjectionFailures or 0), tostring(team.OwnedCandidateFailures or 0),
+		tostring(team.UnsupportedOwnedRecords or 0), tostring(team.UnsupportedOwnedSupers or 0), tostring(team.BudgetDenied or 0)))
 	for index, step in ipairs(team.Improvements) do table.insert(lines, string.format("Search improvement %d | %s replaces %s | native FULL-team %.3f -> %.3f (+%.3f); variants, enchants and account modifiers evaluated together",
 		index, step.AddId, step.RemoveId or "free slot", step.BeforeScore, step.AfterScore, step.AfterScore - step.BeforeScore)) end
 	for _, reason in ipairs(team.Unknowns) do table.insert(lines, "UNCERTAINTY | " .. reason) end
@@ -150,7 +158,9 @@ end
 -- the game's helper; this is explicitly a heuristic rather than an exhaustive optimum.
 function PetPolicy.Team(config, context)
 	local inv = context.Inventory
-	local report = { Currency = context.Currency, Status = "UNKNOWN", Evidence = "Native full-team stat projection; greedy local search", Evaluations = 0,
+	local report = { Currency = context.Currency, Status = "UNKNOWN", Evidence = "Native full-team stat projection; validated feasible rank seed and bounded local search", Evaluations = 0,
+		EvaluationLimit = config.PET_SETTINGS.MAXIMUM_TEAM_EVALUATIONS, EvaluationRequests = 0, CacheHits = 0,
+		DuplicateSwapsSkipped = 0, SelfSwapsSkipped = 0, SearchRounds = 0, BudgetDenied = 0, SearchStatus = "UNKNOWN_INPUTS",
 		MaxEquipped = context.MaxEquipped, Improvements = {}, Unknowns = { "Server-only modifiers and actual earning-rate impact unverified; native helper totals are client estimates",
 			"Bounded greedy local search is not a guaranteed global optimum with interacting enchants", "No native pet-favorite contract found; use FAVORITE_PET_IDS / PROTECTED_PET_IDS" } }
 	if not inv or not context.Currency or not context.ScoreTeam or not PetPolicy.Finite(context.MaxEquipped)
@@ -159,13 +169,31 @@ function PetPolicy.Team(config, context)
 	end
 	report.RecordCount, report.Quantity, report.EquippedCount = inv.Records, inv.Quantity, #inv.Team
 	report.TeamIndex, report.BeforeIds = inv.TeamIndex, table.clone(inv.Team)
+	local limit, memo, exhausted = config.PET_SETTINGS.MAXIMUM_TEAM_EVALUATIONS, {}, false
 	local function score(ids)
+		report.EvaluationRequests += 1
+		-- Do not coalesce permutations: preserve exact ordered calls to the native
+		-- helper. Length prefixes also avoid delimiter/ID collisions.
+		local pieces = {}
+		for _, id in ipairs(ids) do table.insert(pieces, tostring(#id) .. ":" .. id) end
+		local key = table.concat(pieces, "|")
+		local cached = memo[key]
+		if cached then report.CacheHits += 1 return cached.Value, cached.Failed and "FAILED" or "OK" end
+		if report.Evaluations >= limit then
+			exhausted = true report.BudgetDenied += 1 return nil, "BUDGET"
+		end
 		report.Evaluations += 1
-		local value = context.ScoreTeam(ids)
-		return PetPolicy.Finite(value) and value or nil
+		local ok, value = pcall(context.ScoreTeam, ids)
+		if not ok or not PetPolicy.Finite(value) then
+			memo[key] = { Failed = true }
+			report.ProjectionFailures = (report.ProjectionFailures or 0) + 1
+			return nil, "FAILED" -- Failed native probes are retained, never converted to zero.
+		end
+		memo[key] = { Value = value }
+		return value, "OK"
 	end
 	local current = score(inv.Team)
-	if not current then report.Reason = "Native team score failed; no guessed fallback" return report end
+	if not current then report.Reason = "Native team score failed; no guessed fallback" report.SearchStatus = "UNKNOWN_CURRENT_SCORE" return report end
 	report.CurrentScore, report.ProjectedScore, report.ProposedIds = current, current, table.clone(inv.Team)
 	local candidates = {}
 	local equippedCounts = PetPolicy.Counts(inv.Team)
@@ -185,40 +213,84 @@ function PetPolicy.Team(config, context)
 			continue
 		end
 		if table.find(config.PET_SETTINGS.PROTECTED_PET_IDS, id) then continue end
-		local value = context.PetScore and context.PetScore(pet)
-		if PetPolicy.Finite(value) then table.insert(candidates, { Id = id, Score = value })
+		local ok, value = pcall(function() return context.PetScore and context.PetScore(pet) end)
+		if ok and PetPolicy.Finite(value) then table.insert(candidates, { Id = id, Score = value })
 		else
 			report.OwnedCandidateFailures = (report.OwnedCandidateFailures or 0) + 1
 			table.insert(report.Unknowns, pet.Name .. " [" .. id .. "]: native pet stat failed; excluded")
 		end
 	end
 	table.sort(candidates, function(a, b) return a.Score == b.Score and a.Id < b.Id or a.Score > b.Score end)
-	local limit = config.PET_SETTINGS.MAXIMUM_TEAM_EVALUATIONS
-	local exhausted = false
-	while report.Evaluations < limit do
+	report.CandidateRecords = #candidates
+	-- Fill only the mutable slots with owned ranked units. This avoids spending
+	-- seven full best-swap passes replacing a weak seven-pet lineup one unit at a
+	-- time. Rankings are a seed hint; coupled effects still require native scoring
+	-- and the complete local-neighborhood check below.
+	local fixed, seedCounts = {}, {}
+	for slot, id in ipairs(inv.Team) do
+		local pet, definition = inv.ById[id], (context.Pets or {})[inv.ById[id].Name]
+		if pet.Super or PetPolicy.Protected(config, pet, definition) or not definition or not definition.Rarity then
+			fixed[slot] = id seedCounts[id] = (seedCounts[id] or 0) + 1
+		end
+	end
+	local seed, candidateIndex = {}, 1
+	for slot = 1, context.MaxEquipped do
+		local id = fixed[slot]
+		if not id then
+			while candidateIndex <= #candidates do
+				local candidate = candidates[candidateIndex]
+				if (seedCounts[candidate.Id] or 0) < (inv.ById[candidate.Id].Amount or 1) then id = candidate.Id break end
+				candidateIndex += 1
+			end
+			if id then seedCounts[id] = (seedCounts[id] or 0) + 1 end
+		end
+		if id then table.insert(seed, id) end
+	end
+	report.Seed = { Status = "SAME_MEMBERSHIP", BeforeScore = current, Score = current }
+	if not PetPolicy.SameTeam(seed, inv.Team) then
+		local value, status = score(seed)
+		report.Seed.Score = value
+		if status == "BUDGET" then report.Seed.Status = "BUDGET_CUTOFF"
+		elseif not value then report.Seed.Status = "NATIVE_PROJECTION_FAILED"
+		elseif value > current + 1e-6 then
+			report.Seed.Status = "NATIVE_VALIDATED_IMPROVEMENT"
+			report.ProposedIds, report.ProjectedScore = seed, value
+		else report.Seed.Status = "NOT_BETTER_THAN_CURRENT" end
+	end
+	local converged = false
+	while not exhausted do
+		report.SearchRounds += 1
 		local best, bestScore, improvement = nil, report.ProjectedScore, nil
 		local counts = PetPolicy.Counts(report.ProposedIds)
 		for _, candidate in ipairs(candidates) do
 			if (counts[candidate.Id] or 0) >= (inv.ById[candidate.Id].Amount or 1) then continue end
+			local removedIds = {}
 			for slot = 1, #report.ProposedIds + (#report.ProposedIds < context.MaxEquipped and 1 or 0) do
-				if report.Evaluations >= limit then exhausted = true break end
 				local old = inv.ById[report.ProposedIds[slot]]
+				if old and old.Id == candidate.Id then report.SelfSwapsSkipped += 1 continue end
 				if old and (old.Super or PetPolicy.Protected(config, old, (context.Pets or {})[old.Name]) or not (context.Pets or {})[old.Name] or not context.Pets[old.Name].Rarity) then continue end
+				-- Native per-pet sums retain stack multiplicity; TeamUp folds distinct
+				-- IDs in inventory order. Replacing another identical base-ID copy has
+				-- the same membership/effects, not a new owned alternative.
+				if old and removedIds[old.Id] then report.DuplicateSwapsSkipped += 1 continue end
+				if old then removedIds[old.Id] = true end
 				local ids = table.clone(report.ProposedIds) ids[slot] = candidate.Id
-				local value = score(ids)
+				local value, status = score(ids)
+				if status == "BUDGET" then break end
 				if value and value > bestScore + 1e-6 then
 					best, bestScore = ids, value
 					improvement = { AddId = candidate.Id, RemoveId = old and old.Id, BeforeScore = report.ProjectedScore, AfterScore = value }
-				elseif not value then report.ProjectionFailures = (report.ProjectionFailures or 0) + 1 end
+				end
 			end
 			if exhausted then break end
 		end
-		if not best then break end
+		if not best then converged = not exhausted break end
 		table.insert(report.Improvements, improvement)
 		report.ProposedIds, report.ProjectedScore = best, bestScore
 		if exhausted then break end
 	end
-	report.Status = "ESTIMATE" report.SearchBoundReached = exhausted or report.Evaluations >= limit
+	report.Status = "ESTIMATE" report.SearchBoundReached = exhausted
+	report.NeighborhoodConverged = converged
 	report.Gain = report.ProjectedScore - current
 	report.Reason = report.Gain > 0 and "A stronger owned team is available before hatching" or "No owned improvement found within bounded native projections"
 	if report.SearchBoundReached then table.insert(report.Unknowns, "Search limit reached; stronger combinations may remain unevaluated") end
@@ -229,6 +301,11 @@ function PetPolicy.Team(config, context)
 	report.OwnedBaselineIds, report.OwnedBaselineScore = table.clone(report.ProposedIds), report.ProjectedScore
 	report.BaselineIncomplete = report.SearchBoundReached or (report.ProjectionFailures or 0) > 0 or (report.OwnedCandidateFailures or 0) > 0
 		or (report.UnsupportedOwnedRecords or 0) > 0 or (report.UnsupportedOwnedSupers or 0) > 0
+	report.InputsComplete = (report.ProjectionFailures or 0) == 0 and (report.OwnedCandidateFailures or 0) == 0
+		and (report.UnsupportedOwnedRecords or 0) == 0 and (report.UnsupportedOwnedSupers or 0) == 0
+	report.SearchComplete = converged and not report.BaselineIncomplete
+	report.SearchStatus = exhausted and "BUDGET_CUTOFF" or not report.InputsComplete and "UNKNOWN_OWNED_INPUTS"
+		or converged and "CONVERGED_BOUNDED_HEURISTIC" or "INCOMPLETE_SEARCH"
 	report.BaselineStatus = (report.UnsupportedOwnedSupers or 0) > 0 and "UNSUPPORTED_OWNED_SUPER_CONFIGURATION"
 		or report.BaselineIncomplete and "INCOMPLETE_OWNED_TEAM_BASELINE" or "BOUNDED_FEASIBLE_OWNED_ESTIMATE"
 	report.Optimality = "BOUNDED_FEASIBLE_OWNED_HEURISTIC; global optimum UNKNOWN"
@@ -270,7 +347,7 @@ function PetPolicy.WorldAccess(profile, world)
 		Evidence = "Received LocalData.WorldsUnlocked; native gate/map access checks entry presence (ClientScript:2140, WorldMap:99); rejoin persistence unverified" }
 end
 
-function PetPolicy.FundEgg(config, snapshot, r)
+function PetPolicy.FundEgg(config, snapshot, r, accountId)
 	local h = config.HATCH_SETTINGS
 	r.SpendingStatus = not config.PET_SETTINGS.AUTO_HATCH and "DISABLED_AUTO_HATCH" or (h.MAXIMUM_EGG_COST <= 0 or h.MAXIMUM_SESSION_COST <= 0) and "DISABLED_ZERO_BUDGET"
 		or not PetPolicy.EggSelected(config, r.Name) and "NOT_SELECTED" or "AUTHORIZED_CONFIG"
@@ -278,6 +355,14 @@ function PetPolicy.FundEgg(config, snapshot, r)
 	if cost and cost.Type == "Currency" and PetPolicy.Finite(cost.Amount) and cost.Amount > 0 then
 		r.Balance = snapshot.Balances and snapshot.Balances[cost.Currency]
 		r.Reserve, r.ReserveReason = PetPolicy.Reserve(config, snapshot, cost.Currency)
+		r.NormalReserve = r.Reserve
+		if config.OWNER_ONE_HATCH_TEST_SETTINGS and config.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE then
+			local allowance = OwnerHatchTestAllowance.EffectiveFunds(config, snapshot, cost.Currency, r.Name, r.Balance, accountId)
+			r.OwnerTestAllowance = allowance
+			if r.NormalReserve ~= nil and allowance.Eligible and cost.Amount <= config.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_EGG_COST then
+				r.Reserve, r.ReserveReason = allowance.EffectiveReserve, nil
+			else r.OwnerTestBlocker = r.NormalReserve == nil and r.ReserveReason or allowance.Reason or "OWNER_TEST_EGG_CEILING" end
+		end
 		if PetPolicy.Finite(r.Balance) then r.FundsAffordable = r.Balance >= cost.Amount end
 		if r.Reserve ~= nil and PetPolicy.Finite(r.Balance) then
 			r.Spendable = math.max(0, r.Balance - r.Reserve)
@@ -286,6 +371,7 @@ function PetPolicy.FundEgg(config, snapshot, r)
 		r.Affordable = r.FundsAffordable == true and r.ReserveAllows == true
 		r.FundingStatus = r.FundsAffordable == nil and "UNKNOWN_BALANCE" or not r.FundsAffordable and "INSUFFICIENT_FUNDS"
 			or r.Reserve == nil and "UNKNOWN_RESERVE" or not r.ReserveAllows and "PROTECTED_RESERVE" or "AFFORDABLE"
+		if r.OwnerTestBlocker then r.Affordable = false r.FundingStatus = "OWNER_TEST_ALLOWANCE_BLOCKED: " .. r.OwnerTestBlocker end
 		if r.SpendingStatus == "AUTHORIZED_CONFIG" then
 			r.SpendingStatus = not table.find(h.ALLOWED_CURRENCIES, cost.Currency) and "CURRENCY_NOT_AUTHORIZED"
 				or cost.Amount > h.MAXIMUM_EGG_COST and "EGG_COST_CEILING" or cost.Amount > h.MAXIMUM_SESSION_COST and "SESSION_COST_CEILING" or "AUTHORIZED_CONFIG"
@@ -306,7 +392,7 @@ function PetPolicy.Egg(config, snapshot, context, team, egg)
 		SelectionMode = PetPolicy.SelectionMode(config), OrdinaryLuck = egg.Luck,
 		SecretLuck = "UNKNOWN_EFFECTIVE", InfinityLuck = "UNKNOWN_EFFECTIVE", BatchExpectedIncrement = "UNKNOWN",
 		BatchEvidence = "Single outcome marginal only; duplicate saturation/interacting teams prevent linear batch utility; replan from actual received inventory" }
-	PetPolicy.FundEgg(config, snapshot, r)
+	PetPolicy.FundEgg(config, snapshot, r, context.AccountId)
 	local cost = egg.Cost
 	-- Funding/configuration/access are separate from the supported pool estimate.
 	if egg.Loaded == false then r.Reason = egg.Reason return r end
@@ -415,7 +501,7 @@ function PetPolicy.Analyze(config, snapshot, context)
 	for _, egg in ipairs(context.EggAvailability or context.Eggs or {}) do
 		if egg.Cost and egg.Cost.Type == "Currency" and egg.Cost.Currency == "Coins" or egg.Cost == nil and egg.DefinitionCurrency == "Coins" then
 			table.insert(report.CoinsAvailability, PetPolicy.FundEgg(config, snapshot, { Name = egg.Name, Cost = egg.Cost,
-				Loaded = egg.Loaded, Eligible = egg.Accessible == true, AccessStatus = egg.AccessStatus or "UNKNOWN_ACCESS", World = egg.World, Island = egg.Island }))
+				Loaded = egg.Loaded, Eligible = egg.Accessible == true, AccessStatus = egg.AccessStatus or "UNKNOWN_ACCESS", World = egg.World, Island = egg.Island }, context.AccountId))
 		end
 	end
 	table.sort(report.CoinsAvailability, function(a, b) return a.Name < b.Name end)
@@ -487,7 +573,12 @@ function PetPolicy.EggPlanText(config, report, details)
 		tostring(report.Currency), tostring(report.Team.CurrentScore or "UNKNOWN"), tostring(report.Team.ProjectedScore or "UNKNOWN"), tostring(coverage.LoadedModels or "UNKNOWN"), tostring(coverage.Evaluated or #report.Eggs),
 		tostring(coverage.Limit or h.MAXIMUM_EGGS_ANALYZED), tostring(coverage.Definitions or "UNKNOWN"), tostring(coverage.PermanentDefinitions or "UNKNOWN"),
 			tostring(report.SelectionMode), tostring(config.PET_SETTINGS.AUTO_HATCH), tostring(h.MAXIMUM_EGG_COST), tostring(h.MAXIMUM_SESSION_COST), report.RecommendedEgg and report.RecommendedEgg.Name or "NONE within evaluated accessible affordable estimates") }
-	table.insert(lines, "Owned benchmark status=" .. tostring(report.Team.BaselineStatus or "UNKNOWN") .. "; paid hatching waits on a truncated search/native projection failure")
+	table.insert(lines, "Owned benchmark status=" .. tostring(report.Team.BaselineStatus or "UNKNOWN")
+		.. "; search=" .. tostring(report.Team.SearchStatus or "UNKNOWN") .. "; unique native comparisons=" .. tostring(report.Team.Evaluations or 0)
+		.. "; cache hits=" .. tostring(report.Team.CacheHits or 0)
+		.. (report.Team.BaselineIncomplete and "; paid hatching blocked by incomplete search/input; see team diagnostics" or "; feasible completed bounded benchmark; global optimum UNKNOWN"))
+	local allowance = config.OWNER_ONE_HATCH_TEST_SETTINGS
+	table.insert(lines, "Funding policy=" .. (allowance and allowance.OWNER_ONE_HATCH_TEST_ALLOWANCE and "EXPLICIT OWNER ONE-HATCH TEST; named egg, capped held-world funds only" or "NORMAL; full native next-world reserve preserved; owner test allowance OFF"))
 	table.insert(lines, report.SelectionExplanation or "Egg selection UNKNOWN")
 	local world = report.MinigameParadise or {}
 	local entry = not world.MapKnown and "UNKNOWN" or not world.EntryPresent and "ABSENT" or tostring(world.RawValue)
@@ -518,6 +609,12 @@ function PetPolicy.EggPlanText(config, report, details)
 	for _, egg in ipairs(report.Eggs) do if not seen[egg.Name] then table.insert(display, egg) seen[egg.Name] = true end end
 	for index, egg in ipairs(display) do
 		if not details and index > h.MAXIMUM_PLAN_CANDIDATES then break end
+		if egg.OwnerTestAllowance then
+			local funds = egg.OwnerTestAllowance
+			table.insert(lines, "OWNER_ONE_HATCH_TEST | " .. egg.Name .. "; normal reserve=" .. tostring(egg.NormalReserve or "UNKNOWN")
+				.. "; held world funds=" .. tostring(funds.HeldWorldReserve or "UNKNOWN") .. "; additional allowance=" .. tostring(funds.AdditionalSpendable or 0)
+				.. "; eligibility=" .. tostring(funds.Eligible) .. "; " .. tostring(funds.Reason or "one request only; normal settings unchanged"))
+		end
 		local useful = {}
 		for _, outcome in ipairs(egg.Outcomes) do
 			if details or outcome.IncrementalGain > 1e-6 then

@@ -14,11 +14,16 @@ local function selected(config, intent)
 	local names = config.HATCH_SETTINGS and config.HATCH_SETTINGS.SELECTED_EGGS
 	local mode = config.HATCH_SETTINGS and config.HATCH_SETTINGS.EGG_SELECTION_MODE or "MANUAL"
 	if intent then
-		if intent.Kind ~= "HATCH" or intent.DecisionSource ~= "BRAIN" or intent.SelectionMode ~= mode
+		local diagnostic = (config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY"
+		local contract = diagnostic and intent.Kind == "EGG_TRAVEL" and intent.Scope == "TRAVEL_ONLY"
+			and intent.DecisionSource == "BRAIN_TRAVEL_DIAGNOSTIC"
+			or not diagnostic and intent.Kind == "HATCH" and intent.DecisionSource == "BRAIN" and intent.Scope ~= "TRAVEL_ONLY"
+		if not contract or intent.SelectionMode ~= mode
 			or type(intent.EggName) ~= "string" or intent.EggName == "" then return nil, "Fresh Brain hatch destination unavailable or stale" end
 		if mode == "MANUAL" and not table.find(names or {}, intent.EggName) then return nil, "Manual egg authorization changed" end
 		return intent.EggName
 	end
+	if (config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY" then return nil, "TRAVEL_ONLY requires a read-only Brain destination" end
 	if mode == "AUTO" then return nil, "AUTO travel requires an actual useful affordable Brain decision; no random destination" end
 	if type(names) ~= "table" or #names ~= 1 or type(names[1]) ~= "string" or names[1] == "" then
 		return nil, "Egg travel requires exactly one explicitly selected egg"
@@ -36,6 +41,15 @@ function EggTravelManager:Report(message)
 	self.LastReport = message
 	if type(self.Controller.Log) == "function" then self.Controller:Log("EGG_TRAVEL", message) end
 end
+function EggTravelManager:DiagnosticTrace(event, record, reason)
+	if (self:Settings().MODE or "NORMAL") ~= "TRAVEL_ONLY" then return end
+	local intent = self.BrainIntent or {}
+	local distance = record and finite(record.Distance) and string.format("%.2f", record.Distance) or "UNKNOWN"
+	self:Report(string.format("%s | egg=%s | world=%s; island=%s | generation=%s; revision=%s | distance=%s; native range=%s | access=LocalData unlock membership + loaded native model; geometry=actual Root/Prompt + observed avatar/floor | %s | hatch commands=0; spending=0",
+		event, tostring(record and record.EggName or intent.EggName or "UNSELECTED"), tostring(record and record.World or intent.World or "UNKNOWN"),
+		tostring(record and record.Island or intent.Island or "surface/UNKNOWN"), tostring(record and record.Generation or intent.Generation or self.Controller.Generation or "UNKNOWN"),
+		tostring(intent.SelectionRevision or self:Settings().SELECTION_REVISION), distance, tostring(record and record.Range or "UNKNOWN"), reason or "Observation pending; server acceptance unverified"))
+end
 function EggTravelManager:Key()
 	local name, reason = selected(self.Controller.Config, self.BrainIntent)
 	if not name then return nil, reason end
@@ -46,6 +60,21 @@ end
 function EggTravelManager:RevalidateIntent()
 	local intent, c = self.BrainIntent, self.Controller
 	if not intent then return true end -- Preserve separately authorized manual travel-only tests.
+	if intent.Scope == "TRAVEL_ONLY" then
+		local blocker = c.Brain:TravelDiagnosticBlocker()
+		if blocker then return false, blocker end
+		if not c.Reader.Player or c.Reader.Player.UserId ~= self.BrainUserId then return false, "Travel diagnostic account identity changed" end
+		local goalId = c.Plan and c.Plan.Objective and c.Plan.Objective.Id or "TRAVEL_ONLY_DIAGNOSTIC"
+		if intent.GoalId ~= goalId then return false, "Acquired diagnostic Brain goal changed; no stale travel" end
+		if not c.Pets or type(c.Pets.Fresh) ~= "function" then return false, "Fresh native egg observations unavailable" end
+		local snapshot, context = c.Pets:Fresh()
+		local fresh = c.Brain:PlanEggTravelDiagnostic(snapshot, context, c.Knowledge:Get("Eggs"), c.Knowledge:Get("Worlds"), intent)
+		if not fresh or fresh.Kind ~= "EGG_TRAVEL" or fresh.EggName ~= intent.EggName or fresh.Model ~= intent.Model
+			or fresh.World ~= intent.World or fresh.Island ~= intent.Island then
+			return false, fresh and fresh.Reason or "Fresh accessible diagnostic destination changed; no travel"
+		end
+		return true
+	end
 	if not c.Config.PET_SETTINGS.AUTO_HATCH or not c.Config.PET_SETTINGS.ENABLE_PET_INTELLIGENCE
 		or not c.Reader.Player or c.Reader.Player.UserId ~= self.BrainUserId then return false, "Brain hatch authorization/account changed" end
 	if not c.Pets or type(c.Pets.Fresh) ~= "function" or type(c.Pets.State) ~= "function" then return false, "Fresh pet decision interface unavailable" end
@@ -60,7 +89,7 @@ function EggTravelManager:RevalidateIntent()
 	return true
 end
 
-function EggTravelManager:Resolve()
+function EggTravelManager:Resolve(force)
 	local c, settings = self.Controller, self:Settings()
 	if self.Destroyed or not settings or not settings.ENABLE_SELECTED_EGG_TRAVEL then return nil, "Selected-egg travel disabled" end
 	local key, reason, name = self:Key()
@@ -86,17 +115,18 @@ function EggTravelManager:Resolve()
 	local worldUtil = c.Knowledge:Get("WorldUtil")
 	local okWorld, currentWorld = pcall(function() return worldUtil:GetPlayerWorld(c.Reader.Player) end)
 	if not okWorld or type(currentWorld) ~= "string" then return nil, "Native current-world observation unavailable" end
-	local model, part, bestDistance
-	for _, candidate in ipairs(c.Knowledge:EggModels()) do
+	local model, part, bestDistance, matches = nil, nil, nil, 0
+	for _, candidate in ipairs(c.Knowledge:EggModels(force)) do
 		if candidate.Name == name and candidate.Parent and candidate:IsDescendantOf(workspace) then
-			local candidateRoot = child(candidate, "Root")
-			if live(candidateRoot) and vector(candidateRoot.Position) and child(candidate, "Prompt")
+			local candidateRoot, candidatePrompt = child(candidate, "Root"), child(candidate, "Prompt")
+			if live(candidateRoot) and vector(candidateRoot.Position) and live(candidatePrompt) and vector(candidatePrompt.Position)
 				and child(candidate, "Plate") and child(candidate, "Cost") then
 				local distance = (candidateRoot.Position - root.Position).Magnitude
-				if finite(distance) and (not bestDistance or distance < bestDistance) then model, part, bestDistance = candidate, candidateRoot, distance end
+				if finite(distance) then matches += 1 model, part, bestDistance = candidate, candidateRoot, distance end
 			end
 		end
 	end
+	if matches > 1 then return nil, "AMBIGUOUS_NATIVE_EGG_MODEL: multiple valid loaded originals match the exact selected name; no nearest-model substitution" end
 	if not model then return nil, "Selected original egg model is not loaded; no force-load or event chase" end
 	if self.BrainIntent and model ~= self.BrainIntent.Model then return nil, "Brain selected original egg model changed; no stale travel" end
 	local island = model:GetAttribute("Island") or def.Island
@@ -165,11 +195,12 @@ function EggTravelManager:RangeEligibleAt(record, position, force)
 	return true
 end
 
-function EggTravelManager:Validate(record, token)
+function EggTravelManager:Validate(record, token, force)
 	local lease = self.Lease
 	if not lease or not record or record.LeaseId ~= lease.LeaseId or self.Controller.State ~= "RUNNING"
+		or lease.Generation ~= nil and lease.Generation ~= self.Controller.Generation
 		or token and token:CheckCancelled() then return nil, "Egg location task cancelled or stale" end
-	local fresh, reason = self:Resolve()
+	local fresh, reason = self:Resolve(force)
 	if not fresh then return nil, reason end
 	-- A first authorized hatch can change the native initial-prompt interface to
 	-- the opened scanner. Refresh observed range only; never reposition on it.
@@ -252,12 +283,15 @@ end
 
 function EggTravelManager:Release(reason, blocked)
 	local lease = self.Lease
+	if self.DiagnosticConsumed then self.DiagnosticEnded = true end
 	if lease then
 		if blocked then self.Blocked[lease.SelectionKey] = reason end
 		self.LastResult = { Status = blocked and "HALTED" or "RELEASED", EggName = lease.EggName,
 			Reason = reason, DirectPositionAttempted = lease.DirectPositionAttempted == true, NativeTravelAttempted = lease.NativeTravelAttempted == true,
 			HatchCommands = 0, Spending = 0 }
+		if self.BrainIntent and self.BrainIntent.Scope == "TRAVEL_ONLY" then self.LastResult.Scope = "TRAVEL_ONLY" end
 	end
+	self:DiagnosticTrace("TRAVEL_BLOCKED", lease, reason)
 	self.Lease = nil
 	self.Reason = reason
 	self:Report(tostring(lease and lease.EggName or "Selected egg") .. " | " .. tostring(reason) .. " | hatch commands=0; spending=0")
@@ -275,6 +309,9 @@ end
 
 function EggTravelManager:OwnsLocation() return self.Lease ~= nil and self.Controller.State == "RUNNING" end
 function EggTravelManager:HatchEligible(egg)
+	if (self:Settings().MODE or "NORMAL") == "TRAVEL_ONLY" or self.BrainIntent and self.BrainIntent.Scope == "TRAVEL_ONLY" then
+		return false, "TRAVEL_ONLY never authorizes a hatch handoff"
+	end
 	local key, reason = self:Key()
 	if not key or self.Blocked[key] then return false, self.Blocked[key] or reason end
 	local lease = self.Lease
@@ -296,11 +333,18 @@ function EggTravelManager:AtOwnedLocation(area)
 end
 
 function EggTravelManager:Select(_plan, intent)
+	local diagnostic = (self:Settings().MODE or "NORMAL") == "TRAVEL_ONLY"
+	if diagnostic and self.DiagnosticConsumed and (self.DiagnosticEnded or not self.Lease) then
+		self:DiagnosticTrace("TRAVEL_BLOCKED", nil, "One bounded diagnostic consumed; no retry or revision rearm")
+		return false, { Kind = "WAIT", Reason = "One bounded TRAVEL_ONLY attempt consumed; no automatic retry or revision rearm", OwnsLocation = false }
+	end
 	if intent then
 		local name, reason = selected(self.Controller.Config, intent)
-		if not name then return false, { Kind = "WAIT", Reason = reason } end
+		if not name then self:DiagnosticTrace("TRAVEL_BLOCKED", nil, reason) return false, { Kind = "WAIT", Reason = reason } end
 		if self.Lease and self.BrainIntent and (intent.EggName ~= self.BrainIntent.EggName
-			or intent.Model ~= self.BrainIntent.Model or intent.Currency ~= self.BrainIntent.Currency) then
+			or intent.Model ~= self.BrainIntent.Model or intent.Currency ~= self.BrainIntent.Currency
+			or diagnostic and (intent.GoalId ~= self.BrainIntent.GoalId or intent.Generation ~= self.BrainIntent.Generation
+				or intent.SelectionRevision ~= self.BrainIntent.SelectionRevision)) then
 			self:Release("Brain target/model/objective changed; no stale arrival or automatic restoration", true)
 			return false, { Kind = "WAIT", Reason = self.Reason }
 		end
@@ -313,8 +357,8 @@ function EggTravelManager:Select(_plan, intent)
 	local settings = self:Settings()
 	if not settings or not settings.ENABLE_SELECTED_EGG_TRAVEL or self.Destroyed then return false, { Kind = "WAIT", Reason = "Selected-egg travel disabled" } end
 	local key, reason = self:Key()
-	if not key then self.Reason = reason self:Report(reason) return false, { Kind = "WAIT", Reason = reason } end
-	if self.Blocked[key] then self.Reason = self.Blocked[key] self:Report(self.Reason) return false, { Kind = "WAIT", Reason = self.Reason } end
+	if not key then self.Reason = reason self:DiagnosticTrace("TRAVEL_BLOCKED", nil, reason) self:Report(reason) return false, { Kind = "WAIT", Reason = reason } end
+	if self.Blocked[key] then self.Reason = self.Blocked[key] self:DiagnosticTrace("TRAVEL_BLOCKED", nil, self.Reason) self:Report(self.Reason) return false, { Kind = "WAIT", Reason = self.Reason } end
 	if self.Lease then
 		local pets = self.Controller.Config.PET_SETTINGS
 		if self.Lease.Status == "ARRIVED" and pets and pets.AUTO_HATCH then
@@ -323,22 +367,30 @@ function EggTravelManager:Select(_plan, intent)
 		return true, { Kind = self.Lease.Status == "ARRIVED" and "OBSERVE" or "EGG_TRAVEL", Record = self.Lease, OwnsLocation = true }
 	end
 	if (self.Attempts[key] or 0) >= settings.MAXIMUM_ATTEMPTS_PER_SELECTION then return false, { Kind = "WAIT", Reason = "Selected-egg attempt limit reached; explicit revision required" } end
-	local record, blocker = self:Resolve()
-	if not record then self.Reason = blocker self:Report(blocker) return false, { Kind = "WAIT", Reason = blocker } end
+	local record, blocker = self:Resolve(true)
+	if not record then self.Reason = blocker self:DiagnosticTrace("TRAVEL_BLOCKED", nil, blocker) self:Report(blocker) return false, { Kind = "WAIT", Reason = blocker } end
 	if record.NeedsNativeTravel and (not settings.ENABLE_NATIVE_ISLAND_TRAVEL or not record.NativeAreaKnown or not record.DestinationPath) then
 		self.Reason = "Correct unlocked native area travel unavailable/disabled; direct positioning cannot cross unknown worlds/islands"
+		self:DiagnosticTrace("TRAVEL_BLOCKED", record, self.Reason)
 		self:Report(self.Reason)
 		return false, { Kind = "WAIT", Reason = self.Reason }
 	end
 	if not record.InRange and not settings.ENABLE_DIRECT_POSITIONING and not settings.ENABLE_NATIVE_ISLAND_TRAVEL then
 		self.Reason = record.RangeBlocker or "Outside selected egg range; positioning and native island travel are disabled"
+		self:DiagnosticTrace("TRAVEL_BLOCKED", record, self.Reason)
 		self:Report(self.Reason)
 		return false, { Kind = "WAIT", Reason = self.Reason }
 	end
+	-- Consume this controller's diagnostic permission before it can enter the
+	-- scheduler. Cancellation, skipped execution and uncertain movement cannot
+	-- turn Pause/Resume or a selection revision into a second travel attempt.
+	if diagnostic then self.DiagnosticConsumed = true self.DiagnosticEnded = false end
 	self.Sequence += 1
 	record.LeaseId, record.Status = self.Sequence, "PLANNED"
+	record.Generation, record.Scope = self.Controller.Generation, diagnostic and "TRAVEL_ONLY" or "AUTHORIZED_HATCH_OR_MANUAL_TRAVEL"
 	record.StartedAt, record.Deadline = os.clock(), os.clock() + settings.MAXIMUM_LOCATION_SECONDS
 	self.Lease = record
+	self:DiagnosticTrace("TARGET_SELECTED", record, self.BrainIntent and self.BrainIntent.Reason or "Exact owner-selected native destination")
 	return true, { Kind = "EGG_TRAVEL", Record = record, OwnsLocation = true }
 end
 
@@ -352,9 +404,11 @@ function EggTravelManager:Execute(record, token)
 	lease.Status = "TRAVELING"
 	if not fresh.InRange and fresh.NeedsNativeTravel and settings.ENABLE_NATIVE_ISLAND_TRAVEL and fresh.NativeAreaKnown and fresh.DestinationPath then
 		lease.NativeTravelAttempted = true
+		self:DiagnosticTrace("AREA_TRAVEL_ADAPTER_ATTEMPTED", fresh, "Existing native adapter attempt for " .. fresh.DestinationPath .. "; native request dispatch remains separately reported")
 		local ok, why = c.Farming.Mechanics:TravelSelectedEgg(self, fresh, token)
-		if not ok then self:Release(why or "Native selected-area travel unconfirmed", true) return { Verified = false, Reason = self.Reason } end
+		if not ok then self:DiagnosticTrace("ARRIVAL_UNCONFIRMED", fresh, why or "Native area arrival unconfirmed") self:Release(why or "Native selected-area travel unconfirmed", true) return { Verified = false, Reason = self.Reason } end
 		fresh, reason = self:Validate(lease, token)
+		if fresh and not fresh.NeedsNativeTravel then self:DiagnosticTrace("AREA_ARRIVAL_OBSERVED", fresh, "Existing adapter observed native target-area arrival; egg interaction range still pending") end
 	end
 	if not fresh then self:Release(reason, true) return { Verified = false, Reason = reason } end
 	if fresh.NeedsNativeTravel then self:Release("Correct native target area arrival unconfirmed; no direct cross-world/island positioning", true) return { Verified = false, Reason = self.Reason } end
@@ -368,8 +422,9 @@ function EggTravelManager:Execute(record, token)
 		fresh, reason = self:Validate(lease, token)
 		if not fresh then self:Release(reason, true) return { Verified = false, Reason = reason } end
 		lease.DirectPositionAttempted = true -- Retain even on uncertain adapter error; no automatic repeat.
+		self:DiagnosticTrace("DIRECT_POSITION_ATTEMPTED", fresh, "One existing guarded HRP CFrame adapter attempt; standing surface/full-avatar clearance observed; assignment does not certify arrival")
 		local ok, why = c.Farming.Mechanics:PositionSelectedEgg(self, fresh, frame, token)
-		if not ok then self:Release(why or "Direct positioning failed/unconfirmed", true) return { Verified = false, Reason = self.Reason } end
+		if not ok then self:DiagnosticTrace("DIRECT_POSITION_FAILED", fresh, why or "Direct assignment failed/unconfirmed") self:Release(why or "Direct positioning failed/unconfirmed", true) return { Verified = false, Reason = self.Reason } end
 	end
 	local stableAt, stablePosition
 	while os.clock() < deadline do
@@ -396,13 +451,22 @@ function EggTravelManager:Execute(record, token)
 					NativeTravelAttempted = lease.NativeTravelAttempted == true, HatchCommands = 0, Spending = 0,
 					RangeOrigin = fresh.Opened and "EGG_ROOT" or "INITIAL_PROMPT", PromptVisible = fresh.PromptVisible,
 					Reason = "Observed stable native range/interaction guards; separate hatch budget/capacity/cooldown and server acceptance remain required" }
-				self:Report(string.format("%s | HATCH_RANGE_OBSERVED | distance=%.2f/%s; stability=%ss; direct attempt=%s; native travel attempt=%s; hatch commands=0; spending=0",
-					fresh.EggName, fresh.Distance, tostring(fresh.Range), tostring(settings.STABILITY_SECONDS), tostring(lease.DirectPositionAttempted == true), tostring(lease.NativeTravelAttempted == true)))
+				local diagnostic = self.BrainIntent and self.BrainIntent.Scope == "TRAVEL_ONLY"
+				if diagnostic then
+					self.LastResult.Status, self.LastResult.Scope = "TRAVEL_ONLY_ARRIVAL_OBSERVED", "TRAVEL_ONLY"
+					self.LastResult.World, self.LastResult.Island = fresh.World, fresh.Island
+					self.LastResult.Reason = "One bounded travel diagnostic observed stable native interaction range; hatch/equipment/pickups disabled; owner live acceptance still required"
+					self.DiagnosticEnded, self.Lease = true, nil
+					self:DiagnosticTrace("HATCH_RANGE_OBSERVED", fresh, "Actual native interaction range/stability observed for travel diagnostic; this is no hatch authorization or server hatch result")
+				end
+				self:Report(string.format("%s | %s | distance=%.2f/%s; stability=%ss; direct attempt=%s; native travel attempt=%s; hatch commands=0; spending=0",
+					fresh.EggName, self.LastResult.Status, fresh.Distance, tostring(fresh.Range), tostring(settings.STABILITY_SECONDS), tostring(lease.DirectPositionAttempted == true), tostring(lease.NativeTravelAttempted == true)))
 				return { Verified = true, Reason = self.LastResult.Reason }
 			end
 		else stableAt, stablePosition = nil, nil end
 		task.wait(0.1)
 	end
+	self:DiagnosticTrace("ARRIVAL_UNCONFIRMED", fresh, "Stable native interaction arrival unconfirmed; no retry or old-position restore")
 	self:Release("Stable hatch-range arrival unconfirmed; no retry or old-position restore", true)
 	return { Verified = false, Reason = self.Reason }
 end
@@ -416,13 +480,19 @@ function EggTravelManager:Definition(decision, generation)
 		IsComplete = function(result) return type(result) == "table" end }
 end
 
-function EggTravelManager:Completed() self:Observe() end
+function EggTravelManager:Completed(status, _result, reason)
+	if self.DiagnosticConsumed and not self.DiagnosticEnded and status and status ~= "COMPLETED" then
+		self:Release(reason or "Travel diagnostic task did not complete; no retry", true)
+	end
+	self:Observe()
+end
 function EggTravelManager:Halt(stopped) self:Release(stopped and "Stopped; no position restore or automatic retry" or "Paused; explicit revision required before another movement attempt", true) end
 function EggTravelManager:Destroy() if self.Destroyed then return end self:Halt(true) self.Destroyed = true end
 function EggTravelManager:GetStatus()
 	return { Enabled = self:Settings() and self:Settings().ENABLE_SELECTED_EGG_TRAVEL == true,
 		Lease = self.Lease, OwnsLocation = self:OwnsLocation(), Attempts = table.clone(self.Attempts),
 		LastResult = self.LastResult, Reason = self.Reason, BrainIntent = self.BrainIntent,
+		Mode = (self:Settings() or {}).MODE or "NORMAL", DiagnosticConsumed = self.DiagnosticConsumed == true, DiagnosticEnded = self.DiagnosticEnded == true,
 		HatchPermission = "SEPARATE", LiveVerification = "OWNER_PENDING" }
 end
 

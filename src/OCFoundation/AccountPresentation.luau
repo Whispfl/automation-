@@ -90,7 +90,11 @@ function AccountPresentation.Summary(status, previous, now, config)
 	local snapshot, farming, world = status.Snapshot or {}, status.Farming or {}, status.WorldProgression or {}
 	local goal = status.Plan and status.Plan.Objective
 	local balances, metadata = snapshot.Balances or {}, goal and goal.Metadata or {}
-	local parts = { tostring(status.State), "goal=" .. tostring(goal and (goal.Title or goal.Id) or "waiting for account/goal"),
+	local travel = status.EggTravel or {}
+	local travelOnly = travel.Mode == "TRAVEL_ONLY"
+	local displayGoal = travelOnly and ("TRAVEL_ONLY:" .. tostring(travel.BrainIntent and travel.BrainIntent.EggName or "waiting for accessible native egg"))
+		or goal and (goal.Title or goal.Id) or "waiting for account/goal"
+	local parts = { tostring(status.State), "goal=" .. tostring(displayGoal),
 		"activity=" .. tostring(status.State ~= "RUNNING" and status.State or farming.Activity
 			or (world.Decision and world.Decision.Kind) or (farming.Decision and (farming.Decision.Mode or farming.Decision.Kind)) or "WAIT"),
 		"island=" .. tostring(farming.Area or "unknown") }
@@ -145,9 +149,19 @@ function AccountPresentation.Summary(status, previous, now, config)
 	elseif finite(hours) then eta = string.format("%.2f days / %.1fh (short-sample estimate, not guaranteed)", hours / 24, hours) end
 	table.insert(parts, "funding ETA=" .. eta)
 	local blocker = status.Error or farming.Error or farming.CleanupBlocker
-	if not blocker and pets and pets.Enabled then
+	if not blocker and travelOnly then blocker = travel.Reason end
+	if not blocker and pets and pets.Enabled and not travelOnly then
 		blocker = pets.Fault or pets.Hatch and pets.Hatch.Fault
-			or pets.Decision and (pets.Decision.Kind == "WAIT" or pets.Decision.Kind == "OBSERVE") and pets.Decision.Reason
+		if not blocker and pets.Decision and pets.Decision.Kind == "WAIT" and pets.Analysis then
+			local analysis = pets.Analysis
+			if analysis.Team and analysis.Team.BaselineIncomplete then blocker = tostring(analysis.Team.BaselineStatus) .. " | " .. tostring(analysis.Team.SearchStatus) end
+			for _, egg in ipairs(analysis.CoinsAvailability or {}) do
+				if not blocker and egg.Loaded and egg.Eligible and egg.FundingStatus == "PROTECTED_RESERVE" then
+					blocker = "PROTECTED_RESERVE | normal reserve=" .. tostring(egg.NormalReserve or egg.Reserve) .. " Coins; spendable=" .. tostring(egg.Spendable)
+				end
+			end
+		end
+		blocker = blocker or pets.Decision and (pets.Decision.Kind == "WAIT" or pets.Decision.Kind == "OBSERVE") and pets.Decision.Reason
 	end
 	if not blocker and world.Decision and world.Decision.Kind == "WAIT" then blocker = world.Decision.Reason end
 	if not blocker and farming.Decision and (farming.Decision.Kind == "WAIT" or farming.Decision.Kind == "INSPECT") then blocker = farming.Decision.Reason end

@@ -131,7 +131,7 @@ end
 function GameKnowledge:PetContext(snapshot, plan, tracker)
 	local raw = self.Reader:GetLiveProfile()
 	local currency = PetPolicy.Currency(self.Reader.Config, plan)
-	local context = { Currency = currency, Eggs = {}, EggAvailability = {}, Pets = self:Get("Pets"),
+	local context = { Currency = currency, AccountId = self.Reader.Player and self.Reader.Player.UserId, Eggs = {}, EggAvailability = {}, Pets = self:Get("Pets"),
 		MinigameParadise = PetPolicy.WorldAccess(nil, "Minigame Paradise") }
 	if not raw or not snapshot.Ready then context.Error = "Current LocalData unavailable" return context end
 	-- Helpers receive a detached account. Their weak caches cannot mutate live inventory.
@@ -140,27 +140,29 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 	context.AccountFacts = profile -- Final equipment dispatch compares received facts again after any yielding guards.
 	context.Inventory, context.Error = PetPolicy.Inventory(profile)
 	local stats, util, pools = self:Get("StatsUtil"), self:Get("PetUtil"), self:Get("GetEggPool")
-	context.MaxEquipped = native(stats, "GetMaxPetsEquipped", profile)
-	context.MaxHatches = native(stats, "GetMaxEggHatches", profile)
-	context.StorageUsed, context.StorageCapacity = native(stats, "GetUsedPetStorage", profile), native(stats, "GetMaxPetStorage", profile)
-	context.DigitalStorage = native(stats, "HasDigitalStorage", profile)
-	context.InventoryFull = native(stats, "IsInventoryFull", profile)
+	-- BuffUtil-backed native helpers can decrement uses/update queues even when
+	-- estimating. Isolate every call, preserving one immutable account benchmark.
+	context.MaxEquipped = native(stats, "GetMaxPetsEquipped", detached(profile))
+	context.MaxHatches = native(stats, "GetMaxEggHatches", detached(profile))
+	context.StorageUsed, context.StorageCapacity = native(stats, "GetUsedPetStorage", detached(profile)), native(stats, "GetMaxPetStorage", detached(profile))
+	context.DigitalStorage = native(stats, "HasDigitalStorage", detached(profile))
+	context.InventoryFull = native(stats, "IsInventoryFull", detached(profile))
 	context.AutoDeleteKnown = type(profile.AutoDelete) == "table"
 	context.AutoDeleteActive = context.AutoDeleteKnown and next(profile.AutoDelete) ~= nil
 	context.StorageUnit = context.DigitalStorage == true and "JSON_BYTES" or context.DigitalStorage == false and "PET_QUANTITY" or "UNKNOWN"
 	if context.Inventory and stats and currency then
 		local function score(ids, pets)
-			local projected = table.clone(profile) projected.Teams = detached(profile.Teams)
-			projected.Pets = pets or profile.Pets
+			local projected = detached(profile)
+			if pets then projected.Pets = detached(pets) end
 			projected.Teams[profile.TeamEquipped].Pets = table.clone(ids)
 			if currency == "Bubbles" then return native(stats, "GetBubblePower", projected) end
 			return native(stats, "GetCurrencyMultiplier", projected, currency)
 		end
 		context.ScoreTeam = score
 		context.PetStats = function(pet, ids)
-			local projected = table.clone(profile) projected.Teams = detached(profile.Teams)
+			local projected = detached(profile)
 			projected.Teams[profile.TeamEquipped].Pets = table.clone(ids or context.Inventory.Team)
-			return native(util, "GetStats", pet, projected)
+			return native(util, "GetStats", detached(pet), projected)
 		end
 		context.PetScore = function(pet, ids)
 			local values = context.PetStats(pet, ids)
@@ -227,10 +229,10 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			and (not island or type(profile.AreasUnlocked) == "table" and profile.AreasUnlocked[island] ~= nil)
 		local bonus = model:GetAttribute("BonusLuck")
 		local poolWorld = world == currentWorld and currentWorld or "None"
-		local luck = native(stats, "GetLuckMultiplier", self.Reader.Player, profile, poolWorld, nil, bonus, model.Name)
+		local luck = native(stats, "GetLuckMultiplier", self.Reader.Player, detached(profile), poolWorld, nil, bonus, model.Name)
 		local pool
 		if pools and PetPolicy.Finite(luck) and luck > 0 then
-			local ok, value = pcall(pools, model.Name, poolWorld, luck, nil, nil, profile)
+			local ok, value = pcall(pools, model.Name, poolWorld, luck, nil, nil, detached(profile))
 			if ok then pool = value end
 		end
 		local opened = model:GetAttribute("Unlocked") == true and type(profile.EggsOpened) == "table" and profile.EggsOpened[model.Name] ~= nil
@@ -245,8 +247,8 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			AccessStatus = access, Loaded = true, Accessible = accessible == true,
 			InRange = accessible and world == currentWorld and nativeRange, NativeRangeEligible = nativeRange,
 			RangeOrigin = observedRange and observedRange.RangeOrigin, InteractionDistance = observedRange and observedRange.Distance,
-			Cost = native(stats, "GetEggCost", self.Reader.Player, profile, model.Name), Pool = pool, Luck = luck,
-			Duration = native(stats, "GetHatchDuration", profile), Opened = opened, Unlocked = model:GetAttribute("Unlocked"),
+			Cost = native(stats, "GetEggCost", self.Reader.Player, detached(profile), model.Name), Pool = pool, Luck = luck,
+			Duration = native(stats, "GetHatchDuration", detached(profile)), Opened = opened, Unlocked = model:GetAttribute("Unlocked"),
 			Reason = accessible and "Scene-present native egg; account world/island access confirmed" or "Premium/event/special/locked or unknown access; no hatch action" }
 	end
 	local names = {} for name in pairs(byName) do table.insert(names, name) end table.sort(names)

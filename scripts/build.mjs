@@ -10,12 +10,14 @@ await writeFile(path.join(root, 'dist/OC.lua'), output);
 const localConfig = await readFile(path.join(root, 'examples/LocalFeatureTests.luau'), 'utf8');
 const localOutput = localConfig + `\n-- Local build: ${buildId}. Complete embedded bundle; no download.\nlocal function initializeLocalBundle()\n${output}\nend\nlocal OC = initializeLocalBundle()(Config)\nreturn OC\n`;
 await writeFile(path.join(root, 'dist/OC.local.lua'), localOutput);
-const firstTestPath = path.join(root, 'examples/Phase4AutoOnce.luau');
-const firstTest = await readFile(firstTestPath, 'utf8');
-const pinned = firstTest.replace(/(https:\/\/raw\.githubusercontent\.com\/Whispfl\/automation-\/)phase4-auto-[a-f0-9]{12}(\/dist\/OC\.lua)/g,
-  (_, prefix, suffix) => prefix + 'phase4-auto-' + buildId + suffix);
-if (!pinned.includes('/phase4-auto-' + buildId + '/dist/OC.lua')) throw new Error('Phase4 first-test matching release pin missing');
-await writeFile(firstTestPath, pinned);
+for (const name of ['Phase4TravelOnly.luau', 'Phase4OneHatchPrepared.luau']) {
+  const examplePath = path.join(root, 'examples', name);
+  const example = await readFile(examplePath, 'utf8');
+  const pinned = example.replace(/(https:\/\/raw\.githubusercontent\.com\/Whispfl\/automation-\/)phase4-tests-[a-f0-9]{12}(\/dist\/OC\.lua)/g,
+    (_, prefix, suffix) => prefix + 'phase4-tests-' + buildId + suffix);
+  if (!pinned.includes('/phase4-tests-' + buildId + '/dist/OC.lua')) throw new Error('Matching Phase4 test pin missing: ' + name);
+  await writeFile(examplePath, pinned);
+}
 console.log(`[OC] Built dist/OC.lua: ${buildId} (${Buffer.byteLength(output)} bytes)`);
 console.log(`[OC] Built dist/OC.local.lua: ${buildId} (${Buffer.byteLength(localOutput)} bytes; paste-ready Config + bundle)`);
-console.log(`[OC] First AUTO one-hatch example pins phase4-auto-${buildId}`);
+console.log(`[OC] Travel-only and prepared one-hatch examples pin phase4-tests-${buildId}; prior tested examples retained`);

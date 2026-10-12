@@ -81,6 +81,7 @@ end
 
 function PetManager:Uncertain(reason)
 	self.Fault = reason
+	if self.Controller.HatchTestAllowance then self.Controller.HatchTestAllowance:Uncertain(reason) end
 	self.Controller:Log("PET][BLOCKER", reason)
 	if self.Attempt and not self.Attempt.Ended then self:FinishAttempt("PARTIAL_OR_UNCONFIRMED", reason) end
 end
@@ -144,6 +145,10 @@ function PetManager:Observe()
 		result.Continuation = (self.Fault or self.Hatch.Fault) and "BLOCKED_UNCERTAIN" or self.Hatch.Once and "SINGLE_HATCH_ENDED_EQUIPMENT_OFF"
 			or result.UsefulReceivedCopies > 0 and self.Config.PET_SETTINGS.AUTO_EQUIP and "FRESH_OWNED_TEAM_REPLAN_REQUIRED"
 			or self.Hatch:Ended() and "BOUNDED_HATCH_SESSION_ENDED" or "FRESH_BOUNDED_HATCH_REPLAN_REQUIRED"
+		if self.Controller.HatchTestAllowance then
+			self.Controller.HatchTestAllowance:Observe(result)
+			if result.OwnerAllowance then result.OwnerAllowance = self.Controller.HatchTestAllowance:GetStatus().Record end
+		end
 		self.Controller:Log("HATCH_RESULT", self.Hatch:ResultText())
 	end
 	if self.Hatch.Fault then self.Fault = self.Hatch.Fault end
@@ -486,6 +491,13 @@ function PetManager:Prepare(decision, token)
 	if fresh.Kind ~= "HATCH" or fresh.EggName ~= decision.EggName then return nil, nil, nil, "Fresh useful hatch/budget decision unavailable" end
 	local egg for _, candidate in ipairs(context.Eggs) do if candidate.Name == decision.EggName then egg = candidate break end end
 	if not egg or not egg.InRange then return nil, nil, nil, "Manual approach within native egg range required (unopened 6.5/opened 16 studs); location retained without teleport" end
+	local ownerSettings = config.OWNER_ONE_HATCH_TEST_SETTINGS
+	if ownerSettings and ownerSettings.OWNER_ONE_HATCH_TEST_ALLOWANCE then
+		local allowance = c.HatchTestAllowance
+		if not allowance then return nil, nil, nil, "Owner allowance ledger/service unavailable; no request" end
+		local eligible, allowanceReason = allowance:Eligibility(egg.Name, egg.Cost.Amount, snapshot, snapshot.Balances.Coins, accountId)
+		if not eligible then return nil, nil, nil, allowanceReason end
+	end
 	local settings = config.HATCH_SETTINGS
 	local count = math.min(decision.Count, fresh.Count)
 	if egg.Opened ~= true then count = math.min(count, 1) end -- Native first hatch is one egg.
@@ -527,14 +539,13 @@ function PetManager:Prepare(decision, token)
 	local finalTimeOK, finalTime = pcall(time.now)
 	local stats = c.Knowledge:Get("StatsUtil")
 	local worldUtil = c.Knowledge:Get("WorldUtil")
-	local costOK, finalCost = pcall(function() return stats:GetEggCost(c.Reader.Player, context.AccountFacts, egg.Name) end)
+	local costOK, finalCost = pcall(function() return stats:GetEggCost(c.Reader.Player, copyFacts(context.AccountFacts), egg.Name) end)
 	local worldOK, finalWorld = pcall(function() return worldUtil:GetPlayerWorld(c.Reader.Player) end)
 	local capacityOK, capacityAllows = pcall(function()
-		local facts = context.AccountFacts
-		local digital = stats:HasDigitalStorage(facts)
-		local free = stats:GetMaxPetStorage(facts) - stats:GetUsedPetStorage(facts)
-		local maxHatches = stats:GetMaxEggHatches(facts)
-		return stats:IsInventoryFull(facts) == false and type(digital) == "boolean" and Policy.Finite(maxHatches) and maxHatches >= count
+		local digital = stats:HasDigitalStorage(copyFacts(context.AccountFacts))
+		local free = stats:GetMaxPetStorage(copyFacts(context.AccountFacts)) - stats:GetUsedPetStorage(copyFacts(context.AccountFacts))
+		local maxHatches = stats:GetMaxEggHatches(copyFacts(context.AccountFacts))
+		return stats:IsInventoryFull(copyFacts(context.AccountFacts)) == false and type(digital) == "boolean" and Policy.Finite(maxHatches) and maxHatches >= count
 			and (digital and count == 1 or not digital and free >= count)
 	end)
 	local live = c.Reader:GetLiveProfile()
@@ -579,6 +590,18 @@ function PetManager:Prepare(decision, token)
 		MaxEquipped = context.MaxEquipped, TeamIndex = inv.TeamIndex, Pets = copyFacts(context.AccountFacts.Pets),
 		ById = cloneRecords(inv), Definitions = context.Pets, Config = { PET_SETTINGS = copyFacts(config.PET_SETTINGS) },
 		ScoreTeam = context.ScoreTeam, SearchBoundReached = team.SearchBoundReached, ProjectionFailures = team.ProjectionFailures }
+	local allowanceRecord
+	if ownerSettings and ownerSettings.OWNER_ONE_HATCH_TEST_ALLOWANCE then
+		local beforeInventory = {}
+		for id, pet in pairs(inv.ById) do beforeInventory[id] = { Name = pet.Name, Amount = pet.Amount or 1,
+			Shiny = pet.Shiny == true, Mythic = pet.Mythic == true, XL = pet.XL == true, Super = copyFacts(pet.Super) } end
+		local consumed, allowanceReason, record = c.HatchTestAllowance:Consume(egg.Name, egg.Cost.Amount, snapshot, live.Coins, accountId,
+			{ EggCounter = counter, Inventory = beforeInventory, PoolNames = copyFacts(names), TeamIndex = inv.TeamIndex,
+				TeamIds = table.clone(inv.Team), OwnedBenchmarkIds = table.clone(team.ProposedIds), OwnedBenchmarkScore = team.ProjectedScore,
+				Balances = { Coins = live.Coins, Gems = live.Gems }, ConfirmationDeadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS })
+		if not consumed then return nil, nil, nil, allowanceReason end
+		allowanceRecord = record -- Consumption is irrevocable in this client VM, including invocation failure.
+	end
 	self.Hatch.UserId = accountId
 	self.Hatch.StartedAt = self.Hatch.StartedAt or os.clock()
 	self.Hatch.RequestedHatches += count self.Hatch.RequestCost += egg.Cost.Amount * count
@@ -586,6 +609,7 @@ function PetManager:Prepare(decision, token)
 	local balances = {} for _, currency in ipairs({ "Coins", "Gems", "Tickets", "Pearls" }) do if Policy.Finite(live[currency]) then balances[currency] = live[currency] end end
 	self.Hatch.Pending = { Before = cloneRecords(inv), Pool = names, Count = count, Counter = counter,
 		UsefulnessBaseline = usefulnessBaseline,
+		OwnerAllowance = allowanceRecord,
 		EggName = egg.Name, Currency = egg.Cost.Currency, BeforeBalance = live[egg.Cost.Currency], BeforeBalances = balances,
 		TeamBefore = table.clone(inv.Team), TeamIndex = inv.TeamIndex, Deadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS }
 	return "HatchEgg", egg.Name, count
@@ -617,6 +641,7 @@ end
 function PetManager:Completed() self:Observe() end
 function PetManager:Halt(stopped)
 	self.Hatch.Location = nil -- Pause/Stop release the lease, never reset request/command ledgers.
+	if self.Controller.HatchTestAllowance then self.Controller.HatchTestAllowance:Halt(stopped) end
 	if stopped and self.Config.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE then
 		self.Attempt = self.Attempt or { BeforeIds = {}, TargetIds = {} }
 		self:FinishAttempt("STOPPED", "Owner stopped equipment test; any dispatched request may still be received; no automatic continuation")

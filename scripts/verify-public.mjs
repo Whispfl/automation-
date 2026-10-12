@@ -11,7 +11,7 @@ const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8'
 const commit = git('rev-parse', 'HEAD');
 const dist = await readFile(path.join(root, 'dist/OC.lua'));
 const buildId = dist.toString('utf8').match(/-- Build: ([a-f0-9]{12})/)[1];
-const release = 'phase4-auto-' + buildId;
+const release = 'phase4-tests-' + buildId;
 const rawRoot = 'https://raw.githubusercontent.com/' + repository;
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 async function get(url) {
@@ -64,13 +64,20 @@ for (const artifact of representative) {
   console.log('[OC] Anonymous main + commit raw bytes match: ' + artifact);
 }
 
-for (const artifact of ['dist/OC.lua', 'examples/Phase4AutoOnce.luau']) {
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau', 'examples/Phase4OneHatchPrepared.luau']) {
   const expected = await readFile(path.join(root, artifact));
   if (artifact.startsWith('examples/')) assert(expected.toString('utf8').includes(`/${repository}/${release}/dist/OC.lua`), 'Example does not load its matching pin: ' + artifact);
   const published = await get(`${rawRoot}/${release}/${artifact}`);
   assert(published.equals(expected), 'Pinned artifact differs: ' + artifact);
   checks.push({ artifact, ref: release, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
   console.log('[OC] Matching pinned raw bytes verified: ' + artifact);
+}
+const priorPhase4Release = 'phase4-auto-890d4713edad';
+const priorPhase4Commit = git('rev-parse', priorPhase4Release + '^{}');
+for (const artifact of ['dist/OC.lua', 'examples/Phase4AutoOnce.luau']) {
+  const expected = execFileSync('git', ['show', `${priorPhase4Commit}:${artifact}`], { cwd: root });
+  assert((await get(`${rawRoot}/${priorPhase4Release}/${artifact}`)).equals(expected), 'Prior tested Phase4 pin differs: ' + artifact);
+  checks.push({ artifact, ref: priorPhase4Release, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
 // Historical action-OFF examples intentionally retain their accepted migration
 // pin. Compare its own bundle, never pretend it is the current candidate build.
@@ -87,7 +94,7 @@ const report = { dateUTC: new Date().toISOString(), repository, branch: 'main', 
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };
-const reportPath = path.join(root, '.test-output/phase4-public-verification.json');
+const reportPath = path.join(root, '.test-output/phase4-blocker-public-verification.json');
 await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 console.log('[OC] Public verification PASS: ' + checks.length + ' raw content comparisons; bundle build ' + buildId);

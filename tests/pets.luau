@@ -1088,5 +1088,26 @@ test("Manual analysis movement refreshes proximity while never claiming hatch lo
 	end)
 end)
 
+test("Native pet projections isolate mutating helpers from the benchmark and each other", function()
+	simulated(function()
+		local s = fixture() s.Profile.ProjectionProbe = { Uses = 5 }
+		local originalScore = s.Dependencies.StatsUtil.GetCurrencyMultiplier
+		s.Dependencies.StatsUtil.GetCurrencyMultiplier = function(self, raw, currency)
+			raw.ProjectionProbe.Uses -= 1
+			return originalScore(self, raw, currency) + raw.ProjectionProbe.Uses
+		end
+		local originalLuck = s.Dependencies.StatsUtil.GetLuckMultiplier
+		s.Dependencies.StatsUtil.GetLuckMultiplier = function(self, player, raw, ...)
+			raw.ProjectionProbe.Uses -= 1 return originalLuck(self, player, raw, ...)
+		end
+		local _, ctx = s.Manager:Fresh()
+		assert(ctx.AccountFacts.ProjectionProbe.Uses == 5 and s.Profile.ProjectionProbe.Uses == 5)
+		local a = ctx.ScoreTeam({ "weak" }) local b = ctx.ScoreTeam({ "weak" })
+		assert(a == 6 and b == 6 and ctx.AccountFacts.ProjectionProbe.Uses == 5)
+		ctx.ScoreNewPet("New", { "strong", "strong" })
+		assert(ctx.AccountFacts.ProjectionProbe.Uses == 5 and s.Profile.ProjectionProbe.Uses == 5) s:Close()
+	end)
+end)
+
 print("[OC TEST] Phase 4 regressions passed: " .. tostring(tests - before) .. "; total=" .. tostring(tests) .. "; native action/gameplay verification remains owner-pending")
 end
