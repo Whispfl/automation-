@@ -1,0 +1,43 @@
+{
+  "Status": "CONTINGENT_PROPOSAL_ONLY_NOT_APPLIED_NOT_AUTHORIZED",
+  "ActualOwnerExpectedIncrement": "UNPROVEN; native full Common Egg pool includes King Doggy",
+  "PatchSha256": "4dc7fc10a1532a2c6be2d7ef5c5e5f9fffc97fd699185098f985bc4da6d65e9d",
+  "Files": {
+    "src/OCFoundation/OCConfig.luau": {
+      "BeforeSha256": "0e252124807c0f853ec5badcf29621653a9e7a52f510b9c680c825d2f896d2f6",
+      "AfterSha256": "572779a5762093608b27a0517b8b3b544e28eb2ddf5ca44e8a6008871fe866cd"
+    },
+    "src/OCFoundation/PetPolicy.luau": {
+      "BeforeSha256": "2f7cbbf27bea3aed356b2b10397f05ad5b168a6c7d5cf17c1448b9bfe059614f",
+      "AfterSha256": "74d569e58cad6306bf54a3ba69861feadfcb13901faffc7eff7e1e34a410d441"
+    },
+    "src/OCFoundation/OCBrain.luau": {
+      "BeforeSha256": "65395cdde2c8d9260a92047a5b1c7c572a667a77af70ddba907dfeead4b99c61",
+      "AfterSha256": "4c106958fa68cd9d006d9a2c273e5dedae9ecac54f69c71b77e04ff72d3696ca"
+    }
+  },
+  "Methods": {
+    "function PetPolicy.Egg(": {
+      "BeforeSha256": "721a4a05edb261d827e08f13c9321b954d7c0a7012c210d0f51b01758cd22858",
+      "AfterSha256": "c5156edd8c4eb2ea656f9bbe4064c81dd538aa2290aa6be3f787bbd7b0f8d0fb"
+    },
+    "function PetPolicy.EggBlocker(": {
+      "BeforeSha256": "e0c5ddb62e2807b8ad3f215c364ff80ac23239514daf0dfc1c35cb34cfbd2148",
+      "AfterSha256": "3d8cbe0ffa67a5b6b1208fa1483e4195f82c0ed11be470b0c3e8b813ed3962e6"
+    },
+    "function PetPolicy.EggPlanText(": {
+      "BeforeSha256": "50f08ce7cc6d71f3000e82d2109e7e7565b42d5489c863ce0bdc6344edeaa7b4",
+      "AfterSha256": "60352de0f12dc2dc52bd093dcc6e8fafa59cf3bbd5a65e95a9c013cc22754e70"
+    },
+    "function OCBrain:PlanPets(": {
+      "BeforeSha256": "7378d34caee76076ad9643d9435bf88ff24ff0f25d5a464b6dbbba2fbcb9b0da",
+      "AfterSha256": "ad04473df7ef73ca4447acccc6a24a120930341b6583cd6d12e7065422ccd21f"
+    }
+  },
+  "UnchangedRequiredMethods": [
+    "PetManager:Prepare",
+    "OwnerHatchTestAllowance accounting",
+    "all GameKnowledge native registration/identity/pricing",
+    "all EggTravelManager methods"
+  ]
+}

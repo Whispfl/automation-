@@ -160,6 +160,37 @@ local function completeNativeObservation(s, clock)
 	assert(knowledge.EggObservationFinished and knowledge.ChunkerObserver == nil)
 end
 
+-- MOCK native helper returns, not the owner's inventory or verified live scores.
+-- Seven distinct equipped mock pets contribute 250 each plus a mock base of 2;
+-- every mock Common Egg outcome contributes only 1. This models a complete
+-- feasible 1752 benchmark with zero marginal gain without inventing native odds.
+local function strongMockTeam(s)
+	s.Profile.Pets, s.Profile.Teams[1].Pets = {}, {}
+	for index = 1, 7 do
+		local name, id = "MockStrong" .. index, "mock-strong-" .. index
+		s.Dependencies.Pets[name] = { Rarity = "Rare" }
+		table.insert(s.Profile.Pets, { Id = id, Name = name, Amount = 1 })
+		table.insert(s.Profile.Teams[1].Pets, id)
+	end
+	s.Dependencies.StatsUtil.GetMaxPetsEquipped = function() return 7 end
+	s.Dependencies.StatsUtil.GetCurrencyMultiplier = function(_, facts)
+		local by, score = {}, 2
+		for _, pet in pairs(facts.Pets) do by[pet.Id] = pet end
+		for _, id in ipairs(facts.Teams[facts.TeamEquipped].Pets) do
+			assert(by[id], "Mock native team score requires an actual projected record")
+			score += by[id].Name:find("MockStrong", 1, true) == 1 and 250 or 1
+		end
+		return score
+	end
+	s.Dependencies.PetUtil.GetStats = function(_, pet)
+		return { Coins = pet.Name:find("MockStrong", 1, true) == 1 and 251 or 2 }
+	end
+	s.Storage = 1000000
+	s.Dependencies.StatsUtil.HasDigitalStorage = function() return true end
+	s.Dependencies.StatsUtil.GetUsedPetStorage = function() return 1926 end
+	return s
+end
+
 local function scenario(callback)
 	local previous = shared shared = {}
 	local ok, reason = pcall(function() simulated(callback) end)
@@ -988,6 +1019,246 @@ test("Test B delayed or missing acknowledgment keeps one consumed request across
 		s.Controller.HatchTestAllowance = Allowance.new(s.Controller)
 		s.Manager = Pets.new(s.Controller) s.Controller.Pets = s.Manager
 		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.RequestedHatches == 0 and s.Manager.EquipCommands == 0) s:Close()
+	end)
+end)
+
+test("Test B complete mocked seven-pet 1752 team can be READY_ALLOWANCE_OFF while Common improvement is zero", function()
+	scenario(function(clock)
+		local s = strongMockTeam(mixedNativeQueue(false))
+		completeNativeObservation(s, clock)
+		local _, context = s.Manager:Fresh()
+		local snapshot = s.Controller.Reader:GetSnapshot()
+		local report = s.Controller.Brain:AnalyzePets(snapshot, context)
+		assert(#context.Inventory.Team == 7 and report.Team.Status == "ESTIMATE")
+		assert(report.Team.CurrentScore == 1752 and report.Team.ProjectedScore == 1752 and report.Team.Gain == 0)
+		assert(not report.Team.SearchBoundReached and not report.Team.BaselineIncomplete)
+		assert(report.Eggs[1].Status == "ESTIMATE" and report.Eggs[1].ExpectedIncrement == 0)
+		assert(report.Eggs[1].ClientImprovementProbability == 0 and report.Eggs[1].BaselineScore == 1752)
+		assert(Policy.EggBlocker(report.Eggs[1]) == "NO_USEFUL_IMPROVEMENT in evaluated base-pet pool")
+		local captured = context.AccountFacts
+		local ready = preflight(s)
+		assert(ready.Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" and ready.Before.NativePrice == 10)
+		assert(ready.Before.InteractionMode == "OPENED_NEAREST" and ready.Before.DigitalStorage == true)
+		assert(ready.Before.StorageUsed == 1926 and ready.Before.StorageCapacity == 1000000)
+		assert(ready.Registration.QualifyingReceivers == 1 and ready.Registration.SelectedLoaded)
+		assert(s:Decision().Kind == "WAIT" and not s:Dispatch() and Policy.Equal(s.Profile, captured))
+		assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B reserve-only allowance does not turn a zero-improvement mocked 1752 team into a hatch decision", function()
+	scenario(function(clock)
+		local s = strongMockTeam(mixedNativeQueue(true))
+		completeNativeObservation(s, clock)
+		local decision, context = s:Decision()
+		local snapshot = s.Manager:Fresh()
+		local report = s.Controller.Brain:AnalyzePets(snapshot, context)
+		local egg = report.Eggs[1]
+		assert(egg.ExpectedIncrement == 0 and egg.BaselineScore == 1752 and egg.CapacityStatus == "AVAILABLE")
+		assert(egg.FundingStatus == "AFFORDABLE" and egg.SpendingStatus == "AUTHORIZED_CONFIG")
+		local eligible, _, funds = s.Controller.HatchTestAllowance:Eligibility("Common Egg", 10, snapshot, s.Profile.Coins, 123)
+		assert(eligible and funds.Eligible and funds.NormalSpendable == 0 and funds.Spendable == 10)
+		assert(decision.Kind == "WAIT" and decision.Reason:find("NO_USEFUL_IMPROVEMENT", 1, true))
+		assert(not s:Dispatch() and not s.Controller.HatchTestAllowance:GetStatus().Consumed)
+		s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B selected pet target and stale forced intent cannot bypass zero Common improvement in actual Prepare", function()
+	scenario(function(clock)
+		local s = strongMockTeam(mixedNativeQueue(true))
+		completeNativeObservation(s, clock)
+		s.Controller.Config.PET_SETTINGS.SELECTED_PETS = { "New" }
+		local snapshot, context = s.Manager:Fresh()
+		local report = s.Controller.Brain:AnalyzePets(snapshot, context)
+		assert(report.Eggs[1].ClientTargetProbability == 1 and report.Eggs[1].ExpectedIncrement == 0)
+		assert(s:Decision().Kind == "WAIT")
+		local command, _, _, reason = s.Manager:Prepare({ Kind = "HATCH", EggName = "Common Egg", Model = s.Egg,
+			Count = 1, Currency = "Coins", DecisionSource = "BRAIN" }, s.Token)
+		assert(command == nil and reason == "Fresh useful hatch/budget/exact selected egg decision unavailable")
+		assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B full catalog-shaped Common pool retains tiny Secret weight and can be useful for a mocked 1752 team", function()
+	scenario(function(clock)
+		local s = strongMockTeam(mixedNativeQueue(true))
+		completeNativeObservation(s, clock)
+		-- Six names/weights and base Coins definitions come from the completed
+		-- EGG_FACTS/PET_BASE_STATS ledgers (Common source line46). Team scoring
+		-- remains explicitly MOCKED, never a measured native owner projection.
+		local entries = {
+			{ Name = "Doggy", Chance = 40, Coins = 1.1, Rarity = "Common" },
+			{ Name = "Kitty", Chance = 30, Coins = 1.1, Rarity = "Common" },
+			{ Name = "Bunny", Chance = 25, Coins = 1.2, Rarity = "Unique" },
+			{ Name = "Bear", Chance = 5, Coins = 1.5, Rarity = "Rare" },
+			{ Name = "King Doggy", Chance = 0.000001, Coins = 3300, Rarity = "Secret" },
+			{ Name = "Timberdoodle", Chance = 0.00000001, Coins = 2, Rarity = "Secret" },
+		}
+		local pool, baseCoins = {}, {}
+		for _, entry in ipairs(entries) do
+			baseCoins[entry.Name] = entry.Coins
+			s.Dependencies.Pets[entry.Name] = { Rarity = entry.Rarity, Stats = { Coins = entry.Coins } }
+			table.insert(pool, { Chance = entry.Chance, Item = { Type = "Pet", Name = entry.Name } })
+		end
+		s.Dependencies.GetEggPool = function() return pool end
+		s.Dependencies.StatsUtil.GetCurrencyMultiplier = function(_, facts)
+			local by, score = {}, 2
+			for _, pet in pairs(facts.Pets) do by[pet.Id] = pet end
+			for _, id in ipairs(facts.Teams[facts.TeamEquipped].Pets) do
+				local pet = assert(by[id], "Mock native helper requires projected inventory")
+				score += baseCoins[pet.Name] or 250
+			end
+			return score
+		end
+		s.Dependencies.PetUtil.GetStats = function(_, pet) return { Coins = baseCoins[pet.Name] or 251 } end
+		local decision, context = s:Decision()
+		local snapshot = s.Manager:Fresh()
+		local report = s.Controller.Brain:AnalyzePets(snapshot, context)
+		local egg = report.Eggs[1]
+		assert(report.Team.ProjectedScore == 1752 and #egg.Outcomes == 6)
+		assert(egg.ExpectedIncrement > 1e-6 and egg.ExpectedIncrement < 0.001)
+		local king
+		for _, outcome in ipairs(egg.Outcomes) do if outcome.Name == "King Doggy" then king = outcome end end
+		assert(king and king.IncrementalGain == 3050 and king.ClientPoolProbability > 0 and king.ClientPoolProbability < 1e-7)
+		assert(Policy.EggBlocker(egg) == nil and decision.Kind == "HATCH" and decision.Model == s.Egg)
+		assert(s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.Pending.Pool["King Doggy"])
+		assert(s.Manager.Hatch.Pending.Pool.Timberdoodle and s.Manager.Hatch.Pending.UsefulnessBaseline.Score == 1752)
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.EquipCommands == 0)
+		assert(#s.Teleports == 0 and #s.Calls == 0 and s.Blows == 0) s:Close()
+	end)
+end)
+
+test("Test B final native price loss or increase cannot consume a previously valid one-hatch allowance", function()
+	for _, unavailable in ipairs({ true, false }) do
+		scenario(function()
+			local s = fixture(true)
+			s.OnGuard = function(call)
+				if call ~= 2 then return end
+				if unavailable then s.Dependencies.StatsUtil.GetEggCost = function() return nil end else s.Cost = 11 end
+			end
+			assert(not s:Dispatch() and not s.Controller.HatchTestAllowance:GetStatus().Consumed)
+			s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B digital capacity loss during final native guard prevents dispatch without treating bytes as pet slots", function()
+	for _, mutate in ipairs({ function(s) s.Storage = 1926 end,
+		function(s) s.Dependencies.StatsUtil.HasDigitalStorage = function() return nil end end,
+		function(s) s.Dependencies.StatsUtil.IsInventoryFull = function() return true end end,
+		function(s) s.Dependencies.StatsUtil.GetMaxEggHatches = function() return 0 end end }) do
+		scenario(function()
+			local s = fixture(true)
+			s.Storage = 1000000
+			s.Dependencies.StatsUtil.HasDigitalStorage = function() return true end
+			s.Dependencies.StatsUtil.GetUsedPetStorage = function() return 1926 end
+			s.OnGuard = function(call) if call == 2 then mutate(s) end end
+			assert(not s:Dispatch() and not s.Controller.HatchTestAllowance:GetStatus().Consumed)
+			s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B final native cooldown presentation auto-hatch or stopped state invalidates prechecked request", function()
+	for _, mutate in ipairs({ function(s) s.NextAt = 101 end, function(s) s.Hatching = true end,
+		function(s) s.NativeAuto = "Common Egg" end, function(s) s.Controller.State = "STOPPED" end }) do
+		scenario(function()
+			local s = fixture(true)
+			s.OnGuard = function(call) if call == 2 then mutate(s) end end
+			assert(not s:Dispatch() and not s.Controller.HatchTestAllowance:GetStatus().Consumed)
+			s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B confirmed existing stack quantity gain terminates once while concurrent Coins credit remains separate evidence", function()
+	scenario(function()
+		local s = fixture(true)
+		s.Profile.Pets[2] = { Id = "existing-new-stack", Name = "New", Amount = 1 }
+		local team = table.clone(s.Profile.Teams[1].Pets)
+		assert(s:Dispatch() and s.Manager.Hatch.Pending.Before["existing-new-stack"].Amount == 1)
+		s.Profile.Pets[2].Amount = 2
+		s.Profile.EggsOpened["Common Egg"], s.Profile.Coins = 1, 495
+		s.Manager:Observe()
+		local result = s.Manager.Hatch.LastResult
+		assert(result.Status == "INVENTORY_GAIN_OBSERVED" and result.Quantity == 1 and result.CounterDelta == 1)
+		assert(result.Changes[1].Id == "existing-new-stack" and result.Changes[1].ExistingStack and result.Changes[1].Quantity == 1)
+		assert(result.CoinsComparison.ExpectedDebit == 10 and result.CoinsComparison.ObservedNetDebit == 5)
+		assert(result.CoinsComparison.Status == "NET_DISCREPANCY" and result.Continuation == "SINGLE_HATCH_ENDED_EQUIPMENT_OFF")
+		assert(result.OwnerAllowance.State == "RECEIVED_CONFIRMED" and s.Manager.Hatch:Ended())
+		assert(Policy.SameTeam(team, s.Profile.Teams[1].Pets) and not s:Dispatch() and #s.Commands == 1)
+		assert(s.Manager.EquipCommands == 0 and #s.Teleports == 0 and #s.Calls == 0 and s.Blows == 0) s:Close()
+	end)
+end)
+
+test("Test B Coins counter inventory or presentation alone cannot confirm receipt and timeout never retries", function()
+	for _, evidence in ipairs({ "coins", "counter", "inventory", "presentation" }) do
+		scenario(function(clock)
+			local s = fixture(true) assert(s:Dispatch())
+			if evidence == "coins" then s.Profile.Coins = 490
+			elseif evidence == "counter" then s.Profile.EggsOpened["Common Egg"] = 1
+			elseif evidence == "inventory" then s.Profile.Pets[2] = { Id = "received", Name = "New" }
+			else s.Hatching = true end
+			s.Manager:Observe()
+			assert(s.Manager.Hatch.Pending and not s.Manager.Hatch.LastResult and s.Manager.Hatch.VerifiedHatches == 0)
+			assert(not s:Dispatch() and #s.Commands == 1)
+			clock.Time = s.Manager.Hatch.Pending.Deadline + 0.1 s.Manager:Observe()
+			local result = s.Manager.Hatch.LastResult
+			assert(result.Status == "UNCONFIRMED" and s.Manager.Hatch.VerifiedHatches == 0 and s.Manager.Hatch:Ended())
+			assert(result.OwnerAllowance.State == "RECEIVED_UNCONFIRMED" and result.Continuation == "BLOCKED_UNCERTAIN")
+			assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.EquipCommands == 0)
+			assert(#s.Teleports == 0 and #s.Calls == 0 and s.Blows == 0) s:Close()
+		end)
+	end
+end)
+
+test("Test B uncertain native invocation consumes the same-VM opportunity and an empty next controller cannot replay it", function()
+	scenario(function(clock)
+		local s = fixture(true) s.RemoteFailure = true
+		local attempted, invocationReason = s:Dispatch()
+		-- The approved adapter's true return means attempted transport, including
+		-- uncertain invocation. It is deliberately not proof of acceptance.
+		assert(attempted == true and invocationReason:find("Pet invocation failed; delivery unknown", 1, true))
+		assert(#s.Commands == 1 and s.Manager.Hatch.RequestedHatches == 1 and s.Manager.Hatch.RequestCost == 10)
+		local status = s.Controller.HatchTestAllowance:GetStatus()
+		assert(status.Consumed and status.Record.State == "INVOCATION_UNCERTAIN" and s.Manager.Hatch.Pending)
+		assert(not s:Dispatch() and #s.Commands == 1)
+		clock.Time = s.Manager.Hatch.Pending.Deadline + 0.1 s.Manager:Observe()
+		assert(s.Manager.Hatch.LastResult.Status == "UNCONFIRMED" and not s:Dispatch() and #s.Commands == 1)
+		s.Controller.HatchTestAllowance = Allowance.new(s.Controller)
+		s.Manager = Pets.new(s.Controller) s.Controller.Pets = s.Manager
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.RequestedHatches == 0)
+		assert(s.Manager.EquipCommands == 0 and #s.Teleports == 0 and #s.Calls == 0 and s.Blows == 0) s:Close()
+	end)
+end)
+
+test("Test B delayed matched receipt can confirm one consumed request before deadline without permitting an intervening retry", function()
+	scenario(function(clock)
+		local s = fixture(true) assert(s:Dispatch())
+		local deadline = s.Manager.Hatch.Pending.Deadline
+		clock.Time = deadline - 0.2 s.Manager:Observe()
+		assert(s.Manager.Hatch.Pending and not s:Dispatch() and #s.Commands == 1)
+		s.Profile.Pets[2] = { Id = "late-received", Name = "New", Amount = 1 }
+		s.Profile.EggsOpened["Common Egg"], s.Profile.Coins = 1, 490
+		s.Manager:Observe()
+		assert(s.Manager.Hatch.LastResult.Status == "INVENTORY_GAIN_OBSERVED" and s.Manager.Hatch.VerifiedHatches == 1)
+		assert(s.Manager.Hatch:Ended() and not s:Dispatch() and #s.Commands == 1 and s.Manager.EquipCommands == 0) s:Close()
+	end)
+end)
+
+test("Test B account switch after request cannot attribute the other account receipt or restore consumed authorization", function()
+	scenario(function(clock)
+		local s = fixture(true) assert(s:Dispatch())
+		s.Controller.Reader.Player.UserId = 456
+		s.Profile.Pets[2] = { Id = "other-account-received", Name = "New" }
+		s.Profile.EggsOpened["Common Egg"], s.Profile.Coins = 1, 490
+		s.Manager:Observe()
+		assert(s.Manager.Hatch.Pending and not s.Manager.Hatch.LastResult and s.Manager.Hatch.VerifiedHatches == 0)
+		clock.Time = s.Manager.Hatch.Pending.Deadline + 0.1 s.Manager:Observe()
+		assert(s.Manager.Hatch.LastResult.Status == "UNCONFIRMED" and s.Manager.Hatch.LastResult.Quantity == 0)
+		assert(shared.__OC_OWNER_ONE_HATCH_TEST_LEDGER.Accounts["123"].Consumed)
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.EquipCommands == 0) s:Close()
 	end)
 end)
 
