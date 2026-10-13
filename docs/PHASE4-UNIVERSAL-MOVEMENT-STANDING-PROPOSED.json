@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "status": "PROPOSED_UNAPPROVED_NOT_APPLIED",
+  "baseline": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af",
+  "baselineBuildId": "100f2c1907ae",
+  "baselineTag": "phase4-hatch-100f2c1907ae",
+  "file": "src/OCFoundation/EggTravelManager.luau",
+  "method": "ResolveStanding",
+  "patchPath": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch",
+  "patchSha256": "b1131059a5b151fb699b04bbf1ae50365cbeddc9a6d2faa222d28edd42d3207f",
+  "beforeFileSha256": "7fd14d19e3befc895f3446f41d4882394d12eebc7bc555e5e8b05dd864e4cb8c",
+  "proposedAfterFileSha256": "125fb8125a32c998ceb58e4bfa649d6d982e7f6a41da25ef3f8ac08064ecff20",
+  "beforeMethodSha256": "4996169eb8641b238ac1e52b3784c57a9b690ddf3e47993ddbddb9e2b2fec09a",
+  "proposedAfterMethodSha256": "8d3129ec4a04c80964f36a0e5f15dc8bf83656618567e9b1a197ee409b893dda",
+  "methodHashFormat": "UTF-8 text from the exact method signature to before the next function declaration; trailing separating newline included, matching preservation extraction convention.",
+  "scope": "Append four normalized same-radius diagonal candidates after the preserved center and four cardinal candidates. All support, full avatar clearance, native range/nearest-egg, access, identity and execution checks remain unchanged.",
+  "evidence": "Synthetic source-level counterexample: a supported same-radius diagonal is valid under existing guards while no center/cardinal ray hits support. This is a search-coverage limitation, not an established cause of owner live failures.",
+  "approvalRequired": "Separate explicit owner approval of this protected-method difference before any runtime implementation or publication.",
+  "exclusions": "No runtime edits, bundle changes, release tag changes, CFrame adapter edits, raycast/overlap rule relaxation, native travel, scheduler, target selection, arrival checks, retry/recovery loop, hatch, equipment or spending authorization.",
+  "offlineAudit": {
+    "script": "scripts/test-phase4-standing-proposal.mjs",
+    "scriptSha256": "9febe33200edf56541e6c0ed52ddc6778e0e6d20ce88ffdd3aabd56d4cfaa0fe",
+    "casesPerVariant": 8,
+    "variants": [
+      "released100f2c1907ae",
+      "proposalAppliedInMemoryOnly"
+    ],
+    "results": "Both synthetic variants compiled using official Luau and passed eight audit test groups (including five original candidate-position preservation cases); no real physics or live game execution."
+  }
+}

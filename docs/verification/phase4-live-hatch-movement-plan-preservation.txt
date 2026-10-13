@@ -1,0 +1,17 @@
+Movement planning preservation — 2026-10-13
+Baseline runtime: aae628d9ac8f1941f9b0b92aaedc365be22fa6af; build100f2c1907ae
+No production patch applied; no new gameplay build/tag.
+PASS runtime/source/bundles/loaders: 47 files byte-identical
+PASS completed research: 104 files byte-identical
+PASS historical Phase4 records: 23 files byte-identical
+PASS unchanged tag phase4-travel-0d5caa499c8c -> 25890f224f0448f148d009e65514c129aeb4f59c
+PASS unchanged tag phase4-hatch-f4e10f71c317 -> 55bf4cf437cccd826180519c482bdc6edbbbb51b
+PASS unchanged tag phase4-hatch-100f2c1907ae -> aae628d9ac8f1941f9b0b92aaedc365be22fa6af
+PASS exact received-text archive docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-ORIGINAL-SUBMISSION.txt: 20298 bytes SHA256 3be2f4e5be9c79f4054706f179e5d1b1a4ded5d92d0b74bf236e6d85e848451f
+PASS exact received-text archive docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-CONSOLE.txt: 19627 bytes SHA256 0765815d70c439d9857d9ee3a3fa6390e346a9d65ff2bee7e9c8c1d900dd7df5
+PASS unchanged/proposed-only hash src/OCFoundation/EggTravelManager.luau: 7fd14d19e3befc895f3446f41d4882394d12eebc7bc555e5e8b05dd864e4cb8c
+PASS unchanged/proposed-only hash docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch: b1131059a5b151fb699b04bbf1ae50365cbeddc9a6d2faa222d28edd42d3207f
+PASS unchanged/proposed-only hash scripts/test-phase4-standing-proposal.mjs: 9febe33200edf56541e6c0ed52ddc6778e0e6d20ce88ffdd3aabd56d4cfaa0fe
+PASS git apply --check only; proposal not applied.
+PASS existing node scripts/test.mjs (official Luau + complete release regressions) exit0.
+PASS node scripts/test-phase4-standing-proposal.mjs: official Luau; 8 focused groups per released/proposal-in-memory variant. No live physics/gameplay verification.

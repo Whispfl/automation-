@@ -1,0 +1,14 @@
+diff --git a/src/OCFoundation/EggTravelManager.luau b/src/OCFoundation/EggTravelManager.luau
+--- a/src/OCFoundation/EggTravelManager.luau
++++ b/src/OCFoundation/EggTravelManager.luau
+@@ -452,7 +452,9 @@
+ 		-- Try the source-associated anchor X/Z first. Visible egg overlap alone is
+ 		-- not collision: only actual CanCollide geometry blocks the avatar volume.
+ 		-- Keep collidable Rendered platforms/egg parts in the floor/clearance query.
+-		for _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }) do
++		local diagonal = radius / math.sqrt(2)
++		for _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius),
++			Vector3.new(diagonal, 0, diagonal), Vector3.new(diagonal, 0, -diagonal), Vector3.new(-diagonal, 0, diagonal), Vector3.new(-diagonal, 0, -diagonal) }) do
+ 			local horizontal = pos + offset
+ 			local result = workspace:Raycast(horizontal + Vector3.new(0, record.Range, 0), Vector3.new(0, -record.Range * 2, 0), ray)
+ 			local floor = result and result.Instance

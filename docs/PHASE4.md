@@ -1,5 +1,13 @@
 # Phase 4: account-aware pets and bounded native actions
 
+## Latest owner-live status — 2026-10-13
+
+**First automated Common Egg receipt passed on build `100f2c1907ae`; Phase 4 remains partial.** The owner reports one count=1 request, `INVENTORY_GAIN_OBSERVED`, Normal Doggy +1 existing stack, opened counter +1, net Coins -10, equipment 0, consumed allowance and session end without retry. The owner manually approached the egg for this hatch. This does not verify universal movement or any other egg.
+
+The [milestone evidence and exact release pin](PHASE4-FIRST-LIVE-HATCH-MILESTONE.md) preserve the owner's original supplied console text and SHA256, report, limits, receipt requirements and uncertainties. Receipt was logged at 10:56:41; bounded hatch authorization ended at 10:56:43 while the controller continued read-only WAIT. Original approval/delivery records and immutable Test A / `f4e10f71c317` / `100f2c1907ae` pins remain unchanged.
+
+Next: [universal movement reliability planning](UNIVERSAL-MOVEMENT-RELIABILITY-PLAN.md), with separate approval before changing protected movement. No new paid test, economic hatching, equipment operation, general Phase 4 acceptance or later phase is authorized. All runtime defaults and the disabled loader remain unchanged. Older pending-test guidance below is historical and superseded by this status only where the owner has confirmed this specific result.
+
 The owner explicitly authorized Phase 4 development, the scoped benchmark/blocker
 fixes and independent travel/one-hatch preparation on 2026-10-12. The positioning
 reference addendum continues that same worktree; it does not reset or replace

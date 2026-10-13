@@ -1,0 +1,12 @@
+The owner has now LIVE-CONFIRMED the FIRST successful automated Common Egg hatch on build `100f2c1907ae`.
+
+Evidence:
+
+- `INVENTORY_GAIN_OBSERVED`
+- Exactly 1 Common Egg requested
+- Normal Doggy received: +1 existing stack
+- Common Egg opened counter: +1
+- Observed Coins net change: -10
+- Equipment commands: 0
+- One-hatch allowance consumed
+- Session ended with no retry

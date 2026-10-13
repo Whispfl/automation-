@@ -1,0 +1,25 @@
+{
+  "status": "OWNER_SUPPLIED_ORIGINAL_CONSOLE_TEXT_ARCHIVED",
+  "provenance": "Direct owner answer to original-log request, captured from that human message, not reconstructed from a summary or assistant output.",
+  "representation": "Exact received text encoded UTF-8, no BOM, no line reflow, no newline added. Console file is the exact prefix before the three-newline owner instruction delimiter; complete submission retains that delimiter and all instructions.",
+  "limits": "No separate original filesystem attachment path/bytes were supplied. Hashes certify the received UTF-8 text archives, not an unavailable pre-upload file encoding.",
+  "reportDate": "2026-10-13",
+  "initClock": "10:56:33",
+  "receiptClock": "10:56:41",
+  "timeZone": null,
+  "releaseCommit": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af",
+  "buildId": "100f2c1907ae",
+  "releaseTag": "phase4-hatch-100f2c1907ae",
+  "archives": [
+    {
+      "path": "docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-ORIGINAL-SUBMISSION.txt",
+      "bytes": 20298,
+      "sha256": "3be2f4e5be9c79f4054706f179e5d1b1a4ded5d92d0b74bf236e6d85e848451f"
+    },
+    {
+      "path": "docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-CONSOLE.txt",
+      "bytes": 19627,
+      "sha256": "0765815d70c439d9857d9ee3a3fa6390e346a9d65ff2bee7e9c8c1d900dd7df5"
+    }
+  ]
+}
