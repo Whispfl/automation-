@@ -225,6 +225,7 @@ return {
 	},
 	EGG_TRAVEL_SETTINGS = {
 		MODE = "NORMAL", --// TRAVEL_ONLY is an isolated one-attempt diagnostic with all spending/equipment/pickups OFF; NORMAL retains paid Brain eligibility.
+		OWNER_DIRECT_EGG_TELEPORT_TEST = false, --// Owner account 10864747620 / Common Egg / Overworld only: one Root assignment bypasses standing/clearance; no paid or ordinary gameplay permission.
 		ENABLE_SELECTED_EGG_TRAVEL = false, --// Own exactly one explicitly selected egg task; this enables no hatching or spending.
 		ENABLE_DIRECT_POSITIONING = false, --// Opt in to one guarded HRP CFrame assignment using observed safe floor geometry; not a native egg teleport.
 		ENABLE_NATIVE_ISLAND_TRAVEL = false, --// Permit verified unlocked native island/return travel for this selected egg only.

@@ -5,6 +5,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
+import { stripApprovedOwnerDirectDelta } from './verify-phase4-approved-owner-direct.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -24,13 +25,13 @@ const applyInMemory = (source, patchText) => {
 const source = await sources(root);
 const mechanics = source.modules.find(value => value.name === 'GameMechanics').source;
 const standing = source.modules.find(value => value.name === 'EggTravelManager').source;
-assert.equal(sha(standing), '15bd589ea9ff1e81354dbe536b347a2a852f59efa4780681234d82ee0540cf3b', 'Both exact approved standing changes remain present without extras');
+assert.equal(sha(stripApprovedOwnerDirectDelta('src/OCFoundation/EggTravelManager.luau', standing)), '15bd589ea9ff1e81354dbe536b347a2a852f59efa4780681234d82ee0540cf3b', 'Both exact approved standing changes remain present without extras');
 const historical = spawnSync('git', ['show', '78b97d11f34e245f31e41ff6fac10cbd795f03da:src/OCFoundation/GameMechanics.luau'], { cwd: root, encoding: 'utf8' });
 assert.equal(historical.status, 0, historical.stderr);
 assert.equal(sha(historical.stdout), 'a2f1a3d6ab3483db3d91e9a50975e159a5107dbdf78a26e70f9765d5e1d19f87', 'Frozen control remains the approved preimage');
 const proposed = applyInMemory(historical.stdout, patch);
 assert.equal(sha(proposed), 'd51154114e6309dd9042de250cbd8757ce1f61e146858960d7745397e14ab531');
-assert.equal(mechanics, proposed, 'Actual adapter must match the exact separately approved four-line patch');
+assert.equal(stripApprovedOwnerDirectDelta('src/OCFoundation/GameMechanics.luau', mechanics), proposed, 'Actual ordinary adapter must match the exact separately approved four-line patch');
 assert.equal((proposed.match(/fresh\.CharacterRoot\.CFrame = frame/g) || []).length, 1, 'Existing single assignment is unchanged');
 assert.equal((proposed.match(/self\.LastEggPositionLease = record\.LeaseId/g) || []).length, 1, 'Existing single attempt consumption is unchanged');
 const tests = await readFile(path.join(root, 'tests/phase4-final-standing-validation.luau'), 'utf8');

@@ -6,6 +6,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
+import { stripApprovedOwnerDirectDelta } from './verify-phase4-approved-owner-direct.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -33,7 +34,7 @@ assert.equal(sha(historical.stdout), '7fd14d19e3befc895f3446f41d4882394d12eebc7b
 const diagonalSource = applyInMemory(historical.stdout, patch);
 const combinedSource = applyInMemory(diagonalSource, footprint);
 assert.equal(sha(combinedSource), '15bd589ea9ff1e81354dbe536b347a2a852f59efa4780681234d82ee0540cf3b');
-assert.equal(source.modules.find(value => value.name === 'EggTravelManager').source, combinedSource,
+assert.equal(stripApprovedOwnerDirectDelta('src/OCFoundation/EggTravelManager.luau', source.modules.find(value => value.name === 'EggTravelManager').source), combinedSource,
   'Actual source must match both exact approved patches, without further protected changes');
 const tests = await readFile(path.join(root, 'tests/phase4-standing-safety-gate.luau'), 'utf8');
 await mkdir(path.join(root, '.test-output'), { recursive: true });

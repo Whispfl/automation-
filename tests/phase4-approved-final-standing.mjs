@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { sha256 } from '../scripts/verify-phase4-approved-membership.mjs';
+import { stripApprovedOwnerDirectDelta } from '../scripts/verify-phase4-approved-owner-direct.mjs';
 import { verifyFunctionalProtectedFiles } from '../scripts/verify-phase4-approved-functional.mjs';
 import { STANDING_BASELINE, STANDING_FILE, standingApprovalContext, applyApprovedStandingPatches, verifyStandingProtectedFiles } from '../scripts/verify-phase4-approved-standing.mjs';
 import { FINAL_STANDING_BASELINE, FINAL_STANDING_FILE, FINAL_STANDING_PATCH_SHA256,
@@ -116,5 +117,5 @@ test('actual source equals independently reconstructed approved adapter', () => 
   assert.equal(sha256(after), final.record.afterFileSha256);
 });
 await verifyFinalStandingWorkspace();
-assert.equal((await readFile(path.join(root, FINAL_STANDING_FILE), 'utf8')), after);
+assert.equal(stripApprovedOwnerDirectDelta(FINAL_STANDING_FILE, await readFile(path.join(root, FINAL_STANDING_FILE), 'utf8')), after);
 console.log(`[OC TEST] ${groups} final-standing approval preservation groups passed; exact four-line adapter, both prior standing patches, all 25 other first-hatch source files and historical/native/wiki evidence retained`);

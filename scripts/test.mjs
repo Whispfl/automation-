@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
+import '../tests/phase4-approved-owner-direct.mjs';
 import '../tests/phase4-approved-final-standing.mjs';
 import './verify-test-a-preservation.mjs';
 import '../tests/phase4-approved-membership.mjs';
@@ -12,6 +13,8 @@ import '../tests/phase4-approved-functional.mjs';
 import '../tests/phase4-approved-standing.mjs';
 import './test-phase4-standing-safety-gate.mjs';
 import './test-phase4-movement-loader.mjs';
+import './test-phase4-owner-direct-teleport.mjs';
+import './test-phase4-owner-direct-loader.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = await sources(root);
@@ -37,7 +40,9 @@ assert(!/getgc|(?:get|set)upvalue/.test(generated.output), 'No private runtime e
 assert(!/\._activePickups\s*=/.test(generated.output), 'OC must not replace the native pickup registry');
 const positionAssignment = 'fresh.CharacterRoot.CFrame = frame';
 assert.equal(mechanics.split(positionAssignment).length - 1, 1, 'Only one explicitly guarded selected-egg transform site');
-assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics.replace(positionAssignment, '')), 'No other position or speed modification');
+const ownerDirectAssignment = 'fresh.CharacterRoot.CFrame = directFrame';
+assert.equal(mechanics.split(ownerDirectAssignment).length - 1, 1, 'One separately owner-authorized false-by-default direct Root test transform site');
+assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics.replace(positionAssignment, '').replace(ownerDirectAssignment, '')), 'No other position or speed modification');
 assert(!/GitHubToken|Authorization|\bRequest\s*=/.test(generated.output), 'No client authentication');
 for (const { name, source: text } of source.modules) {
   if (name === 'OCConfig') for (const line of text.split('\n')) {

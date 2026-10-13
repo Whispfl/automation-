@@ -634,6 +634,9 @@ end
 
 function EggTravelManager:Execute(record, token)
 	local settings, c = self:Settings(), self.Controller
+	if settings.OWNER_DIRECT_EGG_TELEPORT_TEST then
+		return c.Farming.Mechanics:ExecuteOwnerDirectEggTeleportTest(self, record, token)
+	end
 	local fresh, reason = self:Validate(record, token)
 	if not fresh then self:Release(reason, true) return { Verified = false, Reason = reason } end
 	local lease = self.Lease

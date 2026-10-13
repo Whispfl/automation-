@@ -6,6 +6,7 @@ import path from 'node:path';
 import { sha256 } from './verify-phase4-approved-membership.mjs';
 import { STANDING_FILE, standingApprovalContext, verifyApprovedStanding } from './verify-phase4-approved-standing.mjs';
 import { FINAL_STANDING_FILE, finalStandingApprovalContext, verifyApprovedFinalStanding } from './verify-phase4-approved-final-standing.mjs';
+import { stripApprovedOwnerDirectFiles } from './verify-phase4-approved-owner-direct.mjs';
 
 // Immutable pins are independent of the new approval JSON. Changing a record
 // cannot broaden the approved three-file transform or rewrite prior evidence.
@@ -181,7 +182,7 @@ export async function verifyFunctionalWorkspace() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const gitFile = file => execFileSync('git', ['show', `${FUNCTIONAL_BASELINE}:${file}`], { cwd: root, maxBuffer: 8 * 1024 * 1024 });
   const beforeFiles = new Map(FUNCTIONAL_FILES.map(check => [check.file, gitFile(check.file)]));
-  const afterFiles = new Map(await Promise.all(FUNCTIONAL_FILES.map(async check => [check.file, await readFile(path.join(root, check.file))])));
+  const afterFiles = stripApprovedOwnerDirectFiles(new Map(await Promise.all(FUNCTIONAL_FILES.map(async check => [check.file, await readFile(path.join(root, check.file))]))));
   const patch = await readFile(path.join(root, FUNCTIONAL_PATCH_PATH)), recordBytes = await readFile(path.join(root, FUNCTIONAL_RECORD_PATH));
   const record = verifyApprovedFunctional(beforeFiles, afterFiles, patch, JSON.parse(recordBytes.toString('utf8')));
   assert.deepEqual(recordBytes, Buffer.from(`${JSON.stringify(record, null, 2)}\n`), 'Functional approval record serialization changed');
@@ -192,7 +193,7 @@ export async function verifyFunctionalWorkspace() {
     return nested.flat();
   }
   const currentNames = await sourceFiles('src');
-  const current = new Map(await Promise.all(currentNames.map(async file => [file, await readFile(path.join(root, file))]))), frozen = new Map(protectedNames.map(file => [file, gitFile(file)]));
+  const current = stripApprovedOwnerDirectFiles(new Map(await Promise.all(currentNames.map(async file => [file, await readFile(path.join(root, file))])))), frozen = new Map(protectedNames.map(file => [file, gitFile(file)]));
   const standing = await standingApprovalContext(root);
   const finalStanding = await finalStandingApprovalContext(root);
   const protectedCount = verifyFunctionalProtectedFiles(current, frozen, standing, finalStanding);

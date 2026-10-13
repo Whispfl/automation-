@@ -1,0 +1,50 @@
+-- ONE owner-authorized direct Root-position test. Run once in The Overworld.
+-- Begin outside Common Egg's 6.5-stud physical arrival radius; keep controls idle.
+-- This isolated option bypasses standing/clearance search; overlap/fall/physics escape are possible.
+-- Physical arrival and native hatch interaction range are reported separately; no hatch.
+-- No native island transition, hatch, equipment, pickups, purchases or spending.
+-- Pause/Resume/Stop preserve consumed diagnostic permission; do not reload/rearm.
+-- Controls: shared.__OC_PHASE1_INSTANCE:Pause(), :Resume(), :Stop().
+-- Read-only detail if blocked: shared.__OC_PHASE1_INSTANCE:PrintEggLocations("Common Egg").
+local player = game:GetService("Players").LocalPlayer
+assert(player and player.UserId == 10864747620, "[OC] This movement test is restricted to owner account 10864747620")
+
+local Config = {
+	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
+	PET_SETTINGS = { ENABLE_PET_INTELLIGENCE = true, OBJECTIVE_CURRENCY = "Coins", AUTO_HATCH = false,
+		AUTO_EQUIP = false, EQUIP_OWNED_TEAM_ONCE = false, MAXIMUM_SESSION_EQUIP_COMMANDS = 1,
+		AUTO_DELETE_PETS = false, AUTO_CRAFT_SHINY = false, AUTO_FUSE_PETS = false, LOG_TEAM_DETAILS = false,
+		MAXIMUM_TEAM_EVALUATIONS = 1000 },
+	HATCH_SETTINGS = { EGG_SELECTION_MODE = "MANUAL", SELECTED_EGGS = { "Common Egg" }, HATCH_ONE_EGG_ONCE = false,
+		ALLOWED_CURRENCIES = { "Coins" }, MAXIMUM_EGG_COST = 0, MAXIMUM_SESSION_COST = 0,
+		MAXIMUM_SESSION_HATCHES = 1, MAXIMUM_BATCH_HATCHES = 1, MAXIMUM_PLAN_CANDIDATES = 1,
+		PRESERVE_PROGRESSION_RESERVE = true, ENABLE_BACKGROUND_PICKUPS = false, LOG_EGG_DETAILS = false },
+	EGG_TRAVEL_SETTINGS = { MODE = "TRAVEL_ONLY", ENABLE_SELECTED_EGG_TRAVEL = true, ENABLE_NATIVE_ISLAND_TRAVEL = false,
+		ENABLE_DIRECT_POSITIONING = true, OWNER_DIRECT_EGG_TELEPORT_TEST = true, MAXIMUM_ATTEMPTS_PER_SELECTION = 1, SELECTION_REVISION = 0,
+		STABILITY_SECONDS = 1, ARRIVAL_TIMEOUT_SECONDS = 12, MAXIMUM_LOCATION_SECONDS = 120 },
+	OWNER_ONE_HATCH_TEST_SETTINGS = { OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST = false, OWNER_ONE_HATCH_TEST_ALLOWANCE = false,
+		AUTHORIZED_ACCOUNT_ID = 0, MAXIMUM_COIN_ALLOWANCE = 0, MAXIMUM_EGG_COST = 0 },
+	WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false, AUTO_UNLOCK_WORLDS = false,
+		AUTO_TRAVEL_FOR_PROGRESSION = false, AUTO_FARM_UNLOCK_REQUIREMENTS = false, MAXIMUM_WORLD_UNLOCK_COST = 0,
+		ENABLE_ECONOMIC_DIAGNOSTICS = false },
+	FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false, ISOLATED_PICKUP_PROBES = false,
+		ENABLE_EFFICIENCY_COMPARISON = false, ENABLE_ACTIVITY_SWITCHING = false },
+	ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false, AUTO_SELECT_BEST_ISLAND = false },
+	PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false, STATIONARY_ISOLATED_TEST = false, ENABLE_CLUSTER_ROUTING = false,
+		ENABLE_CONTINUOUS_SCANNING = false },
+	BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false, AUTO_BUY_FLAVORS = false,
+		ENABLE_SIMULTANEOUS_BLOWING = false, ENABLE_BUBBLE_RECOMMENDATIONS = false },
+	UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false, ENABLE_FLAVOR_UPGRADES = false,
+		AUTO_EQUIP_OWNED_UPGRADES = false, MAXIMUM_PURCHASE_COST = 0 },
+	FALL_EVENT_SETTINGS = { ENABLE_FALL_EVENT = false, AUTO_REBIRTH = false, AUTO_BUY_REBIRTH_UPGRADES = false,
+		AUTO_USE_FALL_ELIXIRS = false, AUTO_BUY_AUTUMN_SHOP_ITEMS = false },
+	PLAYTIME_SETTINGS = { AUTO_CLAIM_PLAYTIME = false },
+	MYSTERY_BOX_SETTINGS = { AUTO_OPEN_MYSTERY_BOXES = false, ENABLE_AUTOMATIC_CONTINUATION = false },
+	ANTIAFK_SETTINGS = { ENABLE_ANTI_AFK = false },
+	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15,
+		LOG_MOVEMENT_DIAGNOSTICS = true, LOG_ACCOUNT_DETAILS = false, LOG_PICKUP_DIAGNOSTICS = false,
+		LOG_UPGRADE_DIAGNOSTICS = false, LOG_ISLAND_DISCOVERY = false, LOG_DEPENDENCIES = false },
+}
+
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-direct-1d27e2a74ae5/dist/OC.lua"))()(Config)
+return OC

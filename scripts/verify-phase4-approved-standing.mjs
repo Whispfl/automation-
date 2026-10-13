@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sha256 } from './verify-phase4-approved-membership.mjs';
 import { FINAL_STANDING_FILE, finalStandingApprovalContext, verifyApprovedFinalStanding } from './verify-phase4-approved-final-standing.mjs';
+import { stripApprovedOwnerDirectFiles } from './verify-phase4-approved-owner-direct.mjs';
 
 // These independent pins are not derived from a mutable approval record.
 export const STANDING_BASELINE = 'aae628d9ac8f1941f9b0b92aaedc365be22fa6af';
@@ -132,7 +133,7 @@ export async function verifyStandingWorkspace() {
   const context = await standingApprovalContext(root);
   const names = execFileSync('git', ['ls-tree', '-r', '--name-only', STANDING_BASELINE, 'src'], { cwd: root, encoding: 'utf8' }).trim().split('\n').filter(file => file.endsWith('.luau'));
   async function files(dir) { const entries = await readdir(path.join(root, dir), { withFileTypes: true }); return (await Promise.all(entries.map(entry => entry.isDirectory() ? files(`${dir}/${entry.name}`) : entry.name.endsWith('.luau') ? [`${dir}/${entry.name}`] : []))).flat(); }
-  const current = new Map(await Promise.all((await files('src')).map(async file => [file, await readFile(path.join(root, file))])));
+  const current = stripApprovedOwnerDirectFiles(new Map(await Promise.all((await files('src')).map(async file => [file, await readFile(path.join(root, file))]))));
   const frozen = new Map(names.map(file => [file, git(STANDING_BASELINE, file)]));
   const finalStanding = await finalStandingApprovalContext(root);
   const count = verifyStandingProtectedFiles(current, frozen, context.patches, context.record, finalStanding);

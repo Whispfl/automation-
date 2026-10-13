@@ -1,0 +1,84 @@
+[12:59:12] [OC][INIT] Phase 4 initialized | PlaceId=85896571713843 | build=fec9bed3bd3f | Overworld discovery owner-confirmed in session; rejoin persistence and world purchases pending
+[12:59:12] [OC][SCOPE] One Brain/scheduler: configured progression and actual-shortage stationary Coins/Gems farming on The Void/Zen; bubbles require a real bubble objective.
+[12:59:12] [OC][SCOPE] Phase 4: actual owned-team/native egg estimates; hatch and equipment require separate Config authorization; destructive actions OFF; final odds/total time may remain UNKNOWN.
+[12:59:12] [OC][SCOPE] Egg mode=TRAVEL_ONLY | OWNER_ONE_HATCH_TEST_ALLOWANCE=false | normal world goal unchanged; exceptional one-request consumption persists only in this client VM
+[12:59:12] [OC][SCOPE] Local scoped features | selected-egg travel=true; playtime=false; owned ordinary box=false; guarded ScrollLock anti-AFK=false | no additional hatch/spend permission; owner live verification pending
+[12:59:12] [OC][CONTROL] START | account analysis and Brain-selected tasks enabled by Config | phase=4
+[12:59:12] [OC][DIAGNOSTIC] Chunker: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Eggs: LOADING
+[12:59:12] [OC][DIAGNOSTIC] FishingPlayerRods: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Flavors: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GetEggPool: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GetPickupZones: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GuiFrame: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Gum: LOADING
+[12:59:12] [OC][DIAGNOSTIC] HatchPresentation: LOADING
+[12:59:12] [OC][DIAGNOSTIC] IsTradingPlaza: LOADING
+[12:59:12] [OC][DIAGNOSTIC] LocalData: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Mastery: LOADING
+[12:59:12] [OC][DIAGNOSTIC] PetUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Pets: LOADING
+[12:59:12] [OC][DIAGNOSTIC] PhysicalItem: LOADING
+[12:59:12] [OC][DIAGNOSTIC] ProximityPrompt: LOADING
+[12:59:12] [OC][DIAGNOSTIC] QuestUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Remote: LOADING
+[12:59:12] [OC][DIAGNOSTIC] StatsUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Time: LOADING
+[12:59:12] [OC][DIAGNOSTIC] WorldUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Worlds: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Chunker: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Eggs: LOADING
+[12:59:12] [OC][DIAGNOSTIC] FishingPlayerRods: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Flavors: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GetEggPool: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GetPickupZones: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GuiFrame: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Gum: LOADING
+[12:59:12] [OC][DIAGNOSTIC] HatchPresentation: LOADING
+[12:59:12] [OC][DIAGNOSTIC] IsTradingPlaza: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Mastery: LOADING
+[12:59:12] [OC][DIAGNOSTIC] PetUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Pets: LOADING
+[12:59:12] [OC][DIAGNOSTIC] PhysicalItem: LOADING
+[12:59:12] [OC][DIAGNOSTIC] ProximityPrompt: LOADING
+[12:59:12] [OC][DIAGNOSTIC] QuestUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Remote: LOADING
+[12:59:12] [OC][DIAGNOSTIC] StatsUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Time: LOADING
+[12:59:12] [OC][DIAGNOSTIC] WorldUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Worlds: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Chunker: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Eggs: LOADING
+[12:59:12] [OC][DIAGNOSTIC] FishingPlayerRods: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Flavors: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GetEggPool: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GetPickupZones: LOADING
+[12:59:12] [OC][DIAGNOSTIC] GuiFrame: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Gum: LOADING
+[12:59:12] [OC][DIAGNOSTIC] HatchPresentation: LOADING
+[12:59:12] [OC][DIAGNOSTIC] IsTradingPlaza: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Mastery: LOADING
+[12:59:12] [OC][DIAGNOSTIC] PetUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Pets: LOADING
+[12:59:12] [OC][DIAGNOSTIC] PhysicalItem: LOADING
+[12:59:12] [OC][DIAGNOSTIC] ProximityPrompt: LOADING
+[12:59:12] [OC][DIAGNOSTIC] QuestUtil: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Remote: LOADING
+[12:59:12] [OC][DIAGNOSTIC] Time: LOADING
+[12:59:12] [OC][DIAGNOSTIC] WorldUtil: LOADING
+[12:59:12] [OC][GOAL] TASK:daily-challenge-3:1 | Progress daily-challenge-3 (Gems) | Received native task: 0/50000000 Gems. No task is accepted or claimed by OC.
+[12:59:12] [OC][PET][ANALYSIS] Coins team: 25 records / 63 pets; equipped=7; native score 1752.000 -> 1752.000 (estimate) | hatch=false; equip=false
+[12:59:12] [OC][EGG_PLAN] TRAVEL_ONLY | physical original locations=6; unique hatch models=5 (separate verification) | owned native benchmark=1752; comparisons=69; global optimum UNKNOWN | hatch/equipment/pickups OFF; spending=0; target selection/physical arrival pending
+[12:59:12] [OC][PET][TEAM_PLAN] Coins | team=1 | equipped=7/native limit=7 | 25 records/63 pets | native estimate 1752.000 -> 1752.000 | search=CONVERGED_BOUNDED_HEURISTIC; unique native evaluations=69/1000; cache hits=0; duplicate/self skips=89/4; rounds=1 | global optimum UNKNOWN | proposed: Normal Yellow Fox [2e7f0e1c-358c-4005-9653-f9afcfa4573a], Normal Orange Deer [fc39ca4c-e604-4eed-ac3c-d41392893dbb], Normal Orange Deer [fc39ca4c-e604-4eed-ac3c-d41392893dbb], Normal Red Golem [0b8d6eef-5493-448d-a6fd-9d15dbbdba96], Normal Red Golem [0b8d6eef-5493-448d-a6fd-9d15dbbdba96], Normal Red Golem [0b8d6eef-5493-448d-a6fd-9d15dbbdba96], Normal Red Golem [0b8d6eef-5493-448d-a6fd-9d15dbbdba96] | details: OC:PrintPetTeam(); earnings impact unmeasured
+[12:59:12] [OC][EGG_TRAVEL] INSTANCE_DIAGNOSTIC_READ_ONLY | scope=SELECTED_TARGET; egg=Common Egg; selected=I0011; matching Models=11; location verified=2; registered=0; shown=4; omitted=7 | PHYSICAL_LOCATION_VERIFIED; hatch eligibility remains independent
+id=I0011 SELECTED; parent=Chunker[I0012]; Root=(-10.255,7.736,-79.812); Prompt=(-7.755,9.136,-79.812); location=true; registered=false; access=true; native=PENDING
+id=I0013; parent=Chunker[I0012]; Root=(-80.873,8.229,5.961); Prompt=(-82.307,9.629,3.913); location=true; registered=false; access=true; native=PENDING
+id=I0001; parent=Generic[I0002]; Root=ABSENT/UNKNOWN; Prompt=ABSENT/UNKNOWN; location=false; registered=false; access=true; native=UNVERIFIED
+id=I0003; parent=Generic[I0002]; Root=ABSENT/UNKNOWN; Prompt=ABSENT/UNKNOWN; location=false; registered=false; access=true; native=UNVERIFIED
+[12:59:12] [OC][EGG_TRAVEL] TARGET_SELECTED | egg=Common Egg; instance=I0011 | world=The Overworld; island=surface/UNKNOWN | generation=1; revision=0 | distance=73.68; physical policy radius=6.5 | access=LocalData unlock membership; location=verified native physical original Root; physical radius is diagnostic policy, hatch eligibility separate | TRAVEL_ONLY MANUAL selected Common Egg @ The Overworld/surface | actual loaded permanent egg/access; ordinary native currency cost observed; diagnostic physical selection, no optimal ROI claim; closest source-associated physical original after native spatial/access checks; distance is travel policy, not hatch identity proof | observed distance=73.67820739746094; economic ROI/affordability/reserves do not authorize or block this zero-spend diagnostic; hatch/equipment/pickups OFF; native path, geometry and stable range still required | direct attempts=0; native travel attempts=0; hatch commands=0; spending=0
+[12:59:12] [OC][EGG_TRAVEL] PHYSICAL_TARGET_RESOLVED | egg=Common Egg; instance=I0011 | world=The Overworld; island=surface/UNKNOWN | generation=1; revision=0 | distance=73.68; physical policy radius=6.5 | access=LocalData unlock membership; location=verified native physical original Root; physical radius is diagnostic policy, hatch eligibility separate | Exact accessible egg Instance and native physical Root resolved; safe standing geometry is checked before assignment; hatch interaction separate | direct attempts=0; native travel attempts=0; hatch commands=0; spending=0
+[12:59:12] [OC][EGG_TRAVEL] TRAVEL_BLOCKED | egg=Common Egg; instance=I0011 | world=The Overworld; island=surface/UNKNOWN | generation=1; revision=0 | distance=73.68; physical policy radius=6.5 | access=LocalData unlock membership; location=verified native physical original Root; physical radius is diagnostic policy, hatch eligibility separate | No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required | direct attempts=0; native travel attempts=0; hatch commands=0; spending=0
+[12:59:12] [OC][EGG_TRAVEL] TRAVEL_BLOCKED | egg=Common Egg; instance=I0011 | world=The Overworld; island=surface/UNKNOWN | generation=1; revision=0 | distance=UNKNOWN; native radius=UNKNOWN | access/instance/standing geometry=preflight unresolved; no arrival claimed | One bounded diagnostic consumed; no retry or revision rearm | direct attempts=0; native travel attempts=0; hatch commands=0; spending=0
+[12:59:27] [OC][SUMMARY] RUNNING | goal=TRAVEL_ONLY:Common Egg | egg travel=HALTED | direct attempts=0 | native travel attempts=0 | hatch commands=0 | equipment commands=0 | spending=0 | Coins=7267061 (balance change unknown) | Gems=1847585 (balance change unknown) | blocker=No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required | interval 15.0s; owner live acceptance pending
+[12:59:29] [OC][EGG_PLAN] TRAVEL_ONLY | physical original locations=6; unique hatch models=12 (separate verification) | owned native benchmark=1752; comparisons=69; global optimum UNKNOWN | hatch/equipment/pickups OFF; spending=0; target selection/physical arrival pending
+[12:59:42] [OC][SUMMARY] RUNNING | goal=TRAVEL_ONLY:Common Egg | egg travel=HALTED | direct attempts=0 | native travel attempts=0 | hatch commands=0 | equipment commands=0 | spending=0 | Coins=7267061 (balance change +0) | Gems=1847585 (balance change +0) | blocker=No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required | interval 15.0s; owner live acceptance pending

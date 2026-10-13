@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sha256 } from './verify-phase4-approved-membership.mjs';
+import { stripApprovedOwnerDirectDelta } from './verify-phase4-approved-owner-direct.mjs';
 
 // These pins independently bind the direct owner approval; mutable metadata
 // cannot authorize a different patch or rewrite the original review/evidence.
@@ -97,7 +98,8 @@ export async function verifyFinalStandingWorkspace() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const git = file => execFileSync('git', ['show', `${FINAL_STANDING_BASELINE}:${file}`], { cwd: root, maxBuffer: 16 * 1024 * 1024 });
   const context = await finalStandingApprovalContext(root);
-  verifyApprovedFinalStanding(git(FINAL_STANDING_FILE), await readFile(path.join(root, FINAL_STANDING_FILE)), context.patch, context.record);
+  const current = stripApprovedOwnerDirectDelta(FINAL_STANDING_FILE, await readFile(path.join(root, FINAL_STANDING_FILE)));
+  verifyApprovedFinalStanding(git(FINAL_STANDING_FILE), current, context.patch, context.record);
   assert.equal(sha256(await readFile(path.join(root, FINAL_STANDING_PROPOSAL))), FINAL_STANDING_PROPOSAL_SHA256, 'Original final standing proposal metadata changed');
   assert.deepEqual(await readFile(path.join(root, FINAL_STANDING_RECORD)), Buffer.from(`${JSON.stringify(context.record, null, 2)}\n`), 'Final standing approval record serialization changed');
   for (const dependency of context.record.approvedDependencies) assert.equal(sha256(await readFile(path.join(root, dependency.path))), dependency.sha256, 'Required exact standing patch changed');
