@@ -548,4 +548,34 @@ function OCController:RewardAttributionBlocked()
 		or self.Rewards and self.Rewards.AttributionBlocked and self.Rewards:AttributionBlocked() == true
 end
 
+-- PHASE5_READ_ONLY_MASTERY_BEGIN
+-- Explicit report calls only: no scheduler submission, action dispatch, refresh or new loop.
+function OCController:GetMasteryPlan()
+	local snapshot, now = self.Reader:GetSnapshot(), os.clock()
+	local context = { Now = now }
+	if not self.Destroyed and (self.Config.MASTERY_SETTINGS or {}).ENABLE_MASTERY_INTELLIGENCE then
+		local farming = self.Farming
+		local area = farming and farming.Tracker and farming.Tracker.Current
+		local currency = area and (area.Name == "The Void" and "Coins" or area.Name == "Zen" and "Gems")
+		local allowed = currency and area.World == "The Overworld"
+			and table.find(self.Config.ISLAND_SETTINGS.SELECTED_ISLANDS, area.Name)
+			and snapshot.UnlockedWorlds and snapshot.UnlockedWorlds[area.World] ~= nil
+			and snapshot.UnlockedIslands and snapshot.UnlockedIslands[area.Name] ~= nil
+		if allowed and not self:RewardAttributionBlocked() then
+			local rates = farming:_pickupRates(area.Key, now)
+			local sample = rates and rates.STATIONARY
+			if sample then context.StationaryRate = { Currency = currency, Ready = sample.Ready,
+				ScopeVerified = true, Seconds = sample.Seconds, LastAt = sample.LastAt,
+				PerMinute = sample.PerMinute and sample.PerMinute[currency], Area = area.Key } end
+		end
+	end
+	return self.Brain:AnalyzeMastery(snapshot, not self.Destroyed and self.Knowledge or nil, context)
+end
+
+function OCController:PrintMasteryPlan()
+	local report = self:GetMasteryPlan()
+	self:Log("MASTERY", require(script.Parent.MasteryPolicy).Format(report))
+	return report
+end
+-- PHASE5_READ_ONLY_MASTERY_END
 return OCController

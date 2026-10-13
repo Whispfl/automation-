@@ -1,0 +1,38 @@
+// Actual read-only Phase 5 modules, using synthetic offline account/catalog facts only.
+import assert from 'node:assert/strict';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { bundle, sources } from './bundle.mjs';
+
+const root = path.resolve(import.meta.dirname, '..');
+const source = await sources(root);
+const generated = bundle(source);
+const policy = source.modules.find(module => module.name === 'MasteryPolicy');
+assert(policy, 'Read-only Mastery policy must be bundled');
+assert(!/\b(?:FireServer|InvokeServer|Submit|Execute|CFrame|PivotTo|MoveTo|task\.spawn|task\.defer|task\.delay)\b/.test(policy.source), 'Mastery policy has no transport, scheduler submission, movement or background loop');
+const environment = (await readFile(path.join(root, 'tests/foundation.luau'), 'utf8')).split('-- BUNDLE INSERTION POINT')[0];
+const fixture = await readFile(path.join(root, 'tests/phase5-mastery.luau'), 'utf8');
+const loaderPath = path.join(root, 'examples/Phase5MasteryReadOnly.luau');
+const loader = await readFile(loaderPath, 'utf8');
+const expectedURL = `https://raw.githubusercontent.com/Whispfl/automation-/phase5-mastery-${generated.buildId}/dist/OC.lua`;
+assert.equal((loader.match(/game:HttpGet\(/g) || []).length, 1, 'Read-only loader performs one public bundle fetch');
+assert(loader.includes(`game:HttpGet("${expectedURL}")`), 'Read-only loader has the exact immutable Phase 5 build pin');
+assert(!/\b(?:GitHubToken|Authorization|Request|HatchEgg|FireServer|InvokeServer)\b/.test(loader), 'Read-only loader has no tokens, transport or action call');
+const loaderCall = loader.indexOf('local OC = loadstring(game:HttpGet(');
+assert(loaderCall >= 0, 'Read-only loader uses the function-returning public bundle');
+const loaderPrefix = loader.slice(0, loaderCall);
+await mkdir(path.join(root, '.test-output'), { recursive: true });
+const file = path.join(root, '.test-output/phase5-mastery.luau');
+await writeFile(file, `${environment}\n${generated.library}\nlocal function phase5LoaderOverrides()\n${loaderPrefix}\nreturn Config\nend\n${fixture}`);
+const compiler = process.env.LUAU_COMPILE_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau-compile.exe' : 'luau-compile');
+const executable = process.env.LUAU_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau.exe' : 'luau');
+const compile = spawnSync(compiler, ['--null', path.join(root, 'src/OCFoundation/MasteryPolicy.luau'), loaderPath, file], { encoding: 'utf8' });
+if (compile.error) throw compile.error;
+assert.equal(compile.status, 0, compile.stdout + compile.stderr);
+const run = spawnSync(executable, [file], { encoding: 'utf8' });
+if (run.error) throw run.error;
+process.stdout.write(run.stdout || '');
+process.stderr.write(run.stderr || '');
+assert.equal(run.status, 0, 'Read-only Mastery actual-source synthetic regressions must pass');
+console.log('[OC PHASE5] Official Luau compilation PASS; synthetic read-only Mastery eligibility/progression regressions PASS; no live actions performed.');

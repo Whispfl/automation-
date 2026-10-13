@@ -1,5 +1,7 @@
 # Independent Phase 5 entry — planning only
 
+The owner has now authorized and implemented the first read-only Mastery component. [Implementation and limits](PHASE5-MASTERY-READ-ONLY.md) describe the additive GameKnowledge/OCBrain/controller report APIs and offline coverage. Reward intelligence remains the next separately scoped step; no gameplay executor or action is authorized.
+
 Universal egg movement and full Phase 4 acceptance do not prevent independent Mastery/reward eligibility planning. The successful isolated movement test does not authorize Phase 5 gameplay actions or a general teleport exception.
 
 Proposed next scope:

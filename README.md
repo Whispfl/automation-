@@ -1,6 +1,16 @@
-# BGSI OC — Phase 4 physical egg location and TRAVEL_ONLY retest
+# BGSI OC — Phase 5 read-only Mastery intelligence
 
-Current repository: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, branch **main**. The trailing hyphen is part of the repository name.
+Current repository: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, development branch **codex/phase4-test-b**. The trailing hyphen is part of the repository name.
+
+The new [Mastery component](docs/PHASE5-MASTERY-READ-ONLY.md) reports native sequential tiers, eligibility evidence, prices, explicit reserves, remaining currency packages and Mastery-first recommendations. It uses the existing GameKnowledge, account reader and OCBrain; all existing methods and gameplay behavior are preserved. Qualified stationary income informs conditional funding ETA, never invented Mastery earnings.
+
+[Phase5MasteryReadOnly.luau](examples/Phase5MasteryReadOnly.luau) is the complete pinned read-only loader: controls stay STOPPED, all gameplay actions and spending are OFF. Reports are available with `OC:GetMasteryPlan()` or `OC:PrintMasteryPlan()`. Loading facts remain UNKNOWN until actual LocalData/native definitions are ready. No new gameplay test is requested.
+
+The successful hatch and isolated direct movement releases remain immutable. [Current Phase 4 acceptance](docs/PHASE4.md) keeps those milestones distinct from universal movement and full acceptance. Raw latest owner evidence remains local; public summaries are sanitized. Rewards intelligence is the next separately scoped Phase 5 milestone.
+
+## Historical Phase 4 delivery notes
+
+The following notes describe earlier releases. Their old retest instructions are superseded by the current Phase 4 status; do not repeat the successful teleport or hatch.
 
 The owner tested build `a0ee412ac828`: initialization/account reads worked, but Common Egg's eleven observations produced zero accepted models and no approved destination. **No movement, hatch, spending or equipment change occurred.** The earlier `141b7608bedf` benchmark converged in 66 native comparisons at score 1,752. Earlier equipment acceptance and immutable release pins are preserved.
 

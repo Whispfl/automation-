@@ -1135,4 +1135,149 @@ function GameKnowledge:RewardContract()
 		ServerValidation = "UNAVAILABLE", LiveVerification = "OWNER_PENDING" }
 end
 
+-- PHASE5_READ_ONLY_MASTERY_BEGIN
+-- A detached observation for advisory planning. No request, claim, or scheduler task is emitted.
+function GameKnowledge:MasteryContext(snapshot, now, settings)
+	settings = settings or {}
+	local startedAt = os.clock()
+	local function finite(value)
+		return type(value) == "number" and value == value and value >= 0 and value < math.huge
+	end
+	local function equal(left, right, seen)
+		if type(left) ~= type(right) then return false end
+		if type(left) ~= "table" then return left == right end
+		seen = seen or {}
+		if seen[left] == right then return true end
+		seen[left] = right
+		for key, value in pairs(left) do if not equal(value, right[key], seen) then return false end end
+		for key in pairs(right) do if left[key] == nil then return false end end
+		return true
+	end
+	local context = { Catalog = {}, Account = nil, Snapshot = type(snapshot) == "table" and detached(snapshot) or {},
+		ObservedAt = now, Fresh = false, CategoryObservations = {}, TierObservations = {}, Balances = {},
+		EffectiveUpgrades = type(snapshot) == "table" and snapshot.Upgrades and detached(snapshot.Upgrades.MasteryUpgrades) or nil,
+		Access = { Visibility = "UNKNOWN", PhysicalEligibility = "UNKNOWN", ServerEligibility = "UNKNOWN",
+			Reason = "Received AreasUnlocked unavailable; physical/server purchase requirements unverified" },
+		AccessState = "UNKNOWN", TradingPlazaStatus = "UNKNOWN",
+		Evidence = "Shared.Data.Mastery.Upgrades; Client.Gui.Frames.Mastery:257,539-568; ClientScript:2010",
+		ActionsEnabled = false }
+	local function block(reason)
+		context.Fresh, context.Blocker = false, reason
+		return context
+	end
+	if self.Destroyed or type(snapshot) ~= "table" or snapshot.Ready ~= true then return block("Ready account snapshot unavailable") end
+	local maximumAge = settings.MAXIMUM_ACCOUNT_AGE_SECONDS or 10
+	if not finite(now) or not finite(snapshot.ReadAt) or not finite(maximumAge)
+		or now < snapshot.ReadAt or now - snapshot.ReadAt > maximumAge then return block("Account snapshot is stale or its age is unknown") end
+	if not finite(snapshot.Revision) or snapshot.Revision % 1 ~= 0 or snapshot.Revision ~= self.Reader.Revision then
+		return block("Account snapshot revision differs from the current reader revision")
+	end
+	local current = self.Reader:GetSnapshot()
+	if type(current) ~= "table" or current.Revision ~= snapshot.Revision then return block("Current account snapshot revision unavailable or changed") end
+	local identity = snapshot.Identity and snapshot.Identity.UserId
+	local player = self.Reader.Player
+	if not finite(identity) or identity <= 0 or identity % 1 ~= 0 or not player or player.UserId ~= identity then
+		return block("Snapshot account identity differs from the actual reader player or is unavailable")
+	end
+	context.AccountId = identity
+	local raw = self.Reader:GetLiveProfile()
+	if type(raw) ~= "table" then return block("Ready native LocalData profile unavailable") end
+	local account = detached(raw)
+	context.Account = account
+	local function matchesSnapshot(profile)
+		local upgrades = snapshot.Upgrades or {}
+		if not equal(upgrades.MasteryLevels, profile.MasteryLevels) or not equal(upgrades.MasteryUpgrades, profile.MasteryUpgrades)
+			or not equal(snapshot.UnlockedIslands, profile.AreasUnlocked) or not equal(snapshot.UnlockedWorlds, profile.WorldsUnlocked) then return false end
+		for currency, balance in pairs(snapshot.Balances or {}) do if balance ~= profile[currency] then return false end end
+		return true
+	end
+	if not matchesSnapshot(account) then return block("Snapshot Mastery, unlock, or currency facts differ from live LocalData") end
+	local catalog = self:Get("Mastery")
+	if type(catalog) ~= "table" or type(catalog.Upgrades) ~= "table" then return block("Native Mastery.Upgrades catalog unavailable") end
+	context.Catalog = detached(catalog.Upgrades)
+	local areas = snapshot.UnlockedIslands
+	if type(areas) == "table" then
+		context.Access.Visibility = areas["Outer Space"] ~= nil and "VISIBLE" or "LOCKED"
+		context.Access.Reason = areas["Outer Space"] ~= nil and "Received AreasUnlocked[Outer Space] entry is present; native HUD prerequisite observed"
+			or "Native Mastery HUD requires an AreasUnlocked[Outer Space] entry"
+	end
+	local plaza = self:Get("IsTradingPlaza")
+	if type(plaza) == "function" then
+		local ok, value = pcall(plaza)
+		if ok and type(value) == "boolean" then
+			context.TradingPlazaStatus = value and "ACTIVE" or "INACTIVE"
+			if value then context.Access.Visibility, context.Access.Reason = "LOCKED", "Native Mastery HUD is unavailable in Trading Plaza" end
+		end
+	end
+	context.AccessState = context.Access.Visibility
+	local currencies = {}
+	for currency in pairs(snapshot.Balances or {}) do currencies[currency] = true end
+	local levels = snapshot.Upgrades and snapshot.Upgrades.MasteryLevels
+	-- Permanent scope is established by the completed native catalog audit, not visibility or Config order.
+	local permanent = { Pets = true, Buffs = true, Shops = true, Minigames = true, Rifts = true }
+	for name, definition in pairs(context.Catalog) do
+		if type(name) ~= "string" or type(definition) ~= "table" then continue end
+		local observation = { Visibility = "VISIBLE", VisibilityReason = "Native optional ShouldShow predicate is absent",
+			PrerequisiteReason = context.Access.Reason, EarlyUnlockStatus = "UNKNOWN", PriceStatus = "UNKNOWN",
+			Permanence = permanent[name] and "VERIFIED_PERMANENT" or "UNKNOWN",
+			PermanenceEvidence = "Completed native MASTERY_AND_UPGRADES.md:40; an unreviewed visible category is not assumed permanent" }
+		context.CategoryObservations[name] = observation
+		if definition.ShouldShow ~= nil then
+			if type(definition.ShouldShow) == "function" then
+				local ok, shown = pcall(definition.ShouldShow, detached(account))
+				if ok and type(shown) == "boolean" then
+					observation.Visibility = shown and "VISIBLE" or "LOCKED"
+					observation.VisibilityReason = shown and "Native ShouldShow returned true" or "Native ShouldShow returned false"
+				else observation.Visibility, observation.VisibilityReason = "UNKNOWN", "Native ShouldShow failed or returned an unsupported result" end
+			else observation.Visibility, observation.VisibilityReason = "UNKNOWN", "Native ShouldShow interface is not callable" end
+		end
+		local tierObservations = {}
+		context.TierObservations[name] = tierObservations
+		for index, level in pairs(type(definition.Levels) == "table" and definition.Levels or {}) do
+			if type(index) ~= "number" or index % 1 ~= 0 or index < 1 or type(level) ~= "table" then continue end
+			local tier = { EarlyUnlock = false, EarlyUnlockStatus = "OBSERVED", PriceStatus = "UNKNOWN",
+				PriceReason = "Native fixed item Cost unavailable; callable costs are not a verified Mastery contract" }
+			tierObservations[index] = tier
+			if level.UnlockEarly ~= nil then
+				if type(level.UnlockEarly) == "function" then
+					local ok, early = pcall(level.UnlockEarly, detached(account))
+					if ok and type(early) == "boolean" then tier.EarlyUnlock = early
+					else tier.EarlyUnlock, tier.EarlyUnlockStatus = nil, "UNKNOWN" end
+				else tier.EarlyUnlock, tier.EarlyUnlockStatus = nil, "UNKNOWN" end
+			end
+			if tier.EarlyUnlock == true then
+				tier.NativePrice, tier.PriceStatus, tier.PriceReason = { Type = "Currency", Currency = "Coins", Amount = 0 }, "OBSERVED", "Native UnlockEarly returned true; native UI substitutes zero Coins"
+			elseif tier.EarlyUnlockStatus == "UNKNOWN" then
+				tier.PriceReason = "Native early-unlock predicate unavailable; effective price is unknown"
+			elseif type(level.Cost) == "table" then
+				tier.NativePrice, tier.PriceStatus, tier.PriceReason = detached(level.Cost), "OBSERVED", "Observed native fixed tier Cost"
+			end
+			if type(level.Cost) == "table" and type(level.Cost.Currency) == "string" then currencies[level.Cost.Currency] = true end
+			if tier.NativePrice and type(tier.NativePrice.Currency) == "string" then currencies[tier.NativePrice.Currency] = true end
+		end
+		local currentLevel = type(levels) == "table" and levels[name] or nil
+		local nextTier = finite(currentLevel) and currentLevel % 1 == 0 and tierObservations[currentLevel + 1]
+		if nextTier then
+			for key, value in pairs(nextTier) do observation[key] = detached(value) end
+		else observation.PriceReason = "Actual next tier unavailable; missing category levels are not inferred as zero" end
+	end
+	for currency in pairs(currencies) do if finite(account[currency]) then context.Balances[currency] = account[currency] end end
+	local final = self.Reader:GetLiveProfile()
+	local finalSnapshot = self.Reader:GetSnapshot()
+	if self.Destroyed or self.Reader.Revision ~= snapshot.Revision or type(finalSnapshot) ~= "table" or finalSnapshot.Revision ~= snapshot.Revision
+		or self.Reader.Player ~= player or player.UserId ~= identity or type(final) ~= "table" or not matchesSnapshot(final) then
+		return block("Account identity, revision, Mastery, unlock, or balance facts changed during native observation")
+	end
+	for _, field in ipairs({ "MasteryLevels", "MasteryUpgrades", "AreasUnlocked", "WorldsUnlocked", "OGData" }) do
+		if not equal(account[field], final[field]) then return block("Native account prerequisite facts changed during observation") end
+	end
+	for currency in pairs(currencies) do if account[currency] ~= final[currency] then return block("Relevant native currency balance changed during observation") end end
+	local finalCatalog = self:Get("Mastery")
+	if type(finalCatalog) ~= "table" or not equal(context.Catalog, finalCatalog.Upgrades) then return block("Native Mastery definitions changed during observation") end
+	context.CompletedAt = now + math.max(0, os.clock() - startedAt)
+	if context.CompletedAt - snapshot.ReadAt > maximumAge then return block("Account snapshot became stale during native observation") end
+	context.Fresh = true
+	return context
+end
+-- PHASE5_READ_ONLY_MASTERY_END
 return GameKnowledge

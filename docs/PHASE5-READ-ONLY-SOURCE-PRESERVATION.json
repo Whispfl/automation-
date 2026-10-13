@@ -1,0 +1,53 @@
+{
+  "scope": "Owner-authorized read-only Mastery intelligence; all existing methods and gameplay interfaces preserved",
+  "baselineCommit": "f0efe911c8958118ae4084f88be376c647d21e33",
+  "changed": [
+    {
+      "file": "src/OCFoundation/OCConfig.luau",
+      "beforeSha256": "25af644b4063743da3af29835ac2903d8aebf06fa42912d1cb296c1e3884a277",
+      "afterSha256": "8f939b471d5c1bd5f0690d56aece7c5120e58d7501bf99f4590990222f5df597"
+    },
+    {
+      "file": "src/OCFoundation/OCBrain.luau",
+      "beforeSha256": "4c106958fa68cd9d006d9a2c273e5dedae9ecac54f69c71b77e04ff72d3696ca",
+      "afterSha256": "fcbb5df328a1be58f722bf9e41a83910f45bb4f6dcc207f7f88d066b96511a2b"
+    },
+    {
+      "file": "src/OCFoundation/OCController.luau",
+      "beforeSha256": "334e7cf82ed1ec4e1be06f4d4b61e222d92c7d75c65a32f12091444f7b1c4f65",
+      "afterSha256": "b16c11cea2a08f3bf394abda0015686d286087e1ba74eefda1d6416943981ad7"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "beforeSha256": "e94831b4a0ec3e0049cd642e3c22f45fae54bb616e6c02bb3422cdf05153a202",
+      "afterSha256": "508796ac3bc0b5319a00c2abbcb1f0e172216ea8f78c5063d8ea187e22f65a91"
+    }
+  ],
+  "addition": {
+    "file": "src/OCFoundation/MasteryPolicy.luau",
+    "sha256": "ba587cacee0f7f34f9d6ed84dea17d13db9edd6e6bb0d8d43107103178120d70"
+  },
+  "projection": "Remove only each exact pinned PHASE5_READ_ONLY_MASTERY_BEGIN/END block and the exact new pure module; compare every remaining source byte to baseline. Historical approval records are not rewritten.",
+  "releasePins": [
+    {
+      "tag": "phase4-direct-1d27e2a74ae5",
+      "commit": "4db553f3e2ce21bd1e822c9f1414a1933c8d30cb"
+    },
+    {
+      "tag": "phase4-hatch-100f2c1907ae",
+      "commit": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af"
+    },
+    {
+      "tag": "phase4-travel-0d5caa499c8c",
+      "commit": "25890f224f0448f148d009e65514c129aeb4f59c"
+    },
+    {
+      "tag": "phase4-travel-fec9bed3bd3f",
+      "commit": "e939f07f7ae898f3491e089615da802d7a07b9e5"
+    },
+    {
+      "tag": "phase4-hatch-f4e10f71c317",
+      "commit": "55bf4cf437cccd826180519c482bdc6edbbbb51b"
+    }
+  ]
+}

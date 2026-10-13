@@ -24,6 +24,15 @@ return {
 		READ_MASTERY = true, --// Include received Mastery levels and Mastery upgrade records.
 		READ_UNLOCKS = true, --// Include discovered areas and unlocked worlds.
 	},
+	-- PHASE5_READ_ONLY_MASTERY_BEGIN
+	MASTERY_SETTINGS = {
+		ENABLE_MASTERY_INTELLIGENCE = false, --// Opt into explicit read-only Mastery reports; no action permission or automatic task.
+		MAXIMUM_ACCOUNT_AGE_SECONDS = 10, --// Reject stale or future-dated received account observations.
+		MAXIMUM_RATE_AGE_SECONDS = 30, --// Bound measured stationary funding extrapolation age.
+		MINIMUM_RATE_SAMPLE_SECONDS = 15, --// Require adequate observed stationary sample duration.
+		CATEGORY_ORDER = { "Pets", "Buffs", "Shops", "Minigames", "Rifts" }, --// Deterministic order when marginal earning benefit is unmeasured; does not omit other eligible categories.
+	},
+	-- PHASE5_READ_ONLY_MASTERY_END
 	BRAIN_SETTINGS = {
 		ENABLE_EARNING_RECOMMENDATIONS = true, --// Recommend equipping existing pets and useful gum or flavor upgrades.
 		ENABLE_WORLD_RECOMMENDATIONS = true, --// Recommend verified island discovery and world gate prerequisites.

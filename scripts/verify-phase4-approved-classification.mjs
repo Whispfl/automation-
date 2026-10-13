@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { stripPhase5Delta } from './verify-phase5-read-only.mjs';
 import { sha256, extractFrozenMethod, verifyHistoricalManifest } from './verify-phase4-approved-membership.mjs';
 
 // These pins come from the owner's exact approved patch and immutable pre-edit
@@ -150,7 +151,7 @@ export async function verifyClassificationWorkspace() {
     readFile(path.join(root, CLASSIFICATION_RECORD_PATH)), readFile(path.join(root, 'docs/PHASE4-TEST-A-PRESERVATION.json')),
     readFile(path.join(root, 'docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json')),
   ]);
-  const record = verifyApprovedClassification(gitFile(CLASSIFICATION_FILE), after, patch, JSON.parse(recordBytes.toString('utf8')));
+  const record = verifyApprovedClassification(gitFile(CLASSIFICATION_FILE), stripPhase5Delta(CLASSIFICATION_FILE, after), patch, JSON.parse(recordBytes.toString('utf8')));
   assert.deepEqual(recordBytes, Buffer.from(`${JSON.stringify(record, null, 2)}\n`), 'Classification approval record serialization changed');
   verifyClassificationHistoricalRecords(manifest, gitFile('docs/PHASE4-TEST-A-PRESERVATION.json'), membership,
     gitFile('docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json'));

@@ -43,7 +43,7 @@ assert.equal(mechanics.split(positionAssignment).length - 1, 1, 'Only one explic
 const ownerDirectAssignment = 'fresh.CharacterRoot.CFrame = directFrame';
 assert.equal(mechanics.split(ownerDirectAssignment).length - 1, 1, 'One separately owner-authorized false-by-default direct Root test transform site');
 assert(!/\b(?:CFrame|PivotTo|WalkSpeed)\s*=/.test(mechanics.replace(positionAssignment, '').replace(ownerDirectAssignment, '')), 'No other position or speed modification');
-assert(!/GitHubToken|Authorization|\bRequest\s*=/.test(generated.output), 'No client authentication');
+assert(!/GitHubToken|\bAuthorization\b|\bRequest\s*=/.test(generated.output), 'No client authentication (read-only ActionAuthorization metadata is not an HTTP header)');
 for (const { name, source: text } of source.modules) {
   if (name === 'OCConfig') for (const line of text.split('\n')) {
     if (/^\s+[A-Z][A-Z_]+\s*=/.test(line) && !line.endsWith('= {')) assert(line.includes('--//'), `Missing setting comment: ${line}`);
@@ -109,6 +109,9 @@ const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
 assert.equal(run.status, 0, 'Foundation behavior tests failed');
+
+// Phase 5 has its own counter; all 684 historical baseline regressions above remain required.
+await import('./test-phase5-mastery.mjs');
 
 for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');

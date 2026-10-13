@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripPhase5Delta, stripPhase5Files, verifyPhase5Workspace } from './verify-phase5-read-only.mjs';
 
 // Independent implementation pins for the current explicit owner diagnostic.
 // These do not change or replace any historical approval or method hash.
@@ -117,6 +118,7 @@ export function verifyApprovedOwnerDirect(beforeFiles, afterFiles, patch, record
 // projection accepts only the independently pinned current diagnostic files and
 // returns the exact published preimages; it cannot hide an arbitrary edit.
 export function stripApprovedOwnerDirectDelta(file, source) {
+  source = stripPhase5Delta(file, source);
   const check = OWNER_DIRECT_FILES.find(value => value.file === file);
   if (!check) return source;
   assert.equal(sha(source), check.afterSha256, `Unapproved owner diagnostic source delta: ${file}`);
@@ -126,7 +128,7 @@ export function stripApprovedOwnerDirectDelta(file, source) {
 }
 
 export function stripApprovedOwnerDirectFiles(files) {
-  return new Map([...files].map(([file, bytes]) => [file, stripApprovedOwnerDirectDelta(file, bytes)]));
+  return new Map([...stripPhase5Files(files)].map(([file, bytes]) => [file, stripApprovedOwnerDirectDelta(file, bytes)]));
 }
 
 export function verifyOwnerDirectProtectedFiles(beforeFiles, afterFiles) {
@@ -148,8 +150,11 @@ export function verifyOwnerDirectProtectedFiles(beforeFiles, afterFiles) {
 export async function verifyOwnerDirectWorkspace() {
   const names = execFileSync('git', ['ls-tree', '-r', '--name-only', OWNER_DIRECT_BASELINE, 'src'], { cwd: root, encoding: 'utf8' }).trim().split('\n').filter(file => file.endsWith('.luau'));
   async function files(directory) { const entries = await readdir(path.join(root, directory), { withFileTypes: true }); return (await Promise.all(entries.map(entry => entry.isDirectory() ? files(`${directory}/${entry.name}`) : entry.name.endsWith('.luau') ? [`${directory}/${entry.name}`] : []))).flat(); }
-  const currentNames = await files('src'); assert.deepEqual(currentNames.sort(), [...names].sort(), 'Owner diagnostic cannot change the production file set');
-  const before = new Map(names.map(file => [file, git(file)])), after = new Map(await Promise.all(names.map(async file => [file, await readFile(path.join(root, file))])));
+  verifyPhase5Workspace();
+  const currentNames = await files('src');
+  const after = stripPhase5Files(new Map(await Promise.all(currentNames.map(async file => [file, await readFile(path.join(root, file))]))));
+  assert.deepEqual([...after.keys()].sort(), [...names].sort(), 'Owner diagnostic cannot change the historical production file set');
+  const before = new Map(names.map(file => [file, git(file)]));
   const patch = await readFile(path.join(root, OWNER_DIRECT_PATCH)), recordBytes = await readFile(path.join(root, OWNER_DIRECT_RECORD));
   const record = verifyApprovedOwnerDirect(before, after, patch, JSON.parse(recordBytes.toString('utf8')));
   assert.deepEqual(recordBytes, Buffer.from(`${JSON.stringify(record, null, 2)}\n`), 'Owner diagnostic approval serialization changed');

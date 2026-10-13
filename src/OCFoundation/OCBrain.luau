@@ -602,4 +602,19 @@ function OCBrain:SelectLocalFeature(controller, plan, petOwns, petDecision)
 	return nil
 end
 
+-- PHASE5_READ_ONLY_MASTERY_BEGIN
+-- Separate read-only intelligence. The existing Plan and action arbitration are unchanged.
+function OCBrain:AnalyzeMastery(snapshot, knowledge, context)
+	local policy = require(script.Parent.MasteryPolicy)
+	local settings = self.Config.MASTERY_SETTINGS or {}
+	context = context or {}
+	local observed
+	if settings.ENABLE_MASTERY_INTELLIGENCE and knowledge then
+		observed = knowledge:MasteryContext(snapshot, context.Now or os.clock(), settings)
+	else observed = { Fresh = false, Blocker = "READ_ONLY_MASTERY_DISABLED" } end
+	observed.StationaryRate = context.StationaryRate
+	observed.WorldGate = context.WorldGate
+	return policy.Analyze(self.Config, snapshot, observed)
+end
+-- PHASE5_READ_ONLY_MASTERY_END
 return OCBrain

@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { stripPhase5Delta } from '../scripts/verify-phase5-read-only.mjs';
 import { extractFrozenMethod, sha256 } from '../scripts/verify-phase4-approved-membership.mjs';
 import { CLASSIFICATION_BASELINE, CLASSIFICATION_FILE, CLASSIFICATION_PATCH_PATH, CLASSIFICATION_RECORD_PATH,
   CLASSIFICATION_METHODS, CLASSIFICATION_HELPER_SHA256, extractClassificationHelper, applyApprovedClassificationPatch,
@@ -18,9 +19,10 @@ const knowledgePath = 'src/OCFoundation/GameKnowledge.luau';
 const petsPath = 'src/OCFoundation/PetManager.luau';
 const beforeKnowledge = gitSource(knowledgePath);
 const beforePets = gitSource(petsPath);
-const [afterKnowledge, afterPets] = await Promise.all([
+const [afterKnowledgeRaw, afterPets] = await Promise.all([
   readFile(path.join(root, knowledgePath), 'utf8'), readFile(path.join(root, petsPath), 'utf8'),
 ]);
+const afterKnowledge = stripPhase5Delta(knowledgePath, afterKnowledgeRaw);
 const approved = await verifyClassificationWorkspace();
 const approvedMethods = new Map(approved.methods.map(record => [record.method, record]));
 for (const method of ['EnsureChunkerObserver', 'RecordNativeEggUpdate', 'ReleaseChunkerObserver', 'PickupChunker', 'Destroy']) {
