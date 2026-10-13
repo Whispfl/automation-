@@ -10,7 +10,7 @@ await writeFile(path.join(root, 'dist/OC.lua'), output);
 const localConfig = await readFile(path.join(root, 'examples/LocalFeatureTests.luau'), 'utf8');
 const localOutput = localConfig + `\n-- Local build: ${buildId}. Complete embedded bundle; no download.\nlocal function initializeLocalBundle()\n${output}\nend\nlocal OC = initializeLocalBundle()(Config)\nreturn OC\n`;
 await writeFile(path.join(root, 'dist/OC.local.lua'), localOutput);
-for (const name of ['Phase4TestBPreflight.luau', 'Phase4TestBOneHatch.luau']) {
+for (const name of ['Phase4TestBPreflight.luau', 'Phase4TestBOneHatch.luau', 'Phase4CommonFunctionalDisabled.luau']) {
   const examplePath = path.join(root, 'examples', name);
   const example = await readFile(examplePath, 'utf8');
   const pinned = example.replace(/(https:\/\/raw\.githubusercontent\.com\/Whispfl\/automation-\/)phase4-(?:tests|travel|hatch)-[a-f0-9]{12}(\/dist\/OC\.lua)/g,

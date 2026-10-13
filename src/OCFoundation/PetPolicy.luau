@@ -380,6 +380,35 @@ function PetPolicy.FundEgg(config, snapshot, r, accountId)
 	return r
 end
 
+-- A separate explicit functional-test scope, never a changed economic estimate.
+-- Ordinary/access evidence remains the existing GameKnowledge Accessible field;
+-- exact Instance registration/nearest/arrival and final paid guards remain mandatory.
+function PetPolicy.OwnerCommonEggFunctionalTestEligible(config, context, egg)
+	local settings, h = config.OWNER_ONE_HATCH_TEST_SETTINGS, config.HATCH_SETTINGS
+	if not settings or settings.OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST ~= true
+		or settings.OWNER_ONE_HATCH_TEST_ALLOWANCE ~= true then return false end
+	local id = context and context.AccountId
+	if not PetPolicy.Finite(id) or id <= 0 or id % 1 ~= 0 or id ~= settings.AUTHORIZED_ACCOUNT_ID then return false end
+	if OwnerHatchTestAllowance.Isolation(config) then return false end
+	for _, ceiling in ipairs({ settings.MAXIMUM_COIN_ALLOWANCE, settings.MAXIMUM_EGG_COST,
+		h.MAXIMUM_EGG_COST, h.MAXIMUM_SESSION_COST }) do
+		if not PetPolicy.Finite(ceiling) or ceiling <= 0 or ceiling > 10 then return false end
+	end
+	return egg.Name == "Common Egg" and egg.World == "The Overworld" and egg.Loaded == true and egg.Eligible == true
+		and h.EGG_SELECTION_MODE == "MANUAL" and #h.SELECTED_EGGS == 1 and h.SELECTED_EGGS[1] == "Common Egg"
+		and h.HATCH_ONE_EGG_ONCE == true and h.MAXIMUM_SESSION_HATCHES == 1 and h.MAXIMUM_BATCH_HATCHES == 1
+		and egg.Cost and egg.Cost.Type == "Currency" and egg.Cost.Currency == "Coins"
+		and PetPolicy.Finite(egg.Cost.Amount) and egg.Cost.Amount > 0 and egg.Cost.Amount <= 10
+		and egg.OwnerTestAllowance and egg.OwnerTestAllowance.Eligible == true
+		and egg.Status == "ESTIMATE" and PetPolicy.Finite(egg.ExpectedIncrement)
+		and PetPolicy.Finite(egg.BaselineScore) and type(egg.BaselineIds) == "table"
+		and egg.BaselineIncomplete == false and egg.BaselineSearchBoundReached == false and egg.BaselineProjectionFailures == 0
+		and type(egg.Outcomes) == "table" and #egg.Outcomes > 0
+		and egg.FundingStatus == "AFFORDABLE" and egg.SpendingStatus == "AUTHORIZED_CONFIG"
+		and egg.CapacityStatus == "AVAILABLE" and egg.EffectiveBatchCapacity == 1
+		and PetPolicy.Finite(egg.DurationSeconds) and egg.DurationSeconds > 0 or false
+end
+
 function PetPolicy.Egg(config, snapshot, context, team, egg)
 	local h = config.HATCH_SETTINGS
 	local r = { Name = egg.Name, Status = "UNKNOWN", Eligible = egg.Accessible == true, InRange = egg.InRange == true,
@@ -476,6 +505,8 @@ function PetPolicy.Egg(config, snapshot, context, team, egg)
 		end
 	end
 	r.Reason = expected > 1e-6 and "Useful base-pet estimate against feasible OWNED-team benchmark; optimality/server odds UNKNOWN" or "NO_USEFUL_IMPROVEMENT against feasible owned-team benchmark"
+	r.OwnerCommonFunctionalTestRequested = config.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST == true
+	r.OwnerCommonFunctionalTestEligible = PetPolicy.OwnerCommonEggFunctionalTestEligible(config, context, r)
 	return r
 end
 
@@ -486,7 +517,10 @@ function PetPolicy.EggBlocker(egg)
 	if egg.BaselineIncomplete or egg.BaselineSearchBoundReached or (egg.BaselineProjectionFailures or 0) > 0 then
 		return tostring(egg.BaselineStatus or "INCOMPLETE_OWNED_TEAM_BASELINE") .. ": incomplete search, unscored owned record/Super or native projection; no paid hatch before owned alternatives are evaluated"
 	end
-	if egg.ExpectedIncrement <= 1e-6 then return "NO_USEFUL_IMPROVEMENT in evaluated base-pet pool" end
+	if egg.OwnerCommonFunctionalTestRequested and not egg.OwnerCommonFunctionalTestEligible then
+		return "OWNER_COMMON_FUNCTIONAL_TEST_SCOPE_BLOCKED: explicit account-bound isolated Common Egg / 10-Coin scope unavailable"
+	end
+	if egg.ExpectedIncrement <= 1e-6 and not egg.OwnerCommonFunctionalTestEligible then return "NO_USEFUL_IMPROVEMENT in evaluated base-pet pool" end
 	if egg.FundingStatus ~= "AFFORDABLE" then return egg.FundingStatus .. (egg.ReserveReason and ": " .. egg.ReserveReason or "") end
 	if egg.SpendingStatus ~= "AUTHORIZED_CONFIG" then return egg.SpendingStatus end
 	if egg.CapacityStatus ~= "AVAILABLE" or (egg.EffectiveBatchCapacity or 0) < 1 then return egg.CapacityStatus or "UNKNOWN_NATIVE_HATCH_CAPACITY" end
@@ -631,7 +665,7 @@ function PetPolicy.EggPlanText(config, report, details)
 			egg.AccessStatus, tostring(egg.Balance or "UNKNOWN"), tostring(egg.Reserve or "UNKNOWN"), tostring(egg.Spendable or "UNKNOWN"), egg.FundingStatus, egg.SpendingStatus,
 			tostring(egg.BaselineScore or "UNKNOWN"), egg.Status == "ESTIMATE" and string.format("%.5g", egg.ExpectedIncrement) or "UNKNOWN",
 			egg.Status == "ESTIMATE" and string.format("%.5g", egg.ClientImprovementProbability * 100) or "UNKNOWN", tostring(egg.EffectiveCycleSeconds or "UNKNOWN"), tostring(egg.EffectiveBatchCapacity or "UNKNOWN"),
-			#useful > 0 and "useful base outcomes: " .. table.concat(useful, ", ") or "no useful supported base outcomes", PetPolicy.EggBlocker(egg) or "Useful affordable estimate; eligible for explicitly bounded request"))
+			#useful > 0 and "useful base outcomes: " .. table.concat(useful, ", ") or "no useful supported base outcomes", PetPolicy.EggBlocker(egg) or (egg.OwnerCommonFunctionalTestEligible and "OWNER_COMMON_FUNCTIONAL_TEST_ONLY; economic estimate unchanged; one bounded receipt test" or "Useful affordable estimate; eligible for explicitly bounded request")))
 	end
 	table.insert(lines, report.Comparison)
 	return table.concat(lines, "\n")

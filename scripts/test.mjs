@@ -7,6 +7,7 @@ import { sources, bundle } from './bundle.mjs';
 import './verify-test-a-preservation.mjs';
 import '../tests/phase4-approved-membership.mjs';
 import '../tests/phase4-registration-preservation.mjs';
+import '../tests/phase4-approved-functional.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = await sources(root);
@@ -65,7 +66,16 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau','phase4-test-b-interaction.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const functionalAssertions = await readFile(path.join(root, 'tests/phase4-functional-hatch-proposal.luau'), 'utf8');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau','phase4-test-b-interaction.luau'].map(async name => {
+  const contents = await readFile(path.join(root, 'tests',name),'utf8');
+  if (name !== 'phase4-test-b-interaction.luau') return contents;
+  // The targeted cases use this fixture's local functions and must execute
+  // inside its scope, on the actual released modules rather than a patched copy.
+  const terminal = 'print("[OC TEST] " .. tostring(tests - before) .. " guarded Common Egg Test B regressions passed; synthetic proof only, allowance remains OFF in release preflight")';
+  assert.equal(contents.split(terminal).length - 1, 1, 'Missing Test B functional-case insertion point');
+  return contents.replace(terminal, functionalAssertions + '\n' + terminal);
+}))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -341,6 +351,7 @@ assert(settings.PET_SETTINGS.AUTO_HATCH == ${active})
 assert(settings.HATCH_SETTINGS.MAXIMUM_EGG_COST == ${active ? 10 : 0} and settings.HATCH_SETTINGS.MAXIMUM_SESSION_COST == ${active ? 10 : 0})
 assert(settings.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES == 1 and settings.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES == 1)
 assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE == ${active})
+assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST == false)
 assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID == ${filename.includes('Preflight') ? 0 : accountId})
 assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_COIN_ALLOWANCE == ${active ? 10 : 0} and settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_EGG_COST == ${active ? 10 : 0})
 assert(settings.EGG_TRAVEL_SETTINGS.MAXIMUM_ATTEMPTS_PER_SELECTION == 1)
@@ -365,3 +376,50 @@ print("[OC TEST] ${filename} approval=${approval}, account=${accountId}: matchin
     assert.equal(checked.status, 0, filename + ' activation/isolation check failed');
   }
 }
+
+// The reviewed candidate has no activation switch or account supplied. Resolve
+// its complete Config through the real defaults/controller and planner offline.
+const disabledFunctionalExample = await readFile(path.join(root, 'examples/Phase4CommonFunctionalDisabled.luau'), 'utf8');
+assert(disabledFunctionalExample.includes('/phase4-hatch-' + generated.buildId + '/dist/OC.lua'), 'Disabled functional candidate must pin its matching bundle');
+const disabledFunctionalCompile = spawnSync(compiler, ['--null', path.join(root, 'examples/Phase4CommonFunctionalDisabled.luau')], { encoding: 'utf8' });
+assert.equal(disabledFunctionalCompile.status, 0, 'Disabled functional candidate loader compilation failed: ' + disabledFunctionalCompile.stderr);
+const disabledFunctionalCheck = `
+local settings = config((function()
+${configPrefix(disabledFunctionalExample)}
+return Config
+end)())
+settings.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false
+local instance = requireOC("OCController").new(settings)
+for category, keys in pairs({
+ PET_SETTINGS={"AUTO_HATCH","AUTO_EQUIP","EQUIP_OWNED_TEAM_ONCE","AUTO_DELETE_PETS","AUTO_CRAFT_SHINY","AUTO_FUSE_PETS"},
+ OWNER_ONE_HATCH_TEST_SETTINGS={"OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST","OWNER_ONE_HATCH_TEST_ALLOWANCE"},
+ HATCH_SETTINGS={"HATCH_ONE_EGG_ONCE","ENABLE_BACKGROUND_PICKUPS"},
+ EGG_TRAVEL_SETTINGS={"ENABLE_SELECTED_EGG_TRAVEL","ENABLE_NATIVE_ISLAND_TRAVEL","ENABLE_DIRECT_POSITIONING"},
+ WORLD_SETTINGS={"ENABLE_WORLD_PROGRESSION","AUTO_DISCOVER_ISLANDS","AUTO_UNLOCK_WORLDS","AUTO_TRAVEL_FOR_PROGRESSION","AUTO_FARM_UNLOCK_REQUIREMENTS"},
+ FARMING_SETTINGS={"AUTO_RESOURCE_FARM","AUTO_FARM_FALLBACK"}, ISLAND_SETTINGS={"AUTO_TRAVEL_BEST_ISLAND","AUTO_EXPLORE_UNLOCKED_ISLANDS"},
+ PICKUP_SETTINGS={"BULK_COLLECT_PICKUPS","STATIONARY_ISOLATED_TEST","ENABLE_CONTINUOUS_SCANNING"},
+ BUBBLE_SETTINGS={"AUTO_BLOW_BUBBLES","AUTO_SELL_BUBBLES","AUTO_BUY_GUM","AUTO_BUY_FLAVORS","ENABLE_SIMULTANEOUS_BLOWING"},
+ UPGRADE_SETTINGS={"ENABLE_SMART_UPGRADES","ENABLE_CAPACITY_UPGRADES","ENABLE_FLAVOR_UPGRADES","AUTO_EQUIP_OWNED_UPGRADES"},
+ PLAYTIME_SETTINGS={"AUTO_CLAIM_PLAYTIME"}, MYSTERY_BOX_SETTINGS={"AUTO_OPEN_MYSTERY_BOXES","ENABLE_AUTOMATIC_CONTINUATION"}, ANTIAFK_SETTINGS={"ENABLE_ANTI_AFK"},
+ FALL_EVENT_SETTINGS={"ENABLE_FALL_EVENT","AUTO_REBIRTH","AUTO_BUY_REBIRTH_UPGRADES","AUTO_USE_FALL_ELIXIRS","AUTO_BUY_AUTUMN_SHOP_ITEMS"}
+}) do for _, key in ipairs(keys) do assert(settings[category][key] == false, category .. "." .. key .. " must remain disabled") end end
+assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID == 0)
+assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_COIN_ALLOWANCE == 0 and settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_EGG_COST == 0)
+assert(settings.HATCH_SETTINGS.MAXIMUM_EGG_COST == 0 and settings.HATCH_SETTINGS.MAXIMUM_SESSION_COST == 0)
+assert(settings.PET_SETTINGS.MAXIMUM_SESSION_EQUIP_COMMANDS == 1 and not settings.PET_SETTINGS.AUTO_EQUIP and not settings.PET_SETTINGS.EQUIP_OWNED_TEAM_ONCE)
+assert(settings.UPGRADE_SETTINGS.MAXIMUM_PURCHASE_COST == 0 and settings.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST == 0)
+assert(settings.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES == 1 and settings.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES == 1)
+assert(settings.HATCH_SETTINGS.EGG_SELECTION_MODE == "MANUAL" and #settings.HATCH_SETTINGS.SELECTED_EGGS == 1 and settings.HATCH_SETTINGS.SELECTED_EGGS[1] == "Common Egg")
+local facts = { AccountId = 123 }
+assert(not requireOC("PetPolicy").OwnerCommonEggFunctionalTestEligible(settings, facts, {}))
+local decision = instance.Brain:PlanPets({ Team = { FeasibleIds = {} }, Eggs = { { Name = "Common Egg", ExpectedIncrement = 100, Eligible = true, Affordable = true } } }, facts,
+ { RequestedHatches = 0, RequestCost = 0, EquipCommands = 0 })
+assert(decision.Kind ~= "HATCH" and instance.Pets.Hatch.RequestedHatches == 0 and instance.Pets.Hatch.RequestCost == 0)
+assert(instance.Pets.EquipCommands == 0 and not instance.HatchTestAllowance:GetStatus().Consumed)
+instance:Destroy()
+print("[OC TEST] Disabled functional candidate: actual merged Config and positive-gain planner stay disabled, account0/budgets0/no movement or gameplay permissions passed")
+`;
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + disabledFunctionalCheck);
+const disabledFunctionalRun = spawnSync(executable, [testPath], { encoding: 'utf8' });
+process.stdout.write(disabledFunctionalRun.stdout || ''); process.stderr.write(disabledFunctionalRun.stderr || '');
+assert.equal(disabledFunctionalRun.status, 0, 'Disabled functional candidate isolation/planner check failed');

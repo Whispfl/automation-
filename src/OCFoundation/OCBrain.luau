@@ -115,7 +115,7 @@ function OCBrain:PlanPets(report, context, state)
 			if blocker then table.insert(blockers, egg.Name .. ": " .. blocker) continue end
 			if not PetPolicy.EggSelected(self.Config, egg.Name) or egg.Status ~= "ESTIMATE" or not egg.Eligible or not egg.Affordable
 				or not egg.Cost or not table.find(hatch.ALLOWED_CURRENCIES, egg.Cost.Currency) or egg.Cost.Amount > hatch.MAXIMUM_EGG_COST
-				or (egg.ExpectedIncrement <= 1e-6 and egg.ClientTargetProbability <= 0) then continue end
+				or (egg.ExpectedIncrement <= 1e-6 and egg.ClientTargetProbability <= 0 and not egg.OwnerCommonFunctionalTestEligible) then continue end
 			local remainingCost = hatch.MAXIMUM_SESSION_COST - state.RequestCost
 			local remaining = hatch.MAXIMUM_SESSION_HATCHES - state.RequestedHatches
 			local free = PetPolicy.Finite(context.StorageCapacity) and PetPolicy.Finite(context.StorageUsed) and context.StorageCapacity - context.StorageUsed or 0

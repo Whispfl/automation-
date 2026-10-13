@@ -1,5 +1,5 @@
 
--- UNAPPLIED proposal tests only. Isolated offline mocks; no released source edit.
+-- Approved functional exception behavior. Isolated offline mocks; no live actions.
 local proposalBefore = tests
 local proposalScenarios = 0
 local function functional(s)
@@ -20,7 +20,7 @@ local function loadSpottedCompetitor(s, distance)
 	table.insert(receiver._chunks.loaded, model)
 end
 
-test("UNAPPLIED proposal zero-EV mocked seven-pet team permits exactly one explicit functional receipt test", function()
+test("Approved functional exception preserves positive/zero-EV estimates and permits exactly one explicit receipt test", function()
 	functionalScenario(function(clock)
 		local s = functional(strongMockTeam(mixedNativeQueue(true)))
 		completeNativeObservation(s, clock)
@@ -44,9 +44,29 @@ test("UNAPPLIED proposal zero-EV mocked seven-pet team permits exactly one expli
 		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.EquipCommands == 0)
 		assert(#s.Teleports == 0 and #s.Calls == 0 and s.Blows == 0) s:Close()
 	end)
+	functionalScenario(function(clock)
+		local s = mixedNativeQueue(true)
+		completeNativeObservation(s, clock)
+		local ordinaryDecision, ordinaryContext = s:Decision()
+		local ordinary = s.Controller.Brain:AnalyzePets(s.Manager:Fresh(), ordinaryContext).Eggs[1]
+		assert(ordinary.ExpectedIncrement > 1e-6 and ordinaryDecision.Kind == "HATCH")
+		functional(s)
+		local decision, context = s:Decision()
+		local egg = s.Controller.Brain:AnalyzePets(s.Manager:Fresh(), context).Eggs[1]
+		assert(egg.OwnerCommonFunctionalTestEligible and egg.ExpectedIncrement == ordinary.ExpectedIncrement)
+		assert(egg.ClientImprovementProbability == ordinary.ClientImprovementProbability and egg.BaselineScore == ordinary.BaselineScore)
+		assert(decision.Kind == "HATCH" and decision.Model == s.Egg and decision.Count == 1)
+		assert(s:Dispatch() and #s.Commands == 1 and s.Manager.Hatch.RequestCost == 10)
+		s.Profile.Pets[2] = { Id = "mock-functional-useful-received", Name = "New", Amount = 1 }
+		s.Profile.EggsOpened["Common Egg"], s.Profile.Coins = 3, 490
+		s.Manager:Observe()
+		assert(s.Manager.Hatch.LastResult.Status == "INVENTORY_GAIN_OBSERVED" and s.Manager.Hatch.LastResult.UsefulReceivedCopies == 1)
+		assert(not s:Dispatch() and #s.Commands == 1 and s.Manager.EquipCommands == 0)
+		assert(#s.Teleports == 0 and #s.Calls == 0 and s.Blows == 0) s:Close()
+	end)
 end)
 
-test("UNAPPLIED proposal flagOFF retains zero-EV economic WAIT and configured target cannot bypass it", function()
+test("Approved functional exception flagOFF retains zero-EV economic WAIT and configured target cannot bypass it", function()
 	functionalScenario(function(clock)
 		local s = strongMockTeam(mixedNativeQueue(true))
 		completeNativeObservation(s, clock)
@@ -60,7 +80,7 @@ test("UNAPPLIED proposal flagOFF retains zero-EV economic WAIT and configured ta
 	end)
 end)
 
-test("UNAPPLIED proposal rejects invalid authorization scope ceilings counts currency and isolation", function()
+test("Approved functional exception rejects invalid authorization scope ceilings counts currency and isolation", function()
 	local cases = {
 		function(s) s.Controller.Config.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID = 0 end,
 		function(s) s.Controller.Config.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID = 456 end,
@@ -94,7 +114,7 @@ test("UNAPPLIED proposal rejects invalid authorization scope ceilings counts cur
 	end
 end)
 
-test("UNAPPLIED proposal cannot authorize another positive egg or widen ordinary economic policy", function()
+test("Approved functional exception cannot authorize another positive egg or widen ordinary economic policy", function()
 	functionalScenario(function()
 		local s = functional(fixture(true))
 		s.Controller.Config.HATCH_SETTINGS.SELECTED_EGGS = { "Spotted Egg" }
@@ -112,7 +132,7 @@ test("UNAPPLIED proposal cannot authorize another positive egg or widen ordinary
 	end)
 end)
 
-test("UNAPPLIED proposal requires complete scored owned baseline and supported full pool", function()
+test("Approved functional exception requires complete scored owned baseline and supported full pool", function()
 	for index, mutate in ipairs({ function(s)
 			s.Controller.Config.PET_SETTINGS.MAXIMUM_TEAM_EVALUATIONS = 1
 			s.Profile.Pets[8] = { Id = "mock-unequipped-to-score", Name = "New", Amount = 1 }
@@ -130,7 +150,7 @@ test("UNAPPLIED proposal requires complete scored owned baseline and supported f
 	end
 end)
 
-test("UNAPPLIED proposal preserves registration assets exactidentity allname nearest and range prerequisites", function()
+test("Approved functional exception preserves registration assets exactidentity allname nearest and range prerequisites", function()
 	for index, mutate in ipairs({ function(s) s.Controller.Knowledge.NativeEggFixtureAssets["Common Egg"] = nil end,
 		function(s) s.Controller.Knowledge.NativeEggFixtureReceiver._loaded.loaded = nil end,
 		function(s) s.Egg.Parent = nil end,
@@ -147,7 +167,7 @@ test("UNAPPLIED proposal preserves registration assets exactidentity allname nea
 	end
 end)
 
-test("UNAPPLIED proposal retains price funds autodelete nativecapacity cooldown and idle vetoes", function()
+test("Approved functional exception retains price funds autodelete nativecapacity cooldown and idle vetoes", function()
 	for _, mutate in ipairs({ function(s) s.Cost = 11 end,
 		function(s) s.Dependencies.StatsUtil.GetEggCost = function() return nil end end,
 		function(s) s.Profile.Coins = 59 end,
@@ -168,7 +188,7 @@ test("UNAPPLIED proposal retains price funds autodelete nativecapacity cooldown 
 	end
 end)
 
-test("UNAPPLIED proposal rechecks functionalscope price account nativeguards after yielding guards", function()
+test("Approved functional exception rechecks functionalscope price account nativeguards after yielding guards", function()
 	for _, mutate in ipairs({ function(s) s.Controller.Config.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST = false end,
 		function(s) s.Controller.Config.HATCH_SETTINGS.MAXIMUM_SESSION_COST = 11 end,
 		function(s) s.Controller.Reader.Player.UserId = 456 end,
@@ -194,7 +214,7 @@ test("UNAPPLIED proposal rechecks functionalscope price account nativeguards aft
 	end
 end)
 
-test("UNAPPLIED proposal final range callback cannot mutate facts or permission into a zeroEV dispatch", function()
+test("Approved functional exception final range callback cannot mutate facts or permission into a zeroEV dispatch", function()
 	for _, mutate in ipairs({ function(s) s.Profile.AutoDelete.New = true end,
 		function(s) s.Controller.Config.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST = false end,
 		function(s) s.Controller.Reader.Player.UserId = 456 end,
@@ -217,7 +237,7 @@ test("UNAPPLIED proposal final range callback cannot mutate facts or permission 
 	end
 end)
 
-test("UNAPPLIED proposal uncertain request consumes singleVM opportunity with no second request or equipment", function()
+test("Approved functional exception uncertain request consumes singleVM opportunity with no second request or equipment", function()
 	functionalScenario(function(clock)
 		local s = functional(strongMockTeam(mixedNativeQueue(true)))
 		completeNativeObservation(s, clock) s.RemoteFailure = true
@@ -233,7 +253,7 @@ test("UNAPPLIED proposal uncertain request consumes singleVM opportunity with no
 	end)
 end)
 
-test("UNAPPLIED proposal spent opportunity remains blocked even when next weak fixture would have useful Common outcome", function()
+test("Approved functional exception spent opportunity remains blocked even when next weak fixture would have useful Common outcome", function()
 	functionalScenario(function(clock)
 		local s = functional(strongMockTeam(mixedNativeQueue(true)))
 		completeNativeObservation(s, clock) assert(s:Dispatch())
@@ -244,4 +264,4 @@ test("UNAPPLIED proposal spent opportunity remains blocked even when next weak f
 	end)
 end)
 
-print("[OC UNAPPLIED PROPOSAL] TARGET_TEST_COUNT " .. tostring(tests - proposalBefore) .. "; SCENARIO_COUNT " .. tostring(proposalScenarios))
+print("[OC FUNCTIONAL EXCEPTION] TARGET_TEST_COUNT " .. tostring(tests - proposalBefore) .. "; SCENARIO_COUNT " .. tostring(proposalScenarios))

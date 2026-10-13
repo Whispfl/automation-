@@ -235,6 +235,7 @@ return {
 		SELECTION_REVISION = 0, --// Increment explicitly to authorize a new attempt at the same egg after manual movement or failure.
 	},
 	OWNER_ONE_HATCH_TEST_SETTINGS = {
+		OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST = false, --// Separate owner-approved one-request Common Egg receipt test; never ordinary economic permission.
 		OWNER_ONE_HATCH_TEST_ALLOWANCE = false, --// Separate explicit owner opt-in for ONE manual Coins hatch using capped currently earmarked world funds; ordinary AUTO never enables it.
 		AUTHORIZED_ACCOUNT_ID = 0, --// Explicit owner-approved Roblox UserId; zero blocks an enabled allowance. Never derive authorization from the current account automatically.
 		MAXIMUM_COIN_ALLOWANCE = 0, --// Cap the exceptional draw from currently held world-goal Coins; configured resource reserves and the native world goal remain unchanged.

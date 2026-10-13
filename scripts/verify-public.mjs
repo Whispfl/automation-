@@ -46,6 +46,11 @@ for (const [file, blob] of localFiles) {
 console.log(`[OC] Public ${branch} ${commit}; ${localFiles.size} Git file paths/blob hashes match; pin ${release} matches`);
 
 const representative = [
+  'docs/PHASE4-APPROVED-FUNCTIONAL-EXCEPTION.json', 'docs/PHASE4-FUNCTIONAL-EXCEPTION-DELIVERY.md',
+  'docs/PHASE4-FIRST-HATCH-PREPARATION.md', 'docs/PHASE4-NATIVE-AUTODELETE-RESOLUTION.md',
+  'docs/PHASE4-FUNCTIONAL-HATCH-EXCEPTION-PROPOSED.patch', 'docs/PHASE4-FUNCTIONAL-HATCH-EXCEPTION-PROPOSED-HASHES.json',
+  'scripts/verify-phase4-approved-functional.mjs', 'scripts/test-phase4-functional-hatch-proposal.mjs',
+  'tests/phase4-approved-functional.mjs', 'tests/phase4-functional-hatch-proposal.luau',
   'dist/OC.lua', 'dist/OC.local.lua', 'src/OC.luau', 'src/OCFoundation/OCConfig.luau',
   'src/OCFoundation/EggTravelManager.luau', 'src/OCFoundation/RewardsManager.luau', 'src/OCFoundation/AntiAFKManager.luau',
   'src/OCFoundation/GameKnowledge.luau', 'src/OCFoundation/OCBrain.luau', 'src/OCFoundation/GameMechanics.luau',
@@ -81,13 +86,27 @@ for (const artifact of representative) {
   console.log('[OC] Anonymous candidate branch + commit raw bytes match: ' + artifact);
 }
 
-for (const artifact of ['dist/OC.lua', 'examples/Phase4TestBPreflight.luau', 'examples/Phase4TestBOneHatch.luau']) {
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TestBPreflight.luau', 'examples/Phase4TestBOneHatch.luau', 'examples/Phase4CommonFunctionalDisabled.luau']) {
   const expected = await readFile(path.join(root, artifact));
   if (artifact.startsWith('examples/')) assert(expected.toString('utf8').includes(`/${repository}/${release}/dist/OC.lua`), 'Example does not load its matching pin: ' + artifact);
   const published = await get(`${rawRoot}/${release}/${artifact}`);
   assert(published.equals(expected), 'Pinned artifact differs: ' + artifact);
   checks.push({ artifact, ref: release, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
   console.log('[OC] Matching pinned raw bytes verified: ' + artifact);
+}
+// Preserve the owner's full read-only preflight milestone independently of the
+// new functional exception; this pin must never be rewritten to the candidate.
+const ownerLiveRelease = 'phase4-hatch-f4e10f71c317';
+const ownerLiveCommit = '55bf4cf437cccd826180519c482bdc6edbbbb51b';
+assert.equal(git('rev-parse', ownerLiveRelease + '^{}'), ownerLiveCommit, 'Owner-live preflight local pin changed');
+assert.equal((await publicJSON('/git/ref/tags/' + ownerLiveRelease)).object.sha, ownerLiveCommit, 'Owner-live preflight public pin changed');
+for (const artifact of ['dist/OC.lua', 'dist/OC.local.lua', 'examples/Phase4TestBPreflight.luau', 'examples/Phase4TestBOneHatch.luau',
+  'src/OCFoundation/GameKnowledge.luau', 'src/OCFoundation/EggTravelManager.luau', 'src/OCFoundation/GameMechanics.luau',
+  'src/OCFoundation/PetManager.luau', 'src/OCFoundation/HatchManager.luau', 'src/OCFoundation/OwnerHatchTestAllowance.luau',
+  'docs/PHASE4-TEST-A-PRESERVATION.json', 'docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json', 'docs/PHASE4-APPROVED-CLASSIFICATION-CORRECTION.json']) {
+  const expected = execFileSync('git', ['show', `${ownerLiveCommit}:${artifact}`], { cwd: root });
+  assert((await get(`${rawRoot}/${ownerLiveRelease}/${artifact}`)).equals(expected), 'Owner-live preflight artifact changed: ' + artifact);
+  checks.push({ artifact, ref: ownerLiveRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
 const priorPhase4Release = 'phase4-auto-890d4713edad';
 const priorPhase4Commit = git('rev-parse', priorPhase4Release + '^{}');
@@ -158,6 +177,7 @@ for (const artifact of ['dist/OC.lua', 'examples/EggAnalysis.luau', 'examples/Ha
   checks.push({ artifact, ref: historicalRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
 const report = { dateUTC: new Date().toISOString(), repository, branch, commit, buildId, release,
+  ownerLivePreflight: { buildId: 'f4e10f71c317', commit: ownerLiveCommit, release: ownerLiveRelease, unchanged: true },
   ownerApprovedTestA: { buildId: '0d5caa499c8c', commit: approvedTravelCommit, release: approvedTravelRelease, unchanged: true },
   previousTestB: { buildId: '59c475d125c2', commit: previousTestBCommit, release: previousTestBRelease, unchanged: true },
   incomingTestB: { buildId: '926bc78d88af', commit: incomingTestBCommit, release: incomingTestBRelease, unchanged: true },

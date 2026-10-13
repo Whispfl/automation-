@@ -5,11 +5,14 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { TEST_A_BASELINE, HISTORICAL_MANIFEST_COMMIT, MEMBERSHIP_FILE, MEMBERSHIP_METHOD,
   sha256, extractFrozenMethod, verifyHistoricalManifest, verifyApprovedMembership, verifyUnchangedGeometryHelper } from './verify-phase4-approved-membership.mjs';
+import { FUNCTIONAL_RECORD_PATH, verifyApprovedFunctionalBrain, verifyFunctionalWorkspace } from './verify-phase4-approved-functional.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifestPath = 'docs/PHASE4-TEST-A-PRESERVATION.json';
 const gitFile = (commit, file) => execFileSync('git', ['show', `${commit}:${file}`], { cwd: root, maxBuffer: 8 * 1024 * 1024 });
 const manifest = verifyHistoricalManifest(await readFile(path.join(root, manifestPath)), gitFile(HISTORICAL_MANIFEST_COMMIT, manifestPath));
 const approval = JSON.parse(await readFile(path.join(root, 'docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json'), 'utf8'));
+const functional = await verifyFunctionalWorkspace();
+assert.deepEqual(functional, JSON.parse(await readFile(path.join(root, FUNCTIONAL_RECORD_PATH), 'utf8')));
 let unchanged = 0, approved = 0;
 for (const check of manifest.checks) {
   const baseline = gitFile(TEST_A_BASELINE, check.file);
@@ -20,16 +23,19 @@ for (const check of manifest.checks) {
   if (check.file === MEMBERSHIP_FILE && check.method === MEMBERSHIP_METHOD) {
     verifyApprovedMembership(before, after, approval);
     approved += 1;
+  } else if (check.file === 'src/OCFoundation/OCBrain.luau' && !check.method) {
+    verifyApprovedFunctionalBrain(before.toString('utf8'), after.toString('utf8'), functional);
+    approved += 1;
   } else {
     assert.equal(sha256(after), check.sha256, `Owner-approved travel changed: ${check.file}:${check.method || 'whole file'}`);
     assert.deepEqual(after, before, `Preserved Test A bytes changed: ${check.file}:${check.method || 'whole file'}`);
     unchanged += 1;
   }
 }
-assert.equal(unchanged, 9, 'Exactly nine historical Test A checks must remain unchanged');
-assert.equal(approved, 1, 'Only the separately approved membership correction is permitted');
+assert.equal(unchanged, 8, 'Exactly eight historical Test A checks must remain unchanged');
+assert.equal(approved, 2, 'Only the separately approved exact membership and PlanPets corrections are permitted');
 const knowledgeBefore = gitFile(TEST_A_BASELINE, MEMBERSHIP_FILE).toString('utf8');
 const knowledgeAfter = await readFile(path.join(root, MEMBERSHIP_FILE), 'utf8');
 for (const name of ['point', 'eggParts', 'eggReceiver']) verifyUnchangedGeometryHelper(knowledgeBefore, knowledgeAfter, name);
 assert.equal(extractFrozenMethod(knowledgeAfter, 'InstanceId'), extractFrozenMethod(knowledgeBefore, 'InstanceId'), 'Physical-selection identity ordering changed');
-console.log(`[OC] Test A preservation PASS: 10 historical hashes verified; 9 unchanged checks; 1 separately approved exact membership correction; shared geometry/identity unchanged (${manifest.baseline})`);
+console.log(`[OC] Test A preservation PASS: 10 historical hashes verified; 8 unchanged checks; 2 separately approved exact membership/PlanPets corrections; shared geometry/identity unchanged (${manifest.baseline})`);
