@@ -33,6 +33,13 @@ return {
 		CATEGORY_ORDER = { "Pets", "Buffs", "Shops", "Minigames", "Rifts" }, --// Deterministic order when marginal earning benefit is unmeasured; does not omit other eligible categories.
 	},
 	-- PHASE5_READ_ONLY_MASTERY_END
+	-- PHASE5_READ_ONLY_REWARDS_BEGIN
+	REWARD_INTELLIGENCE_SETTINGS = {
+		ENABLE_REWARD_INTELLIGENCE = false, --// Explicit read-only reward reports; no claim, use, purchase or automatic task permission.
+		MAXIMUM_ACCOUNT_AGE_SECONDS = 10, --// Reject stale, future or changed received account observations.
+		MAXIMUM_REPORT_ROWS = 200, --// Bound reported reward entries; omitted coverage stays explicit and cannot imply completion.
+	},
+	-- PHASE5_READ_ONLY_REWARDS_END
 	BRAIN_SETTINGS = {
 		ENABLE_EARNING_RECOMMENDATIONS = true, --// Recommend equipping existing pets and useful gum or flavor upgrades.
 		ENABLE_WORLD_RECOMMENDATIONS = true, --// Recommend verified island discovery and world gate prerequisites.

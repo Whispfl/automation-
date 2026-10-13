@@ -15,7 +15,7 @@ const environment = (await readFile(path.join(root, 'tests/foundation.luau'), 'u
 const fixture = await readFile(path.join(root, 'tests/phase5-mastery.luau'), 'utf8');
 const loaderPath = path.join(root, 'examples/Phase5MasteryReadOnly.luau');
 const loader = await readFile(loaderPath, 'utf8');
-const expectedURL = `https://raw.githubusercontent.com/Whispfl/automation-/phase5-mastery-${generated.buildId}/dist/OC.lua`;
+const expectedURL = 'https://raw.githubusercontent.com/Whispfl/automation-/phase5-mastery-60e794e0fe87/dist/OC.lua';
 assert.equal((loader.match(/game:HttpGet\(/g) || []).length, 1, 'Read-only loader performs one public bundle fetch');
 assert(loader.includes(`game:HttpGet("${expectedURL}")`), 'Read-only loader has the exact immutable Phase 5 build pin');
 assert(!/\b(?:GitHubToken|Authorization|Request|HatchEgg|FireServer|InvokeServer)\b/.test(loader), 'Read-only loader has no tokens, transport or action call');

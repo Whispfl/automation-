@@ -1280,4 +1280,338 @@ function GameKnowledge:MasteryContext(snapshot, now, settings)
 	return context
 end
 -- PHASE5_READ_ONLY_MASTERY_END
+-- PHASE5_READ_ONLY_REWARDS_BEGIN
+-- Detached received facts and reviewed pure native getters only. No reward action is prepared.
+function GameKnowledge:RewardContext(snapshot, now, settings)
+	settings = settings or {}
+	local startedAt = os.clock()
+	local function finite(value)
+		return type(value) == "number" and value == value and value >= 0 and value < math.huge
+	end
+	local function integer(value) return finite(value) and value % 1 == 0 end
+	local function copy(value, seen)
+		if type(value) ~= "table" then return value end
+		seen = seen or {}
+		if seen[value] then return seen[value] end
+		local result = {} seen[value] = result
+		for key, entry in pairs(value) do result[key] = copy(entry, seen) end
+		return result
+	end
+	local function equal(left, right, seen)
+		if type(left) ~= type(right) then return false end
+		if type(left) ~= "table" then return left == right end
+		seen = seen or {}
+		if seen[left] == right then return true end
+		seen[left] = right
+		for key, value in pairs(left) do if not equal(value, right[key], seen) then return false end end
+		for key in pairs(right) do if left[key] == nil then return false end end
+		return true
+	end
+	local context = { Fresh = false, ObservedAt = now, Catalogs = {}, Balances = {}, Diagnostics = {},
+		QuestObservations = {}, PrizeObservations = {}, ChestObservations = {}, WorldRewardObservations = {},
+		InventoryObservations = { Powerups = {}, Potions = {}, Items = {}, SchemaState = "UNKNOWN" },
+		TradingPlazaStatus = "UNKNOWN", WheelQueueState = "UNKNOWN", ActionsEnabled = false,
+		Evidence = "Completed REWARDS_QUESTS_AND_EVENTS.md; SHOPS_QUESTS_AND_CONSUMABLES.md; DATA_SCHEMAS.md; native client eligibility is not server permission" }
+	local function block(reason) context.Fresh, context.Blocker = false, reason return context end
+	local reader = self.Reader
+	if self.Destroyed or not reader or reader.Destroyed or type(snapshot) ~= "table" or snapshot.Ready ~= true then
+		return block("Ready received account snapshot unavailable")
+	end
+	local maximumAge = settings.MAXIMUM_ACCOUNT_AGE_SECONDS or 10
+	if not finite(now) or not finite(snapshot.ReadAt) or not finite(maximumAge)
+		or now < snapshot.ReadAt or now - snapshot.ReadAt > maximumAge then
+		return block("Reward account snapshot is stale or its age is unknown")
+	end
+	if not integer(snapshot.Revision) or snapshot.Revision ~= reader.Revision then
+		return block("Reward snapshot revision differs from the current reader revision")
+	end
+	local current, player = reader:GetSnapshot(), reader.Player
+	local identity = snapshot.Identity and snapshot.Identity.UserId
+	if type(current) ~= "table" or current.Ready ~= true or current.Revision ~= snapshot.Revision
+		or not integer(identity) or identity < 1 or not player or player.UserId ~= identity then
+		return block("Reward account identity or current ready snapshot is unavailable or changed")
+	end
+	local raw = reader:GetLiveProfile()
+	if type(raw) ~= "table" then return block("Ready native LocalData reward profile unavailable") end
+	local account = copy(raw)
+	context.Account, context.Raw, context.AccountId = account, account, identity
+	context.EffectiveMasteryUpgrades = copy(account.MasteryUpgrades)
+	local function matchesSnapshot(profile)
+		local upgrades, inventory = snapshot.Upgrades or {}, snapshot.Inventory or {}
+		if upgrades.MasteryLevels ~= nil and not equal(upgrades.MasteryLevels, profile.MasteryLevels) then return false end
+		if upgrades.MasteryUpgrades ~= nil and not equal(upgrades.MasteryUpgrades, profile.MasteryUpgrades) then return false end
+		if snapshot.UnlockedIslands ~= nil and not equal(snapshot.UnlockedIslands, profile.AreasUnlocked) then return false end
+		if snapshot.UnlockedWorlds ~= nil and not equal(snapshot.UnlockedWorlds, profile.WorldsUnlocked) then return false end
+		for _, field in ipairs({ "Pets", "Powerups", "Potions" }) do
+			if inventory[field] ~= nil and not equal(inventory[field], profile[field]) then return false end
+		end
+		for currency, balance in pairs(snapshot.Balances or {}) do if balance ~= profile[currency] then return false end end
+		return true
+	end
+	if not matchesSnapshot(account) then return block("Snapshot reward prerequisites, inventory, or currency facts differ from live LocalData") end
+	local modules, copiedModules = {}, {}
+	local definitions = {
+		Playtime = "Shared.Data.Playtime", DailyRewards = "Shared.Data.DailyRewards", WorldRewards = "Shared.Data.WorldRewards",
+		Chests = "Shared.Data.Chests", Prizes = "Shared.Data.Prizes", Powerups = "Shared.Data.Powerups",
+		Potions = "Shared.Data.Potions", WheelSpin = "Shared.Data.WheelSpin", ChallengePass = "Shared.Data.ChallengePass",
+		Seasons = "Shared.Data.Seasons", Worlds = "Shared.Data.Worlds", Constants = "Shared.Constants",
+		Time = "Shared.Framework.Utilities.Math.Time", IsTradingPlaza = "Shared.Utils.IsTradingPlaza",
+		QuestUtil = "Shared.Utils.Stats.QuestUtil", PrizesUtil = "Shared.Utils.PrizesUtil", ItemUtil = "Shared.Utils.Stats.ItemUtil",
+		StatsUtil = "Shared.Utils.Stats.StatsUtil",
+	}
+	for name, path in pairs(definitions) do
+		local value = self:Get(name)
+		if value == nil and type(reader.Dependencies) == "table" and reader.Dependencies[name] == nil and type(reader._load) == "function" then
+			-- The existing cache/lifecycle owns this one nonblocking static dependency request.
+			reader:_load(name, path, name == "IsTradingPlaza" and "function" or "table")
+			value = self:Get(name)
+		end
+		if value ~= nil then modules[name], copiedModules[name] = value, copy(value)
+		else
+			local entry = type(reader.Dependencies) == "table" and reader.Dependencies[name]
+			table.insert(context.Diagnostics, name .. ": " .. tostring(entry and entry.Status or "UNAVAILABLE"))
+		end
+	end
+	for _, name in ipairs({ "Playtime", "DailyRewards", "WorldRewards", "Chests", "Prizes", "Powerups", "Potions", "WheelSpin", "ChallengePass", "Seasons", "Worlds" }) do
+		context.Catalogs[name] = copy(modules[name])
+	end
+	local time = modules.Time
+	if type(time) == "table" and type(time.now) == "function" then
+		local ok, value = pcall(time.now)
+		if ok and finite(value) then context.NativeNow = value else table.insert(context.Diagnostics, "Native Time.now unavailable or invalid") end
+	end
+	if type(time) == "table" and type(time.getAbsoluteDay) == "function" then
+		local ok, value = pcall(time.getAbsoluteDay)
+		if ok and integer(value) then context.NativeDay = value else table.insert(context.Diagnostics, "Native UTC absolute day unavailable or invalid") end
+	end
+	if type(modules.IsTradingPlaza) == "function" then
+		local ok, value = pcall(modules.IsTradingPlaza)
+		if ok and type(value) == "boolean" then
+			context.IsTradingPlaza, context.TradingPlazaStatus = value, value and "ACTIVE" or "INACTIVE"
+		end
+	end
+	if type(account.MasteryUpgrades) == "table" then
+		local valid, observed = true, false
+		for _, upgrade in pairs(account.MasteryUpgrades) do
+			if type(upgrade) ~= "table" or type(upgrade.Type) ~= "string" then valid = false
+			elseif upgrade.Type == "Playtime" then observed = true end
+		end
+		if observed then context.HasPlaytime = true elseif valid then context.HasPlaytime = false end
+	end
+	for currency, value in pairs(snapshot.Balances or {}) do if finite(value) then context.Balances[currency] = value end end
+	local currencies = {}
+	for _, definition in pairs(type(context.Catalogs.WorldRewards) == "table" and context.Catalogs.WorldRewards or {}) do
+		if type(definition) == "table" and type(definition.Currency) == "string" then currencies[definition.Currency] = true end
+	end
+	for currency in pairs(currencies) do if finite(account[currency]) then context.Balances[currency] = account[currency] end end
+	if type(account.DailyRewards) == "table" and finite(account.DailyRewards.Stars) then context.Balances.Stars = account.DailyRewards.Stars end
+	local daily = { State = "UNKNOWN", NativeDay = context.NativeDay, Reason = "Explicit received daily day, streak, claim boolean and native day required" }
+	context.DailyObservation = daily
+	local receivedDaily = account.DailyRewards
+	if type(receivedDaily) == "table" and integer(receivedDaily.LastDay) and integer(receivedDaily.LastStreak)
+		and receivedDaily.LastStreak >= 1 and type(receivedDaily.Claimed) == "boolean" and integer(context.NativeDay) then
+		daily.Observed, daily.Claimed, daily.DayIndex = true, receivedDaily.Claimed, (receivedDaily.LastStreak - 1) % 7 + 1
+		local gifts = context.Catalogs.DailyRewards
+		daily.DeclaredReward = type(gifts) == "table" and copy(gifts[daily.DayIndex]) or nil
+		daily.GrantAssociation = "UNKNOWN: daily catalog gifts are not independently proven to be granted by the Stars claim request"
+		if receivedDaily.LastDay < context.NativeDay then
+			daily.State, daily.Locked, daily.Due, daily.Reason = "LOCKED", true, false, "Native daily UI reports a lost streak; recovery/rollover is unverified and never simulated"
+		elseif receivedDaily.LastDay > context.NativeDay then
+			daily.Reason = "Received daily day is ahead of the observed native day"
+		elseif receivedDaily.Claimed then
+			daily.State, daily.Due, daily.Reason = "CLAIMED", false, "Explicit received daily claim boolean is true for the native day"
+		else
+			daily.State, daily.Due, daily.Reason = "DUE", true, "Native daily login visibility prerequisites observed; server claim eligibility remains unknown"
+		end
+		local constants = modules.Constants
+		if type(constants) == "table" and finite(constants.DailyRewardsStarsPerDay) and finite(constants.DailyRewardsStarCap) then
+			daily.DeclaredStars = math.clamp(receivedDaily.LastStreak * constants.DailyRewardsStarsPerDay, 0, constants.DailyRewardsStarCap)
+		end
+	end
+	local questUtil = modules.QuestUtil
+	local seenQuests = {}
+	for _, quest in pairs(type(account.Quests) == "table" and account.Quests or {}) do
+		if type(quest) ~= "table" or type(quest.Id) ~= "string" or quest.Id == "" then continue end
+		if seenQuests[quest.Id] then
+			context.QuestObservations[quest.Id] = { State = "UNKNOWN", Reason = "Duplicate received quest identifiers are ambiguous", Tasks = {} }
+			continue
+		end
+		seenQuests[quest.Id] = true
+		local observation = { State = "UNKNOWN", Tasks = {}, Reason = "Complete explicit task requirements and progress required" }
+		context.QuestObservations[quest.Id] = observation
+		if type(quest.Tasks) ~= "table" or type(quest.Progress) ~= "table" then continue end
+		local taskCount, completeCount, valid = 0, 0, true
+		for index, taskDefinition in pairs(quest.Tasks) do
+			if not integer(index) or index < 1 or type(taskDefinition) ~= "table" then valid = false continue end
+			taskCount += 1
+			local taskObservation = { Current = finite(quest.Progress[index]) and quest.Progress[index] or nil,
+				State = "UNKNOWN", Reason = "Native requirement or explicit received progress unavailable" }
+			observation.Tasks[index] = taskObservation
+			if type(questUtil) == "table" and type(questUtil.GetRequirement) == "function" then
+				local ok, required = pcall(questUtil.GetRequirement, questUtil, copy(taskDefinition))
+				if ok and finite(required) and required > 0 then taskObservation.Required = required end
+			end
+			if taskObservation.Required ~= nil and taskObservation.Current ~= nil then
+				taskObservation.Complete = taskObservation.Current == taskObservation.Required
+				taskObservation.State, taskObservation.Reason = "OBSERVED", "Native QuestUtil exact-equality requirement and received progress observed"
+				if taskObservation.Complete then completeCount += 1 end
+			else valid = false end
+		end
+		if taskCount < 1 then valid = false end
+		for index = 1, taskCount do if quest.Tasks[index] == nil then valid = false end end
+		if valid then
+			observation.Complete, observation.State = completeCount == taskCount, "OBSERVED"
+			observation.Reason = "Native sequential task shape and exact-equality progress observed; automatic grant/claim timing unverified"
+		end
+	end
+	local prizes, prizeUtil = context.Catalogs.Prizes, modules.PrizesUtil
+	for _, prize in pairs(type(prizes) == "table" and type(prizes.data) == "table" and prizes.data or {}) do
+		if type(prize) ~= "table" or type(prize.Key) ~= "string" or prize.Key == "" then continue end
+		local observation = { Required = finite(prize.Requirement) and prize.Requirement or nil, State = "UNKNOWN",
+			Reason = "Native prize progress helper and explicit prerequisite fields required" }
+		context.PrizeObservations[prize.Key] = observation
+		if type(prizeUtil) == "table" and type(prizeUtil.GetProgress) == "function" and type(prize.Type) == "string" then
+			local ok, progress = pcall(prizeUtil.GetProgress, prizeUtil, copy(account), prize.Type)
+			if ok and finite(progress) then observation.Progress = progress end
+		end
+		if observation.Required ~= nil and observation.Progress ~= nil then
+			observation.Complete, observation.State = observation.Progress >= observation.Required, "OBSERVED"
+			observation.Reason = "Native PrizesUtil progress meets or falls short of the catalog threshold; grant remains unverified"
+		end
+	end
+	local pass, receivedPass = modules.ChallengePass, account.ChallengePass
+	local challenge = { State = "UNKNOWN", Reason = "Current native pass identity, deadline, received points and native time required" }
+	context.ChallengeObservation = challenge
+	if type(pass) == "table" then
+		challenge.Id = type(pass.Id) == "string" and pass.Id or nil
+		local expiryOK, expiry = pcall(function() return pass.FinishTime and pass.FinishTime.UnixTimestamp end)
+		if expiryOK and finite(expiry) then challenge.ExpiryUnix, challenge.Deadline = expiry, expiry end
+		if challenge.Id and challenge.ExpiryUnix and finite(context.NativeNow) then
+			challenge.Expired = context.NativeNow >= challenge.ExpiryUnix
+			challenge.State = challenge.Expired and "EXPIRED" or "ACTIVE"
+			challenge.Reason = "Current native catalog deadline compared with native server time; catalog presence alone is not active account availability"
+		end
+		if type(receivedPass) == "table" and finite(receivedPass.Points) and type(pass.GetTier) == "function" then
+			local ok, tier = pcall(pass.GetTier, pass, receivedPass.Points)
+			if ok and integer(tier) then challenge.EligibleTier = tier end
+		end
+	end
+	local inventory = context.InventoryObservations
+	local itemUtil = modules.ItemUtil
+	local function owned(item, prerequisitePresent)
+		if not prerequisitePresent or type(itemUtil) ~= "table" or type(itemUtil.GetOwnedAmount) ~= "function" then return nil end
+		local ok, amount = pcall(itemUtil.GetOwnedAmount, itemUtil, copy(account), copy(item))
+		return ok and integer(amount) and amount or nil
+	end
+	local function inventoryEntry(item, amount, definition, reason)
+		return { Type = item.Type, Name = item.Name, Level = item.Level, Owned = amount, Amount = amount,
+			QuantityStatus = amount ~= nil and "OBSERVED" or "UNKNOWN", State = amount ~= nil and "OBSERVED" or "UNKNOWN",
+			Item = item, Definition = copy(definition), Reason = reason }
+	end
+	if type(account.Powerups) == "table" then
+		for name, receivedAmount in pairs(account.Powerups) do
+			if type(name) ~= "string" then continue end
+			local definition = type(context.Catalogs.Powerups) == "table" and context.Catalogs.Powerups[name]
+			local item = { Type = "Powerup", Name = name }
+			local amount = type(definition) == "table" and owned(item, true) or nil
+			if not integer(receivedAmount) or amount ~= receivedAmount then amount = nil end
+			inventory.Powerups[name] = inventoryEntry(item, amount, definition,
+				"Native ItemUtil agrees with an explicit received Powerups count; missing definitions or disagreement remain unknown; ownership does not authorize use")
+			table.insert(inventory.Items, copy(inventory.Powerups[name]))
+		end
+	end
+	if type(account.Potions) == "table" then
+		local shapeValid, seenPotions = true, {}
+		for _, record in pairs(account.Potions) do
+			if type(record) ~= "table" or type(record.Name) ~= "string" or record.Name == ""
+				or record.Level ~= nil and (not integer(record.Level) or record.Level < 1) or not integer(record.Amount) then
+				shapeValid = false continue
+			end
+			local key = record.Name .. ":" .. tostring(record.Level or "DEFAULT")
+			local definition = type(context.Catalogs.Potions) == "table" and context.Catalogs.Potions[record.Name]
+			local item = { Type = "Potion", Name = record.Name, Level = record.Level }
+			local amount = type(definition) == "table" and owned(item, true) or nil
+			if amount ~= record.Amount then amount = nil end
+			if seenPotions[key] then shapeValid, amount = false, nil end
+			seenPotions[key] = true
+			inventory.Potions[key] = inventoryEntry(item, amount, definition,
+				"Native received Potions records carry exact Name/optional Level/Amount; duplicate, malformed or unsupported records stay unknown")
+		end
+		inventory.PotionSchemaState = shapeValid and "OBSERVED_NATIVE_RECORDS" or "UNKNOWN"
+		for _, entry in pairs(inventory.Potions) do table.insert(inventory.Items, copy(entry)) end
+	end
+	inventory.SchemaState = type(account.Powerups) == "table" and inventory.PotionSchemaState == "OBSERVED_NATIVE_RECORDS" and "OBSERVED" or "PARTIAL_OR_UNKNOWN"
+	local rendered = workspace and workspace:FindFirstChild("Rendered")
+	local locations = rendered and rendered:FindFirstChild("Chests")
+	local locationEntries = locations and locations:GetChildren() or nil
+	for name in pairs(type(context.Catalogs.Chests) == "table" and context.Catalogs.Chests or {}) do
+		if type(name) ~= "string" then continue end
+		local observation = { Interaction = "UNKNOWN", Reason = "Native location representation is not proof of private physical chest registry membership" }
+		context.ChestObservations[name] = observation
+		if locationEntries then
+			local matches = {}
+			for _, instance in ipairs(locationEntries) do if instance.Name == name and instance.Parent == locations then table.insert(matches, instance) end end
+			observation.LocationPresent, observation.Loaded = #matches > 0, #matches > 0
+			if #matches == 1 then
+				local island, world = matches[1]:GetAttribute("Island"), matches[1]:GetAttribute("World")
+				observation.Island, observation.World = type(island) == "string" and island or nil, type(world) == "string" and world or nil
+				if type(island) == "string" and type(account.AreasUnlocked) == "table" then
+					local unlocked = account.AreasUnlocked[island]
+					observation.Access, observation.MapAccess = unlocked ~= nil and unlocked ~= false, unlocked ~= nil and unlocked ~= false
+					observation.AccessReason = "Native WorldMap map-area visibility uses the received area's truthy entry; physical/server interaction remains unknown"
+				else observation.AccessReason = "Native WorldMap skips location entries with no Island; no world or physical access is inferred" end
+			elseif #matches > 1 then observation.Reason = "Multiple native chest location representations; interaction and access identity remain unknown" end
+		end
+	end
+	local storage = snapshot.Inventory or {}
+	context.StorageObservation = { Used = finite(storage.StorageUsed) and storage.StorageUsed or nil,
+		Capacity = finite(storage.StorageCapacity) and storage.StorageCapacity or nil,
+		Reason = "Existing reader StatsUtil:GetUsedPetStorage/GetMaxPetStorage observations; missing units and server grant-space rules remain unknown" }
+	for world, definition in pairs(type(context.Catalogs.WorldRewards) == "table" and context.Catalogs.WorldRewards or {}) do
+		if type(world) ~= "string" or type(definition) ~= "table" then continue end
+		local received = type(account.WorldRewards) == "table" and account.WorldRewards[world]
+		local worldDefinition = type(context.Catalogs.Worlds) == "table" and context.Catalogs.Worlds[world]
+		local observation = { WorldDefinitionState = type(worldDefinition) == "table" and "OBSERVED" or "UNKNOWN",
+			WorldActivity = "UNKNOWN", Access = type(account.WorldsUnlocked) == "table" and account.WorldsUnlocked[world] == true or nil,
+			Progress = type(received) == "table" and integer(received.Progress) and received.Progress or nil,
+			Reason = "Native WorldRewards[world].Progress and strict WorldsUnlocked[world]==true; paid next-tier transaction, no permission" }
+		if type(worldDefinition) == "table" then
+			observation.Removed = worldDefinition.Removed ~= nil and worldDefinition.Removed ~= false
+			observation.Event = worldDefinition.Event ~= nil and worldDefinition.Event ~= false
+			observation.WorldActivity = observation.Removed and "REMOVED" or observation.Event and "UNKNOWN_EVENT_ACTIVITY" or "PERMANENT_CATALOG_DEFINITION"
+		end
+		if type(account.WorldsUnlocked) == "table" then observation.Access = account.WorldsUnlocked[world] == true end
+		if observation.Progress ~= nil and type(definition.Levels) == "table" then
+			local tier = definition.Levels[observation.Progress + 1]
+			observation.NextTier = observation.Progress + 1
+			observation.NativePrice = type(tier) == "table" and copy(tier.Cost) or nil
+			observation.DeclaredReward = type(tier) == "table" and copy(tier.Reward) or nil
+			local reward, stats = type(tier) == "table" and tier.Reward, modules.StatsUtil
+			if type(reward) == "table" and reward.Type == "Pet" then
+				if type(stats) == "table" and type(stats.IsInventoryFull) == "function" then
+					local ok, full = pcall(stats.IsInventoryFull, stats, copy(account))
+					if ok and type(full) == "boolean" then
+						observation.StorageEligible = not full
+						observation.StorageReason = "Native StatsUtil:IsInventoryFull observed for this next paid pet reward; grant sizing/server acceptance remains unverified"
+					end
+				end
+			elseif type(reward) == "table" and type(reward.Type) == "string" then
+				observation.StorageEligible, observation.StorageReason = true, "Native next reward descriptor is not a Pet; this does not authorize a paid request"
+			end
+		end
+		context.WorldRewardObservations[world] = observation
+	end
+	local final, finalSnapshot = reader:GetLiveProfile(), reader:GetSnapshot()
+	if self.Destroyed or reader.Destroyed or reader.Player ~= player or player.UserId ~= identity
+		or reader.Revision ~= snapshot.Revision or type(finalSnapshot) ~= "table" or finalSnapshot.Ready ~= true
+		or finalSnapshot.Revision ~= snapshot.Revision or type(final) ~= "table" or not matchesSnapshot(final) or not equal(account, final) then
+		return block("Received reward account identity, revision, prerequisite or inventory facts changed during native observation")
+	end
+	for name, value in pairs(copiedModules) do if not equal(value, self:Get(name)) then return block("Native reward definitions or getter interfaces changed during observation") end end
+	context.CompletedAt = now + math.max(0, os.clock() - startedAt)
+	if context.CompletedAt - snapshot.ReadAt > maximumAge then return block("Reward account snapshot became stale during native observation") end
+	context.Fresh = true
+	return context
+end
+-- PHASE5_READ_ONLY_REWARDS_END
 return GameKnowledge

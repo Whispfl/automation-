@@ -112,6 +112,8 @@ assert.equal(run.status, 0, 'Foundation behavior tests failed');
 
 // Phase 5 has its own counter; all 684 historical baseline regressions above remain required.
 await import('./test-phase5-mastery.mjs');
+// Reward intelligence has an independent synthetic counter after all historical/Mastery cases.
+await import('./test-phase5-rewards.mjs');
 
 for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');

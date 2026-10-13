@@ -1,0 +1,38 @@
+// Read-only reward intelligence; synthetic offline facts, never owner account data.
+import assert from 'node:assert/strict';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { bundle, sources } from './bundle.mjs';
+
+const root = path.resolve(import.meta.dirname, '..');
+const source = await sources(root);
+const generated = bundle(source);
+const policy = source.modules.find(module => module.name === 'RewardPolicy');
+assert(policy, 'Read-only reward policy must be bundled');
+assert(!/\b(?:FireServer|InvokeServer|Submit|Execute|PivotTo|MoveTo)\s*\(|\bCFrame\s*=|task\.(?:spawn|defer|delay)\s*\(/.test(policy.source), 'Reward policy must have no transport, scheduler submission, movement or background loop');
+const environment = (await readFile(path.join(root, 'tests/foundation.luau'), 'utf8')).split('-- BUNDLE INSERTION POINT')[0];
+const fixture = await readFile(path.join(root, 'tests/phase5-rewards.luau'), 'utf8');
+const loaderPath = path.join(root, 'examples/Phase5RewardsReadOnly.luau');
+const loader = await readFile(loaderPath, 'utf8');
+const expectedURL = `https://raw.githubusercontent.com/Whispfl/automation-/phase5-rewards-${generated.buildId}/dist/OC.lua`;
+assert.equal((loader.match(/game:HttpGet\(/g) || []).length, 1, 'Read-only reward loader performs one public bundle fetch');
+assert(loader.includes(`game:HttpGet("${expectedURL}")`), 'Reward loader has the exact immutable reward build pin');
+assert(!/\b(?:GitHubToken|Authorization|FireServer|InvokeServer)\b/.test(loader), 'Reward loader has no tokens or transport');
+const loaderCall = loader.indexOf('local OC = loadstring(game:HttpGet(');
+assert(loaderCall >= 0, 'Reward loader uses the function-returning public bundle');
+const loaderPrefix = loader.slice(0, loaderCall);
+await mkdir(path.join(root, '.test-output'), { recursive: true });
+const file = path.join(root, '.test-output/phase5-rewards.luau');
+await writeFile(file, `${environment}\n${generated.library}\nlocal function phase5RewardLoaderOverrides()\n${loaderPrefix}\nreturn Config\nend\n${fixture}`);
+const compiler = process.env.LUAU_COMPILE_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau-compile.exe' : 'luau-compile');
+const executable = process.env.LUAU_BIN || path.join(root, '.tools/luau', process.platform === 'win32' ? 'luau.exe' : 'luau');
+const compile = spawnSync(compiler, ['--null', path.join(root, 'src/OCFoundation/RewardPolicy.luau'), loaderPath, file], { encoding: 'utf8' });
+if (compile.error) throw compile.error;
+assert.equal(compile.status, 0, compile.stdout + compile.stderr);
+const run = spawnSync(executable, [file], { encoding: 'utf8' });
+if (run.error) throw run.error;
+process.stdout.write(run.stdout || '');
+process.stderr.write(run.stderr || '');
+assert.equal(run.status, 0, 'Read-only reward actual-source synthetic regressions must pass');
+console.log('[OC PHASE5 REWARDS] Official Luau compilation PASS; read-only synthetic reward eligibility/unknown-state regressions PASS; no live actions performed.');

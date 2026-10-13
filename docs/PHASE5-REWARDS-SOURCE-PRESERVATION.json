@@ -1,0 +1,65 @@
+{
+  "scope": "Owner-authorized read-only reward eligibility intelligence; no gameplay or protected-method changes",
+  "baselineCommit": "7e833f94a1d2ff4011be3bdc74fcea0d10e30efc",
+  "changed": [
+    {
+      "file": "src/OCFoundation/OCConfig.luau",
+      "beforeSha256": "8f939b471d5c1bd5f0690d56aece7c5120e58d7501bf99f4590990222f5df597",
+      "afterSha256": "4b56d99279a92b30f52adf1f8d7b8758326dd048f95f1a58d14a7e3840cf7c2a"
+    },
+    {
+      "file": "src/OCFoundation/OCBrain.luau",
+      "beforeSha256": "fcbb5df328a1be58f722bf9e41a83910f45bb4f6dcc207f7f88d066b96511a2b",
+      "afterSha256": "668fa1e684bf3327d8d1a52d1e89ab19a3db839fec82cccde2a0191d7e37c622"
+    },
+    {
+      "file": "src/OCFoundation/OCController.luau",
+      "beforeSha256": "b16c11cea2a08f3bf394abda0015686d286087e1ba74eefda1d6416943981ad7",
+      "afterSha256": "a66c26613b2e35ee776c55d85472e51617ebef7a329f74373029d1eaa458e916"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "beforeSha256": "508796ac3bc0b5319a00c2abbcb1f0e172216ea8f78c5063d8ea187e22f65a91",
+      "afterSha256": "be6f15918a48cbee8fc6c390eba1e9a9634d1581cf3fb4cc4fa50175e6133517"
+    }
+  ],
+  "addition": {
+    "file": "src/OCFoundation/RewardPolicy.luau",
+    "sha256": "5c52c9c640b38531bf581d293ef0ce4162cded4b98ca0635465557572a81a193"
+  },
+  "projection": "Remove only exact pinned REWARDS marker additions and the one new pure module; compare every remaining production byte to immutable Mastery baseline. Historical Mastery and Phase4 approvals/hashes remain unchanged.",
+  "frozenFiles": [
+    "src/OCFoundation/MasteryPolicy.luau",
+    "examples/Phase5MasteryReadOnly.luau",
+    "tests/phase5-mastery.luau",
+    "docs/PHASE5-MASTERY-READ-ONLY.md",
+    "docs/PHASE5-READ-ONLY-SOURCE-PRESERVATION.json",
+    "docs/PHASE5-READ-ONLY-ADDITIONS.patch"
+  ],
+  "releasePins": [
+    {
+      "tag": "phase5-mastery-60e794e0fe87",
+      "commit": "7e833f94a1d2ff4011be3bdc74fcea0d10e30efc"
+    },
+    {
+      "tag": "phase4-direct-1d27e2a74ae5",
+      "commit": "4db553f3e2ce21bd1e822c9f1414a1933c8d30cb"
+    },
+    {
+      "tag": "phase4-hatch-100f2c1907ae",
+      "commit": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af"
+    },
+    {
+      "tag": "phase4-travel-0d5caa499c8c",
+      "commit": "25890f224f0448f148d009e65514c129aeb4f59c"
+    },
+    {
+      "tag": "phase4-travel-fec9bed3bd3f",
+      "commit": "e939f07f7ae898f3491e089615da802d7a07b9e5"
+    },
+    {
+      "tag": "phase4-hatch-f4e10f71c317",
+      "commit": "55bf4cf437cccd826180519c482bdc6edbbbb51b"
+    }
+  ]
+}

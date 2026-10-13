@@ -578,4 +578,26 @@ function OCController:PrintMasteryPlan()
 	return report
 end
 -- PHASE5_READ_ONLY_MASTERY_END
+-- PHASE5_READ_ONLY_REWARDS_BEGIN
+-- No Prepare/Observe/Select, scheduler submission, refresh, dispatch or new loop.
+function OCController:GetRewardPlan()
+	local snapshot, now = self.Reader:GetSnapshot(), os.clock()
+	local context = { Now = now }
+	if not self.Destroyed and (self.Config.REWARD_INTELLIGENCE_SETTINGS or {}).ENABLE_REWARD_INTELLIGENCE then
+		context.MasteryReport = self:GetMasteryPlan()
+		local manager, identity = self.Rewards, snapshot.Identity and snapshot.Identity.UserId
+		if manager and identity ~= nil and manager.UserId == identity then
+			context.PendingObservation = manager:GetStatus()
+		else context.PendingObservation = { AttributionBlocked = true,
+			Blocker = "Exact-account local reward ledger observation unavailable; counters are not claim evidence" } end
+	end
+	return self.Brain:AnalyzeRewards(snapshot, not self.Destroyed and self.Knowledge or nil, context)
+end
+
+function OCController:PrintRewardPlan()
+	local report = self:GetRewardPlan()
+	self:Log("REWARD_INTELLIGENCE", require(script.Parent.RewardPolicy).Format(report))
+	return report
+end
+-- PHASE5_READ_ONLY_REWARDS_END
 return OCController

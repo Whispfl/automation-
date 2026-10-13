@@ -617,4 +617,19 @@ function OCBrain:AnalyzeMastery(snapshot, knowledge, context)
 	return policy.Analyze(self.Config, snapshot, observed)
 end
 -- PHASE5_READ_ONLY_MASTERY_END
+-- PHASE5_READ_ONLY_REWARDS_BEGIN
+-- Advisory intelligence only; the existing Brain, Mastery and scheduler decisions are untouched.
+function OCBrain:AnalyzeRewards(snapshot, knowledge, context)
+	local policy = require(script.Parent.RewardPolicy)
+	context = context or {}
+	local settings = self.Config.REWARD_INTELLIGENCE_SETTINGS or {}
+	local observed
+	if settings.ENABLE_REWARD_INTELLIGENCE and knowledge then
+		observed = knowledge:RewardContext(snapshot, context.Now or os.clock(), settings)
+	else observed = { Fresh = false, Blocker = "READ_ONLY_REWARD_INTELLIGENCE_DISABLED" } end
+	observed.MasteryReport = context.MasteryReport
+	observed.PendingObservation = context.PendingObservation
+	return policy.Analyze(self.Config, snapshot, observed)
+end
+-- PHASE5_READ_ONLY_REWARDS_END
 return OCBrain

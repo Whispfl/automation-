@@ -1,0 +1,922 @@
+diff --git a/src/OCFoundation/GameKnowledge.luau b/src/OCFoundation/GameKnowledge.luau
+index 8323013..cd5a43c 100644
+--- a/src/OCFoundation/GameKnowledge.luau
++++ b/src/OCFoundation/GameKnowledge.luau
+@@ -1282,0 +1283,334 @@ end
++-- PHASE5_READ_ONLY_REWARDS_BEGIN
++-- Detached received facts and reviewed pure native getters only. No reward action is prepared.
++function GameKnowledge:RewardContext(snapshot, now, settings)
++	settings = settings or {}
++	local startedAt = os.clock()
++	local function finite(value)
++		return type(value) == "number" and value == value and value >= 0 and value < math.huge
++	end
++	local function integer(value) return finite(value) and value % 1 == 0 end
++	local function copy(value, seen)
++		if type(value) ~= "table" then return value end
++		seen = seen or {}
++		if seen[value] then return seen[value] end
++		local result = {} seen[value] = result
++		for key, entry in pairs(value) do result[key] = copy(entry, seen) end
++		return result
++	end
++	local function equal(left, right, seen)
++		if type(left) ~= type(right) then return false end
++		if type(left) ~= "table" then return left == right end
++		seen = seen or {}
++		if seen[left] == right then return true end
++		seen[left] = right
++		for key, value in pairs(left) do if not equal(value, right[key], seen) then return false end end
++		for key in pairs(right) do if left[key] == nil then return false end end
++		return true
++	end
++	local context = { Fresh = false, ObservedAt = now, Catalogs = {}, Balances = {}, Diagnostics = {},
++		QuestObservations = {}, PrizeObservations = {}, ChestObservations = {}, WorldRewardObservations = {},
++		InventoryObservations = { Powerups = {}, Potions = {}, Items = {}, SchemaState = "UNKNOWN" },
++		TradingPlazaStatus = "UNKNOWN", WheelQueueState = "UNKNOWN", ActionsEnabled = false,
++		Evidence = "Completed REWARDS_QUESTS_AND_EVENTS.md; SHOPS_QUESTS_AND_CONSUMABLES.md; DATA_SCHEMAS.md; native client eligibility is not server permission" }
++	local function block(reason) context.Fresh, context.Blocker = false, reason return context end
++	local reader = self.Reader
++	if self.Destroyed or not reader or reader.Destroyed or type(snapshot) ~= "table" or snapshot.Ready ~= true then
++		return block("Ready received account snapshot unavailable")
++	end
++	local maximumAge = settings.MAXIMUM_ACCOUNT_AGE_SECONDS or 10
++	if not finite(now) or not finite(snapshot.ReadAt) or not finite(maximumAge)
++		or now < snapshot.ReadAt or now - snapshot.ReadAt > maximumAge then
++		return block("Reward account snapshot is stale or its age is unknown")
++	end
++	if not integer(snapshot.Revision) or snapshot.Revision ~= reader.Revision then
++		return block("Reward snapshot revision differs from the current reader revision")
++	end
++	local current, player = reader:GetSnapshot(), reader.Player
++	local identity = snapshot.Identity and snapshot.Identity.UserId
++	if type(current) ~= "table" or current.Ready ~= true or current.Revision ~= snapshot.Revision
++		or not integer(identity) or identity < 1 or not player or player.UserId ~= identity then
++		return block("Reward account identity or current ready snapshot is unavailable or changed")
++	end
++	local raw = reader:GetLiveProfile()
++	if type(raw) ~= "table" then return block("Ready native LocalData reward profile unavailable") end
++	local account = copy(raw)
++	context.Account, context.Raw, context.AccountId = account, account, identity
++	context.EffectiveMasteryUpgrades = copy(account.MasteryUpgrades)
++	local function matchesSnapshot(profile)
++		local upgrades, inventory = snapshot.Upgrades or {}, snapshot.Inventory or {}
++		if upgrades.MasteryLevels ~= nil and not equal(upgrades.MasteryLevels, profile.MasteryLevels) then return false end
++		if upgrades.MasteryUpgrades ~= nil and not equal(upgrades.MasteryUpgrades, profile.MasteryUpgrades) then return false end
++		if snapshot.UnlockedIslands ~= nil and not equal(snapshot.UnlockedIslands, profile.AreasUnlocked) then return false end
++		if snapshot.UnlockedWorlds ~= nil and not equal(snapshot.UnlockedWorlds, profile.WorldsUnlocked) then return false end
++		for _, field in ipairs({ "Pets", "Powerups", "Potions" }) do
++			if inventory[field] ~= nil and not equal(inventory[field], profile[field]) then return false end
++		end
++		for currency, balance in pairs(snapshot.Balances or {}) do if balance ~= profile[currency] then return false end end
++		return true
++	end
++	if not matchesSnapshot(account) then return block("Snapshot reward prerequisites, inventory, or currency facts differ from live LocalData") end
++	local modules, copiedModules = {}, {}
++	local definitions = {
++		Playtime = "Shared.Data.Playtime", DailyRewards = "Shared.Data.DailyRewards", WorldRewards = "Shared.Data.WorldRewards",
++		Chests = "Shared.Data.Chests", Prizes = "Shared.Data.Prizes", Powerups = "Shared.Data.Powerups",
++		Potions = "Shared.Data.Potions", WheelSpin = "Shared.Data.WheelSpin", ChallengePass = "Shared.Data.ChallengePass",
++		Seasons = "Shared.Data.Seasons", Worlds = "Shared.Data.Worlds", Constants = "Shared.Constants",
++		Time = "Shared.Framework.Utilities.Math.Time", IsTradingPlaza = "Shared.Utils.IsTradingPlaza",
++		QuestUtil = "Shared.Utils.Stats.QuestUtil", PrizesUtil = "Shared.Utils.PrizesUtil", ItemUtil = "Shared.Utils.Stats.ItemUtil",
++		StatsUtil = "Shared.Utils.Stats.StatsUtil",
++	}
++	for name, path in pairs(definitions) do
++		local value = self:Get(name)
++		if value == nil and type(reader.Dependencies) == "table" and reader.Dependencies[name] == nil and type(reader._load) == "function" then
++			-- The existing cache/lifecycle owns this one nonblocking static dependency request.
++			reader:_load(name, path, name == "IsTradingPlaza" and "function" or "table")
++			value = self:Get(name)
++		end
++		if value ~= nil then modules[name], copiedModules[name] = value, copy(value)
++		else
++			local entry = type(reader.Dependencies) == "table" and reader.Dependencies[name]
++			table.insert(context.Diagnostics, name .. ": " .. tostring(entry and entry.Status or "UNAVAILABLE"))
++		end
++	end
++	for _, name in ipairs({ "Playtime", "DailyRewards", "WorldRewards", "Chests", "Prizes", "Powerups", "Potions", "WheelSpin", "ChallengePass", "Seasons", "Worlds" }) do
++		context.Catalogs[name] = copy(modules[name])
++	end
++	local time = modules.Time
++	if type(time) == "table" and type(time.now) == "function" then
++		local ok, value = pcall(time.now)
++		if ok and finite(value) then context.NativeNow = value else table.insert(context.Diagnostics, "Native Time.now unavailable or invalid") end
++	end
++	if type(time) == "table" and type(time.getAbsoluteDay) == "function" then
++		local ok, value = pcall(time.getAbsoluteDay)
++		if ok and integer(value) then context.NativeDay = value else table.insert(context.Diagnostics, "Native UTC absolute day unavailable or invalid") end
++	end
++	if type(modules.IsTradingPlaza) == "function" then
++		local ok, value = pcall(modules.IsTradingPlaza)
++		if ok and type(value) == "boolean" then
++			context.IsTradingPlaza, context.TradingPlazaStatus = value, value and "ACTIVE" or "INACTIVE"
++		end
++	end
++	if type(account.MasteryUpgrades) == "table" then
++		local valid, observed = true, false
++		for _, upgrade in pairs(account.MasteryUpgrades) do
++			if type(upgrade) ~= "table" or type(upgrade.Type) ~= "string" then valid = false
++			elseif upgrade.Type == "Playtime" then observed = true end
++		end
++		if observed then context.HasPlaytime = true elseif valid then context.HasPlaytime = false end
++	end
++	for currency, value in pairs(snapshot.Balances or {}) do if finite(value) then context.Balances[currency] = value end end
++	local currencies = {}
++	for _, definition in pairs(type(context.Catalogs.WorldRewards) == "table" and context.Catalogs.WorldRewards or {}) do
++		if type(definition) == "table" and type(definition.Currency) == "string" then currencies[definition.Currency] = true end
++	end
++	for currency in pairs(currencies) do if finite(account[currency]) then context.Balances[currency] = account[currency] end end
++	if type(account.DailyRewards) == "table" and finite(account.DailyRewards.Stars) then context.Balances.Stars = account.DailyRewards.Stars end
++	local daily = { State = "UNKNOWN", NativeDay = context.NativeDay, Reason = "Explicit received daily day, streak, claim boolean and native day required" }
++	context.DailyObservation = daily
++	local receivedDaily = account.DailyRewards
++	if type(receivedDaily) == "table" and integer(receivedDaily.LastDay) and integer(receivedDaily.LastStreak)
++		and receivedDaily.LastStreak >= 1 and type(receivedDaily.Claimed) == "boolean" and integer(context.NativeDay) then
++		daily.Observed, daily.Claimed, daily.DayIndex = true, receivedDaily.Claimed, (receivedDaily.LastStreak - 1) % 7 + 1
++		local gifts = context.Catalogs.DailyRewards
++		daily.DeclaredReward = type(gifts) == "table" and copy(gifts[daily.DayIndex]) or nil
++		daily.GrantAssociation = "UNKNOWN: daily catalog gifts are not independently proven to be granted by the Stars claim request"
++		if receivedDaily.LastDay < context.NativeDay then
++			daily.State, daily.Locked, daily.Due, daily.Reason = "LOCKED", true, false, "Native daily UI reports a lost streak; recovery/rollover is unverified and never simulated"
++		elseif receivedDaily.LastDay > context.NativeDay then
++			daily.Reason = "Received daily day is ahead of the observed native day"
++		elseif receivedDaily.Claimed then
++			daily.State, daily.Due, daily.Reason = "CLAIMED", false, "Explicit received daily claim boolean is true for the native day"
++		else
++			daily.State, daily.Due, daily.Reason = "DUE", true, "Native daily login visibility prerequisites observed; server claim eligibility remains unknown"
++		end
++		local constants = modules.Constants
++		if type(constants) == "table" and finite(constants.DailyRewardsStarsPerDay) and finite(constants.DailyRewardsStarCap) then
++			daily.DeclaredStars = math.clamp(receivedDaily.LastStreak * constants.DailyRewardsStarsPerDay, 0, constants.DailyRewardsStarCap)
++		end
++	end
++	local questUtil = modules.QuestUtil
++	local seenQuests = {}
++	for _, quest in pairs(type(account.Quests) == "table" and account.Quests or {}) do
++		if type(quest) ~= "table" or type(quest.Id) ~= "string" or quest.Id == "" then continue end
++		if seenQuests[quest.Id] then
++			context.QuestObservations[quest.Id] = { State = "UNKNOWN", Reason = "Duplicate received quest identifiers are ambiguous", Tasks = {} }
++			continue
++		end
++		seenQuests[quest.Id] = true
++		local observation = { State = "UNKNOWN", Tasks = {}, Reason = "Complete explicit task requirements and progress required" }
++		context.QuestObservations[quest.Id] = observation
++		if type(quest.Tasks) ~= "table" or type(quest.Progress) ~= "table" then continue end
++		local taskCount, completeCount, valid = 0, 0, true
++		for index, taskDefinition in pairs(quest.Tasks) do
++			if not integer(index) or index < 1 or type(taskDefinition) ~= "table" then valid = false continue end
++			taskCount += 1
++			local taskObservation = { Current = finite(quest.Progress[index]) and quest.Progress[index] or nil,
++				State = "UNKNOWN", Reason = "Native requirement or explicit received progress unavailable" }
++			observation.Tasks[index] = taskObservation
++			if type(questUtil) == "table" and type(questUtil.GetRequirement) == "function" then
++				local ok, required = pcall(questUtil.GetRequirement, questUtil, copy(taskDefinition))
++				if ok and finite(required) and required > 0 then taskObservation.Required = required end
++			end
++			if taskObservation.Required ~= nil and taskObservation.Current ~= nil then
++				taskObservation.Complete = taskObservation.Current == taskObservation.Required
++				taskObservation.State, taskObservation.Reason = "OBSERVED", "Native QuestUtil exact-equality requirement and received progress observed"
++				if taskObservation.Complete then completeCount += 1 end
++			else valid = false end
++		end
++		if taskCount < 1 then valid = false end
++		for index = 1, taskCount do if quest.Tasks[index] == nil then valid = false end end
++		if valid then
++			observation.Complete, observation.State = completeCount == taskCount, "OBSERVED"
++			observation.Reason = "Native sequential task shape and exact-equality progress observed; automatic grant/claim timing unverified"
++		end
++	end
++	local prizes, prizeUtil = context.Catalogs.Prizes, modules.PrizesUtil
++	for _, prize in pairs(type(prizes) == "table" and type(prizes.data) == "table" and prizes.data or {}) do
++		if type(prize) ~= "table" or type(prize.Key) ~= "string" or prize.Key == "" then continue end
++		local observation = { Required = finite(prize.Requirement) and prize.Requirement or nil, State = "UNKNOWN",
++			Reason = "Native prize progress helper and explicit prerequisite fields required" }
++		context.PrizeObservations[prize.Key] = observation
++		if type(prizeUtil) == "table" and type(prizeUtil.GetProgress) == "function" and type(prize.Type) == "string" then
++			local ok, progress = pcall(prizeUtil.GetProgress, prizeUtil, copy(account), prize.Type)
++			if ok and finite(progress) then observation.Progress = progress end
++		end
++		if observation.Required ~= nil and observation.Progress ~= nil then
++			observation.Complete, observation.State = observation.Progress >= observation.Required, "OBSERVED"
++			observation.Reason = "Native PrizesUtil progress meets or falls short of the catalog threshold; grant remains unverified"
++		end
++	end
++	local pass, receivedPass = modules.ChallengePass, account.ChallengePass
++	local challenge = { State = "UNKNOWN", Reason = "Current native pass identity, deadline, received points and native time required" }
++	context.ChallengeObservation = challenge
++	if type(pass) == "table" then
++		challenge.Id = type(pass.Id) == "string" and pass.Id or nil
++		local expiryOK, expiry = pcall(function() return pass.FinishTime and pass.FinishTime.UnixTimestamp end)
++		if expiryOK and finite(expiry) then challenge.ExpiryUnix, challenge.Deadline = expiry, expiry end
++		if challenge.Id and challenge.ExpiryUnix and finite(context.NativeNow) then
++			challenge.Expired = context.NativeNow >= challenge.ExpiryUnix
++			challenge.State = challenge.Expired and "EXPIRED" or "ACTIVE"
++			challenge.Reason = "Current native catalog deadline compared with native server time; catalog presence alone is not active account availability"
++		end
++		if type(receivedPass) == "table" and finite(receivedPass.Points) and type(pass.GetTier) == "function" then
++			local ok, tier = pcall(pass.GetTier, pass, receivedPass.Points)
++			if ok and integer(tier) then challenge.EligibleTier = tier end
++		end
++	end
++	local inventory = context.InventoryObservations
++	local itemUtil = modules.ItemUtil
++	local function owned(item, prerequisitePresent)
++		if not prerequisitePresent or type(itemUtil) ~= "table" or type(itemUtil.GetOwnedAmount) ~= "function" then return nil end
++		local ok, amount = pcall(itemUtil.GetOwnedAmount, itemUtil, copy(account), copy(item))
++		return ok and integer(amount) and amount or nil
++	end
++	local function inventoryEntry(item, amount, definition, reason)
++		return { Type = item.Type, Name = item.Name, Level = item.Level, Owned = amount, Amount = amount,
++			QuantityStatus = amount ~= nil and "OBSERVED" or "UNKNOWN", State = amount ~= nil and "OBSERVED" or "UNKNOWN",
++			Item = item, Definition = copy(definition), Reason = reason }
++	end
++	if type(account.Powerups) == "table" then
++		for name, receivedAmount in pairs(account.Powerups) do
++			if type(name) ~= "string" then continue end
++			local definition = type(context.Catalogs.Powerups) == "table" and context.Catalogs.Powerups[name]
++			local item = { Type = "Powerup", Name = name }
++			local amount = type(definition) == "table" and owned(item, true) or nil
++			if not integer(receivedAmount) or amount ~= receivedAmount then amount = nil end
++			inventory.Powerups[name] = inventoryEntry(item, amount, definition,
++				"Native ItemUtil agrees with an explicit received Powerups count; missing definitions or disagreement remain unknown; ownership does not authorize use")
++			table.insert(inventory.Items, copy(inventory.Powerups[name]))
++		end
++	end
++	if type(account.Potions) == "table" then
++		local shapeValid, seenPotions = true, {}
++		for _, record in pairs(account.Potions) do
++			if type(record) ~= "table" or type(record.Name) ~= "string" or record.Name == ""
++				or record.Level ~= nil and (not integer(record.Level) or record.Level < 1) or not integer(record.Amount) then
++				shapeValid = false continue
++			end
++			local key = record.Name .. ":" .. tostring(record.Level or "DEFAULT")
++			local definition = type(context.Catalogs.Potions) == "table" and context.Catalogs.Potions[record.Name]
++			local item = { Type = "Potion", Name = record.Name, Level = record.Level }
++			local amount = type(definition) == "table" and owned(item, true) or nil
++			if amount ~= record.Amount then amount = nil end
++			if seenPotions[key] then shapeValid, amount = false, nil end
++			seenPotions[key] = true
++			inventory.Potions[key] = inventoryEntry(item, amount, definition,
++				"Native received Potions records carry exact Name/optional Level/Amount; duplicate, malformed or unsupported records stay unknown")
++		end
++		inventory.PotionSchemaState = shapeValid and "OBSERVED_NATIVE_RECORDS" or "UNKNOWN"
++		for _, entry in pairs(inventory.Potions) do table.insert(inventory.Items, copy(entry)) end
++	end
++	inventory.SchemaState = type(account.Powerups) == "table" and inventory.PotionSchemaState == "OBSERVED_NATIVE_RECORDS" and "OBSERVED" or "PARTIAL_OR_UNKNOWN"
++	local rendered = workspace and workspace:FindFirstChild("Rendered")
++	local locations = rendered and rendered:FindFirstChild("Chests")
++	local locationEntries = locations and locations:GetChildren() or nil
++	for name in pairs(type(context.Catalogs.Chests) == "table" and context.Catalogs.Chests or {}) do
++		if type(name) ~= "string" then continue end
++		local observation = { Interaction = "UNKNOWN", Reason = "Native location representation is not proof of private physical chest registry membership" }
++		context.ChestObservations[name] = observation
++		if locationEntries then
++			local matches = {}
++			for _, instance in ipairs(locationEntries) do if instance.Name == name and instance.Parent == locations then table.insert(matches, instance) end end
++			observation.LocationPresent, observation.Loaded = #matches > 0, #matches > 0
++			if #matches == 1 then
++				local island, world = matches[1]:GetAttribute("Island"), matches[1]:GetAttribute("World")
++				observation.Island, observation.World = type(island) == "string" and island or nil, type(world) == "string" and world or nil
++				if type(island) == "string" and type(account.AreasUnlocked) == "table" then
++					local unlocked = account.AreasUnlocked[island]
++					observation.Access, observation.MapAccess = unlocked ~= nil and unlocked ~= false, unlocked ~= nil and unlocked ~= false
++					observation.AccessReason = "Native WorldMap map-area visibility uses the received area's truthy entry; physical/server interaction remains unknown"
++				else observation.AccessReason = "Native WorldMap skips location entries with no Island; no world or physical access is inferred" end
++			elseif #matches > 1 then observation.Reason = "Multiple native chest location representations; interaction and access identity remain unknown" end
++		end
++	end
++	local storage = snapshot.Inventory or {}
++	context.StorageObservation = { Used = finite(storage.StorageUsed) and storage.StorageUsed or nil,
++		Capacity = finite(storage.StorageCapacity) and storage.StorageCapacity or nil,
++		Reason = "Existing reader StatsUtil:GetUsedPetStorage/GetMaxPetStorage observations; missing units and server grant-space rules remain unknown" }
++	for world, definition in pairs(type(context.Catalogs.WorldRewards) == "table" and context.Catalogs.WorldRewards or {}) do
++		if type(world) ~= "string" or type(definition) ~= "table" then continue end
++		local received = type(account.WorldRewards) == "table" and account.WorldRewards[world]
++		local worldDefinition = type(context.Catalogs.Worlds) == "table" and context.Catalogs.Worlds[world]
++		local observation = { WorldDefinitionState = type(worldDefinition) == "table" and "OBSERVED" or "UNKNOWN",
++			WorldActivity = "UNKNOWN", Access = type(account.WorldsUnlocked) == "table" and account.WorldsUnlocked[world] == true or nil,
++			Progress = type(received) == "table" and integer(received.Progress) and received.Progress or nil,
++			Reason = "Native WorldRewards[world].Progress and strict WorldsUnlocked[world]==true; paid next-tier transaction, no permission" }
++		if type(worldDefinition) == "table" then
++			observation.Removed = worldDefinition.Removed ~= nil and worldDefinition.Removed ~= false
++			observation.Event = worldDefinition.Event ~= nil and worldDefinition.Event ~= false
++			observation.WorldActivity = observation.Removed and "REMOVED" or observation.Event and "UNKNOWN_EVENT_ACTIVITY" or "PERMANENT_CATALOG_DEFINITION"
++		end
++		if type(account.WorldsUnlocked) == "table" then observation.Access = account.WorldsUnlocked[world] == true end
++		if observation.Progress ~= nil and type(definition.Levels) == "table" then
++			local tier = definition.Levels[observation.Progress + 1]
++			observation.NextTier = observation.Progress + 1
++			observation.NativePrice = type(tier) == "table" and copy(tier.Cost) or nil
++			observation.DeclaredReward = type(tier) == "table" and copy(tier.Reward) or nil
++			local reward, stats = type(tier) == "table" and tier.Reward, modules.StatsUtil
++			if type(reward) == "table" and reward.Type == "Pet" then
++				if type(stats) == "table" and type(stats.IsInventoryFull) == "function" then
++					local ok, full = pcall(stats.IsInventoryFull, stats, copy(account))
++					if ok and type(full) == "boolean" then
++						observation.StorageEligible = not full
++						observation.StorageReason = "Native StatsUtil:IsInventoryFull observed for this next paid pet reward; grant sizing/server acceptance remains unverified"
++					end
++				end
++			elseif type(reward) == "table" and type(reward.Type) == "string" then
++				observation.StorageEligible, observation.StorageReason = true, "Native next reward descriptor is not a Pet; this does not authorize a paid request"
++			end
++		end
++		context.WorldRewardObservations[world] = observation
++	end
++	local final, finalSnapshot = reader:GetLiveProfile(), reader:GetSnapshot()
++	if self.Destroyed or reader.Destroyed or reader.Player ~= player or player.UserId ~= identity
++		or reader.Revision ~= snapshot.Revision or type(finalSnapshot) ~= "table" or finalSnapshot.Ready ~= true
++		or finalSnapshot.Revision ~= snapshot.Revision or type(final) ~= "table" or not matchesSnapshot(final) or not equal(account, final) then
++		return block("Received reward account identity, revision, prerequisite or inventory facts changed during native observation")
++	end
++	for name, value in pairs(copiedModules) do if not equal(value, self:Get(name)) then return block("Native reward definitions or getter interfaces changed during observation") end end
++	context.CompletedAt = now + math.max(0, os.clock() - startedAt)
++	if context.CompletedAt - snapshot.ReadAt > maximumAge then return block("Reward account snapshot became stale during native observation") end
++	context.Fresh = true
++	return context
++end
++-- PHASE5_READ_ONLY_REWARDS_END
+diff --git a/src/OCFoundation/OCBrain.luau b/src/OCFoundation/OCBrain.luau
+index 8925bf4..764ba03 100644
+--- a/src/OCFoundation/OCBrain.luau
++++ b/src/OCFoundation/OCBrain.luau
+@@ -619,0 +620,15 @@ end
++-- PHASE5_READ_ONLY_REWARDS_BEGIN
++-- Advisory intelligence only; the existing Brain, Mastery and scheduler decisions are untouched.
++function OCBrain:AnalyzeRewards(snapshot, knowledge, context)
++	local policy = require(script.Parent.RewardPolicy)
++	context = context or {}
++	local settings = self.Config.REWARD_INTELLIGENCE_SETTINGS or {}
++	local observed
++	if settings.ENABLE_REWARD_INTELLIGENCE and knowledge then
++		observed = knowledge:RewardContext(snapshot, context.Now or os.clock(), settings)
++	else observed = { Fresh = false, Blocker = "READ_ONLY_REWARD_INTELLIGENCE_DISABLED" } end
++	observed.MasteryReport = context.MasteryReport
++	observed.PendingObservation = context.PendingObservation
++	return policy.Analyze(self.Config, snapshot, observed)
++end
++-- PHASE5_READ_ONLY_REWARDS_END
+diff --git a/src/OCFoundation/OCConfig.luau b/src/OCFoundation/OCConfig.luau
+index a7811cd..c152f37 100644
+--- a/src/OCFoundation/OCConfig.luau
++++ b/src/OCFoundation/OCConfig.luau
+@@ -35,0 +36,7 @@ return {
++	-- PHASE5_READ_ONLY_REWARDS_BEGIN
++	REWARD_INTELLIGENCE_SETTINGS = {
++		ENABLE_REWARD_INTELLIGENCE = false, --// Explicit read-only reward reports; no claim, use, purchase or automatic task permission.
++		MAXIMUM_ACCOUNT_AGE_SECONDS = 10, --// Reject stale, future or changed received account observations.
++		MAXIMUM_REPORT_ROWS = 200, --// Bound reported reward entries; omitted coverage stays explicit and cannot imply completion.
++	},
++	-- PHASE5_READ_ONLY_REWARDS_END
+diff --git a/src/OCFoundation/OCController.luau b/src/OCFoundation/OCController.luau
+index 364a978..fb3a132 100644
+--- a/src/OCFoundation/OCController.luau
++++ b/src/OCFoundation/OCController.luau
+@@ -580,0 +581,22 @@ end
++-- PHASE5_READ_ONLY_REWARDS_BEGIN
++-- No Prepare/Observe/Select, scheduler submission, refresh, dispatch or new loop.
++function OCController:GetRewardPlan()
++	local snapshot, now = self.Reader:GetSnapshot(), os.clock()
++	local context = { Now = now }
++	if not self.Destroyed and (self.Config.REWARD_INTELLIGENCE_SETTINGS or {}).ENABLE_REWARD_INTELLIGENCE then
++		context.MasteryReport = self:GetMasteryPlan()
++		local manager, identity = self.Rewards, snapshot.Identity and snapshot.Identity.UserId
++		if manager and identity ~= nil and manager.UserId == identity then
++			context.PendingObservation = manager:GetStatus()
++		else context.PendingObservation = { AttributionBlocked = true,
++			Blocker = "Exact-account local reward ledger observation unavailable; counters are not claim evidence" } end
++	end
++	return self.Brain:AnalyzeRewards(snapshot, not self.Destroyed and self.Knowledge or nil, context)
++end
++
++function OCController:PrintRewardPlan()
++	local report = self:GetRewardPlan()
++	self:Log("REWARD_INTELLIGENCE", require(script.Parent.RewardPolicy).Format(report))
++	return report
++end
++-- PHASE5_READ_ONLY_REWARDS_END
+diff --git a/src/OCFoundation/RewardPolicy.luau b/src/OCFoundation/RewardPolicy.luau
+new file mode 100644
+index 0000000..8439c2d
+--- /dev/null
++++ b/src/OCFoundation/RewardPolicy.luau
+@@ -0,0 +1,518 @@
++--!nonstrict
++-- Pure Phase 5 reward intelligence. This module never requests or consumes a reward.
++local RewardPolicy = {}
++
++local function finite(value)
++	return type(value) == "number" and value == value and value >= 0 and value < math.huge
++end
++
++local function integer(value)
++	return finite(value) and value % 1 == 0
++end
++
++local function nativeStringIndexMap(value)
++	if type(value) ~= "table" then return false end
++	for key in pairs(value) do
++		if type(key) ~= "string" or not string.match(key, "^%d+$") then return false end
++		local index = tonumber(key)
++		if not integer(index) or index < 1 or tostring(index) ~= key then return false end
++	end
++	return true
++end
++
++local function stringKeyMap(value)
++	if type(value) ~= "table" then return false end
++	for key in pairs(value) do if type(key) ~= "string" or key == "" then return false end end
++	return true
++end
++
++local function nativeTierValues(value)
++	if type(value) ~= "table" then return false end
++	for key, tier in pairs(value) do
++		if not integer(key) or key < 1 or not integer(tier) or tier < 1 then return false end
++	end
++	return true
++end
++
++local function copy(value, seen)
++	if type(value) ~= "table" then return value end
++	seen = seen or {}
++	if seen[value] then return seen[value] end
++	local result = {} seen[value] = result
++	for key, entry in pairs(value) do result[key] = copy(entry, seen) end
++	return result
++end
++
++local function keys(value)
++	local result = {}
++	for key in pairs(type(value) == "table" and value or {}) do
++		if type(key) == "string" or type(key) == "number" and finite(key) then table.insert(result, key) end
++	end
++	table.sort(result, function(a, b)
++		if type(a) == type(b) then return a < b end
++		return type(a) == "number"
++	end)
++	return result
++end
++
++local function unknown(row, message)
++	if not table.find(row.Unknowns, message) then table.insert(row.Unknowns, message) end
++end
++
++local function nativeBenefit(value, random)
++	return { State = type(value) == "table" and "DECLARED_NATIVE" or "UNKNOWN", Items = copy(value),
++		Randomized = random == true, ActualGrant = "UNKNOWN", EarningGain = "UNKNOWN",
++		Reason = random and "Native pool descriptors are possible outcomes, not verified final odds or credited rewards"
++			or "Declared native reward is not a received grant or measured earning improvement" }
++end
++
++local reserveFields = { Coins = "COIN_RESERVE", Gems = "GEM_RESERVE", Tickets = "TICKET_RESERVE", Pearls = "PEARL_RESERVE" }
++
++local function currencyCost(value)
++	if type(value) ~= "table" or value.Type ~= "Currency" or type(value.Currency) ~= "string"
++		or value.Currency == "" or not finite(value.Amount) then return nil end
++	return { Type = "Currency", Currency = value.Currency, Amount = value.Amount }
++end
++
++local function affordability(config, raw, cost)
++	if not cost then return "UNKNOWN" end
++	local balance = raw[cost.Currency]
++	local field = reserveFields[cost.Currency]
++	local reserve = field and config.RESOURCE_SETTINGS and config.RESOURCE_SETTINGS[field]
++	if not finite(balance) or not finite(reserve) then return "UNKNOWN", finite(balance) and balance or nil end
++	local shortage = math.max(0, cost.Amount - math.max(0, balance - reserve))
++	return shortage == 0 and "AFFORDABLE" or "INSUFFICIENT", balance, reserve, shortage
++end
++
++local function masteryPriority(report)
++	if type(report) ~= "table" or report.ReadOnly ~= true or report.ActionAuthorization ~= "NONE"
++		or report.Status == "DISABLED" or report.Status == "UNKNOWN" then return "UNKNOWN" end
++	if not integer(report.ObtainableRemainingCategories) or not integer(report.UnresolvedCategories) then return "UNKNOWN" end
++	if report.ObtainableRemainingCategories > 0 then return "INCOMPLETE" end
++	if report.UnresolvedCategories > 0 then return "UNKNOWN" end
++	return "NO_KNOWN_OBTAINABLE_TIER"
++end
++
++function RewardPolicy.Analyze(config, snapshot, context)
++	config, snapshot, context = config or {}, snapshot or {}, context or {}
++	local settings = config.REWARD_INTELLIGENCE_SETTINGS or {}
++	local report = { ReadOnly = true, ActionsEnabled = false, ActionAuthorization = "NONE", Status = "UNKNOWN",
++		Rows = {}, Groups = {}, Unknowns = {}, MasteryPriority = masteryPriority(context.MasteryReport),
++		Recommendation = { Kind = "WAIT", Reason = "Reward evidence UNKNOWN", ExecutionAuthorized = false, ActionAuthorization = "NONE" },
++		Policy = "Read-only eligibility; free rewards, paid World Rewards, quests, chests and consumed inventory remain separate; obtainable permanent Mastery retains priority" }
++	if settings.ENABLE_REWARD_INTELLIGENCE ~= true then
++		report.Status = "DISABLED" report.Recommendation.Reason = "Read-only reward intelligence is disabled" return report
++	end
++	local now, readAt = context.ObservedAt, snapshot.ReadAt
++	if snapshot.Ready ~= true or context.Fresh ~= true or not finite(now) or not finite(readAt) or readAt > now
++		or not finite(settings.MAXIMUM_ACCOUNT_AGE_SECONDS) or now - readAt > settings.MAXIMUM_ACCOUNT_AGE_SECONDS then
++		table.insert(report.Unknowns, context.Blocker or "Account/native observation is unavailable, stale or inconsistent")
++		return report
++	end
++	local raw = type(context.Raw) == "table" and context.Raw or type(context.Account) == "table" and context.Account
++	if not raw then table.insert(report.Unknowns, "Received reward profile unavailable") return report end
++	local catalogs = type(context.Catalogs) == "table" and context.Catalogs or {}
++	local limit = integer(settings.MAXIMUM_REPORT_ROWS) and settings.MAXIMUM_REPORT_ROWS >= 1 and settings.MAXIMUM_REPORT_ROWS or 200
++	local omitted = 0
++	local function row(family, key, name)
++		local result = { Key = family .. ":" .. tostring(key), Family = family, Name = name or tostring(key), Status = "UNKNOWN",
++			Eligibility = "UNKNOWN", ClaimState = "UNKNOWN", Requirements = {}, Unknowns = {},
++			Cost = { State = "UNKNOWN" }, PossibleBenefit = nativeBenefit(nil), InterruptsMastery = "UNKNOWN",
++			ActionAuthorization = "NONE", ExecutionAuthorized = false }
++		if #report.Rows < limit then
++			table.insert(report.Rows, result)
++			if not report.Groups[family] then report.Groups[family] = {} end
++			table.insert(report.Groups[family], result)
++		else omitted += 1 end
++		return result
++	end
++	local function free(result)
++		result.Cost = { Type = "FREE", Amount = 0, State = "NATIVE_FREE_INTERFACE" }
++		unknown(result, "Server claim acceptance, actual grant and setup/presentation interruption remain unverified")
++	end
++	local function unavailable(family, name, reason)
++		local result = row(family, "OBSERVATION", name) unknown(result, reason) return result
++	end
++	local playtime = catalogs.Playtime
++	local gifts = type(playtime) == "table" and playtime.Gifts
++	local state = raw.PlaytimeRewards
++	if type(gifts) ~= "table" or next(gifts) == nil then
++		unavailable("FREE_PLAYTIME", "Playtime rewards", "Native Playtime.Gifts catalog unavailable")
++	else
++		for _, index in ipairs(keys(gifts)) do
++			if not integer(index) or index < 1 then continue end
++			local gift = gifts[index]
++			local result = row("FREE_PLAYTIME", index, "Playtime gift " .. tostring(index))
++			free(result) result.Index = index result.PossibleBenefit = nativeBenefit(type(playtime) == "table" and playtime.Prizes, true)
++			result.Requirements = { "Received Playtime capability", "Native Trading Plaza restriction", "Current cycle and exact sparse claimed map", "Native due time" }
++			if type(gift) ~= "table" or not finite(gift.Time) then unknown(result, "Native gift time unavailable") continue end
++			result.RequiredSeconds, result.ClientLuckDescriptor = gift.Time, gift.Luck
++			if type(state) ~= "table" or type(state.Claimed) ~= "table" or not finite(state.Start) then
++				unknown(result, "Received Playtime Start/Claimed unavailable; missing claim data is not unclaimed") continue
++			end
++			if state.Claimed[tostring(index)] ~= nil then result.Status, result.ClaimState = "CLAIMED", "CLAIMED_KEY_PRESENT" continue end
++			if not nativeStringIndexMap(state.Claimed) then unknown(result, "Received Playtime claim map has non-native keys; no unclaimed state is inferred") continue end
++			result.ClaimState = "UNCLAIMED_IN_RECEIVED_MAP"
++			if context.HasPlaytime == false or context.IsTradingPlaza == true then
++				result.Status, result.Eligibility = "LOCKED", "INELIGIBLE"
++				result.Blocker = context.HasPlaytime == false and "Playtime capability not present in received Mastery upgrades" or "Native Playtime is disabled in Trading Plaza"
++			elseif context.HasPlaytime ~= true or context.IsTradingPlaza ~= false then unknown(result, "Playtime capability or Trading Plaza observation unavailable")
++			elseif not finite(context.NativeNow) or context.NativeNow < state.Start then unknown(result, "Native time unavailable or precedes received cycle start")
++			else
++				result.DueAt = state.Start + gift.Time
++				if not finite(result.DueAt) then unknown(result, "Observed playtime deadline is not finite") continue end
++				result.SecondsUntilDue = math.max(0, result.DueAt - context.NativeNow)
++				result.Status = result.SecondsUntilDue == 0 and "DUE" or "AVAILABLE"
++				result.Eligibility = result.Status == "DUE" and "CLIENT_ELIGIBLE" or "NOT_DUE"
++			end
++		end
++	end
++
++	local daily = row("FREE_DAILY", "STARS", "Daily reward stars")
++	free(daily) daily.Requirements = { "Received LastDay/LastStreak and explicit Claimed boolean", "Native absolute UTC day", "Native rollover/streak eligibility" }
++	local dailyState, dailyObservation = raw.DailyRewards, context.DailyObservation
++	if type(dailyState) ~= "table" or type(dailyState.Claimed) ~= "boolean" then
++		unknown(daily, "Received explicit daily claim state unavailable; missing is not unclaimed")
++	elseif not integer(dailyState.LastDay) or not integer(dailyState.LastStreak) or not integer(context.NativeDay) then
++		unknown(daily, "Received daily day/streak or native absolute day unavailable")
++	elseif type(dailyObservation) == "table" and dailyObservation.Observed == true then
++		daily.NativeDay, daily.DayIndex = context.NativeDay, dailyObservation.DayIndex
++		daily.PossibleBenefit = nativeBenefit(nil)
++		daily.PossibleBenefit.DeclaredStars = finite(dailyObservation.DeclaredStars) and dailyObservation.DeclaredStars or nil
++		daily.PossibleBenefit.State = daily.PossibleBenefit.DeclaredStars ~= nil and "CLIENT_DISPLAY_ESTIMATE" or "UNKNOWN"
++		daily.PossibleBenefit.AssociatedDailyCatalogGift = copy(dailyObservation.DeclaredReward)
++		daily.PossibleBenefit.GiftGrantAssociation = "UNKNOWN"
++		daily.ObservedReason = dailyObservation.Reason
++		daily.ClaimState = dailyObservation.Claimed == true and dailyState.LastDay == context.NativeDay and "CLAIMED_CURRENT_NATIVE_DAY"
++			or dailyObservation.Claimed == false and dailyState.LastDay == context.NativeDay and "EXPLICIT_UNCLAIMED" or "UNKNOWN"
++		unknown(daily, "Daily catalog gift timing/association is separate from the stars-claim interface and remains unknown")
++		if dailyObservation.Claimed == true and dailyObservation.State == "CLAIMED" then daily.Status = "CLAIMED"
++		elseif dailyObservation.Locked == true or dailyObservation.State == "LOCKED" then
++			daily.Status, daily.Eligibility, daily.Blocker = "LOCKED", "INELIGIBLE", dailyObservation.Reason or "Native daily eligibility blocked"
++		elseif dailyObservation.Due == true and dailyObservation.Claimed == false then daily.Status, daily.Eligibility = "DUE", "CLIENT_ELIGIBLE"
++		elseif dailyObservation.Due == false then daily.Status, daily.Eligibility = "AVAILABLE", "NOT_DUE"
++		else unknown(daily, dailyObservation.Reason or "Daily native eligibility unresolved") end
++	elseif dailyState.LastDay == context.NativeDay and dailyState.Claimed == true then
++		daily.Status, daily.ClaimState = "CLAIMED", "CLAIMED_CURRENT_NATIVE_DAY"
++	else
++		daily.ClaimState = dailyState.Claimed == false and "EXPLICIT_UNCLAIMED_STATE" or "PRIOR_DAY_CLAIMED_STATE"
++		unknown(daily, "Daily native rollover/streak observation unavailable; prior-day state is not a current claim authorization")
++	end
++
++	local wheel = row("FREE_WHEEL_TICKET", "TICKET", "Free wheel ticket")
++	free(wheel) wheel.Requirements = { "Received NextWheelSpin deadline", "Native server time", "No unresolved native wheel queue" }
++	wheel.PossibleBenefit = { State = "NATIVE_INTERFACE", Item = "Spin Ticket", Amount = "UNKNOWN", ActualGrant = "UNKNOWN", EarningGain = "UNKNOWN",
++		Reason = "Collecting a due ticket is separate from consuming a ticket to spin or settling its reward queue" }
++	if not finite(raw.NextWheelSpin) then unknown(wheel, "Received free-wheel deadline unavailable; missing does not mean due")
++	elseif not finite(context.NativeNow) then unknown(wheel, "Native server time unavailable")
++	elseif context.WheelQueuePending == true then wheel.Status, wheel.Eligibility = "PENDING", "BLOCKED_PENDING_RECEIPT"
++	else
++		wheel.DueAt, wheel.SecondsUntilDue = raw.NextWheelSpin, math.max(0, raw.NextWheelSpin - context.NativeNow)
++		wheel.Status, wheel.Eligibility = wheel.SecondsUntilDue == 0 and "DUE" or "AVAILABLE", wheel.SecondsUntilDue == 0 and "CLIENT_TIME_ELIGIBLE" or "NOT_DUE"
++		wheel.ClaimState = wheel.SecondsUntilDue == 0 and "DEADLINE_DUE_OBSERVED" or "NEXT_DEADLINE_OBSERVED"
++		if context.WheelQueuePending == nil then unknown(wheel, "Native wheel queue/unfinished presentation observation unavailable") end
++	end
++
++	local worlds = catalogs.WorldRewards
++	if type(worlds) ~= "table" or next(worlds) == nil then
++		unavailable("PAID_WORLD_REWARD", "World Rewards", "Native WorldRewards catalog unavailable")
++	else
++		for _, name in ipairs(keys(worlds)) do
++			if type(name) ~= "string" then continue end
++			local definition, received = worlds[name], type(raw.WorldRewards) == "table" and raw.WorldRewards[name]
++			local result = row("PAID_WORLD_REWARD", name, name .. " World Reward") result.World = name
++			result.Requirements = { "Exact received sequential Progress", "WorldsUnlocked[world] == true", "Native next-tier price", "Protected currency reserves", "Native pet storage guard if applicable" }
++			result.InterruptsMastery = report.MasteryPriority == "INCOMPLETE" and "YES" or "UNKNOWN"
++			result.PolicyDeferral = report.MasteryPriority == "INCOMPLETE" and "DEFER_BEHIND_OBTAINABLE_PERMANENT_MASTERY" or "SEPARATE_PAID_PROGRESSION_REVIEW"
++			unknown(result, "Paid progression; no purchase authorization; server proximity/grant and marginal earning benefit unknown")
++			local worldObservation = context.WorldRewardObservations and context.WorldRewardObservations[name]
++			if type(worldObservation) == "table" and worldObservation.Removed == true then
++				result.Status, result.Eligibility, result.Blocker = "LOCKED", "INELIGIBLE", "Current native world definition is Removed; retained reward catalog is not an available world"
++				continue
++			end
++			if type(worldObservation) ~= "table" or worldObservation.WorldDefinitionState ~= "OBSERVED" then
++				unknown(result, "Current native world definition is unavailable; retained paid reward catalog does not establish world availability")
++				continue
++			elseif worldObservation.WorldActivity ~= "PERMANENT_CATALOG_DEFINITION" then
++				unknown(result, "Current native event-world activity is unverified; retained catalog and unlock data alone do not establish an available event reward")
++				continue
++			end
++			if type(definition) ~= "table" or type(definition.Levels) ~= "table" then unknown(result, "Native sequential World Reward levels unavailable") continue end
++			if type(received) ~= "table" or not integer(received.Progress) then unknown(result, "Received World Reward Progress unavailable; missing is not tier zero or unclaimed") continue end
++			result.CompletedTiers, result.NextTier = received.Progress, received.Progress + 1
++			local maximum, dense, expectedIndex = 0, true, 1
++			for _, index in ipairs(keys(definition.Levels)) do
++				if integer(index) and index >= 1 and index == expectedIndex and type(definition.Levels[index]) == "table" then
++					maximum, expectedIndex = index, expectedIndex + 1
++				else dense = false end
++			end
++			if not dense or maximum == 0 or received.Progress > maximum then unknown(result, "World Reward levels are sparse, malformed or inconsistent with received Progress") continue end
++			if received.Progress == maximum then result.Status, result.ClaimState = "CLAIMED", "ALL_NATIVE_SEQUENTIAL_TIERS_RECEIVED" continue end
++			result.ClaimState = "NEXT_SEQUENTIAL_TIER_UNRECEIVED"
++			local nextTier = definition.Levels[result.NextTier]
++			result.Cost, result.PossibleBenefit = currencyCost(nextTier.Cost), nativeBenefit(nextTier.Reward)
++			result.Affordability, result.Balance, result.Reserve, result.Shortage = affordability(config, raw, result.Cost)
++			if not result.Cost then result.Cost = { State = "UNKNOWN" } unknown(result, "Native fixed next-tier currency price unavailable") end
++			if type(raw.WorldsUnlocked) ~= "table" then unknown(result, "Received world access map unavailable")
++			elseif raw.WorldsUnlocked[name] ~= true then result.Status, result.Eligibility, result.Blocker = "LOCKED", "INELIGIBLE", "Native World Rewards requires an explicit true world unlock"
++			elseif result.Affordability == "INSUFFICIENT" then result.Status, result.Eligibility, result.Blocker = "LOCKED", "UNAFFORDABLE", "Next native price exceeds funds after explicit reserve"
++			elseif result.Affordability == "UNKNOWN" then unknown(result, "Relevant currency balance or explicit reserve unavailable")
++			else
++				local reward = nextTier.Reward
++				local observed = context.WorldRewardObservations and context.WorldRewardObservations[name]
++				local storageEligible = type(observed) == "table" and observed.StorageEligible
++				if type(reward) == "table" and reward.Type == "Pet" and storageEligible ~= true then
++					if storageEligible == false then result.Status, result.Eligibility, result.Blocker = "LOCKED", "INELIGIBLE", "Observed native pet storage guard blocks reward"
++					else unknown(result, "Native reward pet-space eligibility unavailable") end
++				else result.Status, result.Eligibility = "AVAILABLE", "CLIENT_REVIEW_ELIGIBLE" end
++			end
++		end
++	end
++
++	local chests = catalogs.Chests
++	if type(chests) ~= "table" or next(chests) == nil then
++		unavailable("CHEST", "Chest rewards", "Native chest catalog unavailable; retained catalog does not establish spawned availability")
++	else
++		for _, name in ipairs(keys(chests)) do
++			if type(name) ~= "string" then continue end
++			local definition = chests[name]
++			local result = row("CHEST", name, name) free(result)
++			result.PossibleBenefit = nativeBenefit(type(definition) == "table" and definition.Reward)
++			result.PossibleBenefit.Pool = type(definition) == "table" and copy(definition.Pool) or nil
++			result.Requirements = { "Actual loaded native chest", "Received area access", "Received exact Cooldowns deadline", "Verified physical or mastery-gated map interaction" }
++			local observation = context.ChestObservations and context.ChestObservations[name]
++			if type(observation) == "table" then result.Loaded, result.Access = observation.Loaded, observation.Access end
++			local deadline = type(raw.Cooldowns) == "table" and raw.Cooldowns[name]
++			if not finite(deadline) then unknown(result, "Received exact chest cooldown unavailable; missing does not mean unclaimed or due")
++			elseif not finite(context.NativeNow) then unknown(result, "Native server time unavailable")
++			else
++				result.DueAt, result.SecondsUntilDue = deadline, math.max(0, deadline - context.NativeNow)
++				result.ClaimState = "RECEIVED_COOLDOWN_OBSERVED"
++				result.Status = result.SecondsUntilDue == 0 and "DUE" or "AVAILABLE"
++				result.Eligibility = result.Status == "DUE" and "UNKNOWN" or "NOT_DUE"
++			end
++			if result.Access == false then result.Status, result.Eligibility, result.Blocker = "LOCKED", "INELIGIBLE", "Actual native chest area access is locked"
++			elseif result.Access ~= true then unknown(result, "Native chest access is unavailable") end
++			if result.Loaded ~= true then unknown(result, "Actual native chest is not observed loaded; catalog presence is not availability") end
++			unknown(result, "Exact native chest interaction, composite/scaled reward and interrupted travel time are unverified")
++		end
++	end
++
++	if type(raw.Quests) ~= "table" then
++		unavailable("QUEST", "Received quests", "Received quest collection unavailable; no claim or completion is inferred")
++	else
++		if next(raw.Quests) == nil then unavailable("QUEST", "Received quests", "Received quest collection is empty; inactive/historical quests are not invented") end
++		for _, index in ipairs(keys(raw.Quests)) do
++			local quest = raw.Quests[index]
++			if type(quest) ~= "table" or type(quest.Id) ~= "string" then
++				unavailable("QUEST", "Malformed received quest", "Received quest identity/shape is unavailable") continue
++			end
++			local result = row("QUEST", quest.Id, quest.DisplayName or quest.Id)
++			result.QuestId, result.PossibleBenefit = quest.Id, nativeBenefit(quest.Rewards)
++			result.Requirements = { "Exact received task/filter progress", "Native task requirement and completion observations", "Received completed state and actual grant" }
++			result.Cost = { Type = "ACTIVITY", State = "UNKNOWN", Reason = "Task costs, time and any required spending remain distinct from the reward" }
++			local observation = context.QuestObservations and context.QuestObservations[quest.Id]
++			result.Tasks = type(observation) == "table" and copy(observation.Tasks) or nil
++			local completed = type(raw.QuestsCompleted) == "table" and raw.QuestsCompleted[quest.Id]
++			if completed ~= nil then result.CompletionHistory = copy(completed) end
++			if type(quest.Tasks) ~= "table" or next(quest.Tasks) == nil or type(quest.Progress) ~= "table" then
++				unknown(result, "Exact received quest tasks/progress unavailable; empty or missing tasks are not a completed reward")
++			elseif type(observation) ~= "table" or type(observation.Complete) ~= "boolean" then unknown(result, "Native exact task completion observation unavailable")
++			elseif observation.Complete then result.Status, result.Eligibility = "DUE", "COMPLETION_OBSERVED_GRANT_UNKNOWN"
++			else result.Status, result.Eligibility = "AVAILABLE", "TASKS_INCOMPLETE" end
++			unknown(result, "Ordinary quests have no established generic claim interface; completion/history does not prove the current reward was credited")
++		end
++	end
++
++	local prizes = type(catalogs.Prizes) == "table" and catalogs.Prizes.data
++	if type(prizes) ~= "table" or next(prizes) == nil then
++		unavailable("ACHIEVEMENT_PRIZE", "Achievement prizes", "Native Prizes.data catalog unavailable")
++	else
++		for _, index in ipairs(keys(prizes)) do
++			local definition = prizes[index]
++			if type(definition) ~= "table" or type(definition.Key) ~= "string" then
++				unavailable("ACHIEVEMENT_PRIZE", "Malformed prize", "Native prize Key unavailable") continue
++			end
++			local result = row("ACHIEVEMENT_PRIZE", definition.Key, definition.Key) free(result)
++			result.PossibleBenefit = nativeBenefit(definition.Reward)
++			result.Requirements = { "Received ClaimedPrizes map", "Native key-specific requirement/progress", "Native prize eligibility and eventual grant" }
++			if type(raw.ClaimedPrizes) ~= "table" then unknown(result, "Received prize claim map unavailable; missing is not unclaimed")
++			elseif raw.ClaimedPrizes[definition.Key] ~= nil then result.Status, result.ClaimState = "CLAIMED", "CLAIMED_KEY_PRESENT"
++			elseif not stringKeyMap(raw.ClaimedPrizes) then unknown(result, "Received prize claim map has non-native keys; no unclaimed state is inferred")
++			else
++				result.ClaimState = "UNCLAIMED_IN_RECEIVED_MAP"
++				local observation = context.PrizeObservations and context.PrizeObservations[definition.Key]
++				if type(observation) ~= "table" or type(observation.Complete) ~= "boolean" then unknown(result, "Native key-specific prize completion observation unavailable")
++				else
++					result.Required, result.Current = observation.Required, observation.Progress
++					result.Status, result.Eligibility = observation.Complete and "DUE" or "LOCKED", observation.Complete and "CLIENT_ELIGIBLE" or "REQUIREMENT_INCOMPLETE"
++				end
++			end
++		end
++	end
++
++	local inventory = context.InventoryObservations
++	if type(inventory) ~= "table" or type(inventory.Items) ~= "table" then
++		unavailable("CONSUMABLE", "Owned consumables", "Native current inventory schema/quantity observations unavailable; historical nested potion shapes are not assumed")
++	else
++		if inventory.SchemaState ~= "OBSERVED" then
++			unavailable("CONSUMABLE", "Inventory schema", "Current native inventory normalization is partial or unknown; unsupported records are not treated as usable stock")
++		end
++		if type(raw.Powerups) ~= "table" then unavailable("CONSUMABLE", "Powerups", "Received Powerups inventory unavailable") end
++		if type(raw.Potions) ~= "table" then unavailable("CONSUMABLE", "Potions", "Received Potions inventory unavailable") end
++		for _, index in ipairs(keys(inventory.Items)) do
++			local item = inventory.Items[index]
++			if type(item) ~= "table" or type(item.Name) ~= "string" or item.Name == ""
++				or item.Type ~= "Powerup" and item.Type ~= "Potion" then
++				unavailable("CONSUMABLE", "Malformed inventory observation", "Native item identity/quantity interface unavailable") continue
++			end
++			local category = item.Type == "Potion" and "Potions" or "Powerups"
++			local result = row("CONSUMABLE", category .. ":" .. item.Name .. ":" .. tostring(item.Level or "none"),
++				item.Name .. (item.Type == "Potion" and (item.Level ~= nil and " level " .. tostring(item.Level) or " (native level unspecified)") or ""))
++			result.InventoryCategory, result.ItemName, result.Level = category, item.Name, item.Level
++			result.Cost = { Type = "CONSUMPTION", State = "OWNED_ITEM_OPPORTUNITY_COST", Item = item.Name, Amount = "UNKNOWN" }
++			result.ClaimState = "NOT_A_FREE_CLAIM"
++			result.PossibleBenefit = nativeBenefit(item.Definition)
++			result.Requirements = { "Known received stock and native ItemUtil quantity", "Native item-use eligibility and activity-specific need", "Separate consumption authorization" }
++			result.InterruptsMastery = "UNKNOWN"
++			result.PolicyDeferral = "CONSUMPTION_COMPATIBILITY_AND_SEPARATE_AUTHORIZATION_REQUIRED"
++			if type(raw[category]) ~= "table" or item.QuantityStatus ~= "OBSERVED" or not integer(item.Owned)
++				or type(item.Definition) ~= "table" or item.Type == "Potion" and item.Level ~= nil and (not integer(item.Level) or item.Level < 1) then
++				unknown(result, item.Reason or "Received current item schema, native definition or owned amount is unavailable")
++			else
++				result.Owned = item.Owned
++				if item.Owned > 0 then result.Status, result.Eligibility = "AVAILABLE", "STOCK_OBSERVED_USE_UNKNOWN"
++				else result.Status, result.Eligibility = "LOCKED", "NO_OWNED_STOCK" end
++			end
++			unknown(result, "Inventory is not a due reward; consumption, reserves, effects and marginal benefit require separate scope")
++		end
++		if next(inventory.Items) == nil then unavailable("CONSUMABLE", "Owned consumables", "No normalized owned item observations; missing native quantities are not fabricated") end
++	end
++
++	local challenge, receivedChallenge = context.ChallengeObservation, raw.ChallengePass
++	local challengeCatalog = catalogs.ChallengePass
++	local challengeRewards = type(receivedChallenge) == "table" and receivedChallenge.Rewards
++	if type(challenge) ~= "table" or type(challengeRewards) ~= "table" or next(challengeRewards) == nil then
++		local result = unavailable("CHALLENGE_PASS", "Challenge pass", "Received current challenge reward track or native identity/deadline observation unavailable")
++		local deadline = type(challenge) == "table" and (challenge.Deadline or challenge.ExpiryUnix)
++		if type(challenge) == "table" and challenge.Expired == true and finite(deadline) and finite(context.NativeNow) and context.NativeNow >= deadline then
++			result.Status, result.Eligibility, result.ExpiresAt = "EXPIRED", "INELIGIBLE", deadline
++		end
++	else
++		for _, tier in ipairs(keys(challengeRewards)) do
++			if not integer(tier) or tier < 1 then continue end
++			local result = row("CHALLENGE_PASS", tier, "Challenge pass tier " .. tostring(tier)) free(result)
++			result.Tier, result.PossibleBenefit = tier, nativeBenefit(challengeRewards[tier])
++			result.Requirements = { "Current native challenge catalog identity and deadline", "Received reward track and claimed value membership", "Native point threshold", "Native grant/storage guard" }
++			local deadline = challenge.Deadline or challenge.ExpiryUnix
++			if finite(deadline) then result.ExpiresAt = deadline end
++			local claimedMap = receivedChallenge.Claimed
++			if type(claimedMap) == "table" then
++				local claimed = false
++				for _, value in pairs(claimedMap) do if value == tier then claimed = true break end end
++				result.ClaimState = claimed and "CLAIMED_VALUE_PRESENT" or "UNCLAIMED_IN_RECEIVED_VALUES"
++				if claimed then result.Status = "CLAIMED"
++				elseif not nativeTierValues(claimedMap) then result.ClaimState = "UNKNOWN" unknown(result, "Received challenge claim values have an unsupported native array schema") end
++			else unknown(result, "Received challenge claim values unavailable; missing is not unclaimed") end
++			if challenge.Expired == true and finite(deadline) and finite(context.NativeNow) and context.NativeNow >= deadline then
++				result.PreExpiryStatus, result.Status, result.Eligibility = result.Status, "EXPIRED", "INELIGIBLE"
++			elseif challenge.State ~= "ACTIVE" or challenge.Expired ~= false or not finite(deadline) or not finite(context.NativeNow)
++				or context.NativeNow >= deadline or type(challenge.Id) ~= "string" then unknown(result, "Current active native pass identity/deadline unavailable")
++			elseif result.Status ~= "CLAIMED" and nativeTierValues(claimedMap) then
++				if type(challengeCatalog) ~= "table" or not integer(challengeCatalog.FinalTier) or tier > challengeCatalog.FinalTier
++					or not finite(receivedChallenge.Points) or not integer(challenge.EligibleTier) then unknown(result, "Native final tier or received point eligibility unavailable")
++				elseif challenge.EligibleTier >= tier then result.Status, result.Eligibility = "DUE", "CLIENT_PROGRESS_ELIGIBLE"
++				else result.Status, result.Eligibility = "LOCKED", "POINT_REQUIREMENT_INCOMPLETE" end
++			end
++			unknown(result, "Track/reset persistence, premium entitlements, native storage/grant and final reward scaling remain unverified; resets/skips are separate")
++		end
++	end
++
++	for _, family in ipairs({ "SEASON_PASS", "INDEX", "MILESTONE" }) do
++		local observation = context.AdditionalObservations and context.AdditionalObservations[family]
++		local result = row(family, "OBSERVATION", family)
++		if type(observation) == "table" and observation.Expired == true and finite(observation.Deadline)
++			and finite(context.NativeNow) and context.NativeNow >= observation.Deadline then
++			result.Status, result.Eligibility, result.ExpiresAt = "EXPIRED", "INELIGIBLE", observation.Deadline
++			result.Evidence = observation.Evidence
++		else unknown(result, "Current exact track/group eligibility, received claimed state and grant contract require separately scoped normalization") end
++	end
++
++	local pending = context.PendingObservation
++	local pendingItem = type(pending) == "table" and pending.Pending
++	local barrier = type(pendingItem) == "table" or type(pending) == "table" and pending.AttributionBlocked == true or context.WheelQueuePending == true
++	if type(pendingItem) == "table" then
++		local family = pendingItem.Kind == "PLAYTIME" and "FREE_PLAYTIME" or pendingItem.Kind == "MYSTERY_BOX" and "CONSUMABLE" or nil
++		local matched = false
++		for _, result in ipairs(report.Rows) do
++			if family and result.Family == family and (family ~= "FREE_PLAYTIME" or result.Index == pendingItem.Index) then
++				result.PrePendingStatus, result.Status, result.Eligibility = result.Status, "PENDING", "BLOCKED_PENDING_RECEIPT"
++				result.PendingStatus = pendingItem.Status or "UNKNOWN" unknown(result, "Retained unresolved operation; elapsed timeout is not proof of rejection or permission to retry")
++				matched = true
++			end
++		end
++		if not matched then
++			local result = row("PENDING_RECEIPT", "RETAINED", "Retained reward operation")
++			result.Status, result.Eligibility, result.PendingStatus = "PENDING", "BLOCKED_PENDING_RECEIPT", pendingItem.Status or "UNKNOWN"
++			unknown(result, "Exact retained operation cannot be reconciled with this report; do not retry or infer expiry")
++		end
++	end
++	if omitted > 0 then report.OmittedRows = omitted table.insert(report.Unknowns, "Report row bound reached; omitted candidates are not evaluated as ineligible or complete") end
++	report.PendingBarrier = barrier
++	report.Status = "READ_ONLY_REPORT"
++	if barrier then
++		report.Recommendation = { Kind = "OBSERVE_PENDING", Reason = "Retained or unresolved reward receipt/attribution barrier; no claim, consumption or automatic retry",
++			ExecutionAuthorized = false, ActionAuthorization = "NONE" }
++	else
++		local candidate
++		for _, result in ipairs(report.Rows) do
++			if result.Status == "DUE" and result.Family ~= "QUEST" and result.Eligibility ~= "INELIGIBLE" then candidate = result break end
++		end
++		if candidate then
++			report.Recommendation = { Kind = "REWARD_REVIEW", RowKey = candidate.Key, Family = candidate.Family,
++				Reason = "Review observed due reward facts; preserve permanent Mastery priority until setup/presentation interruption is established; separate action approval is required",
++				Status = candidate.Status, Eligibility = candidate.Eligibility, ClaimState = candidate.ClaimState, Cost = copy(candidate.Cost),
++				Requirements = copy(candidate.Requirements), PossibleBenefit = copy(candidate.PossibleBenefit), Unknowns = copy(candidate.Unknowns),
++				InterruptsMastery = "UNKNOWN", MasteryPriority = report.MasteryPriority, ExecutionAuthorized = false, ActionAuthorization = "NONE" }
++		elseif report.MasteryPriority == "INCOMPLETE" then
++			report.Recommendation = { Kind = "PRESERVE_MASTERY_PRIORITY", Reason = "Continue advisory permanent Mastery progression review; paid rewards and consumable use do not supersede it",
++				ExecutionAuthorized = false, ActionAuthorization = "NONE" }
++		else
++			report.Recommendation = { Kind = "WAIT", Reason = "No confirmed due free reward with enough observed facts; paid rewards, quests and consumables remain separate read-only reviews",
++				ExecutionAuthorized = false, ActionAuthorization = "NONE" }
++		end
++	end
++	return report
++end
++
++function RewardPolicy.Format(report)
++	local recommendation = report.Recommendation or {}
++	local counts = {}
++	for _, result in ipairs(report.Rows or {}) do counts[result.Status] = (counts[result.Status] or 0) + 1 end
++	local parts = { "READ_ONLY | " .. tostring(report.Status), tostring(recommendation.Kind or "WAIT"),
++		"rows=" .. tostring(#(report.Rows or {})), "Mastery priority=" .. tostring(report.MasteryPriority or "UNKNOWN") }
++	for _, status in ipairs({ "DUE", "AVAILABLE", "LOCKED", "CLAIMED", "EXPIRED", "PENDING", "UNKNOWN" }) do
++		if counts[status] then table.insert(parts, status .. "=" .. tostring(counts[status])) end
++	end
++	if recommendation.RowKey then table.insert(parts, "review=" .. recommendation.RowKey) end
++	if recommendation.Eligibility then table.insert(parts, "status=" .. tostring(recommendation.Status or "UNKNOWN") .. "; eligibility=" .. recommendation.Eligibility .. "; Mastery interruption=" .. tostring(recommendation.InterruptsMastery or "UNKNOWN")) end
++	local cost = recommendation.Cost
++	if cost then
++		if cost.Type == "Currency" then table.insert(parts, "cost=" .. tostring(cost.Amount) .. " " .. tostring(cost.Currency))
++		elseif cost.Type == "FREE" then table.insert(parts, "cost=FREE native interface (0); setup/presentation UNKNOWN")
++		else table.insert(parts, "cost=" .. tostring(cost.Type or cost.State or "UNKNOWN")) end
++	end
++	if recommendation.PossibleBenefit then table.insert(parts, "possible benefit=" .. tostring(recommendation.PossibleBenefit.State or "UNKNOWN") .. "; actual grant/earning gain UNKNOWN") end
++	if recommendation.Requirements and #recommendation.Requirements > 0 then
++		local requirements = {}
++		for index, requirement in ipairs(recommendation.Requirements) do if index > 2 then break end table.insert(requirements, requirement) end
++		table.insert(parts, "requires=" .. table.concat(requirements, "; "))
++	end
++	table.insert(parts, recommendation.Reason or "Reward evidence UNKNOWN")
++	if recommendation.Unknowns and recommendation.Unknowns[1] then table.insert(parts, recommendation.Unknowns[1]) end
++	if report.Unknowns and #report.Unknowns > 0 then table.insert(parts, table.concat(report.Unknowns, "; ")) end
++	table.insert(parts, "claims/consumption/movement/spending OFF; receipt and marginal benefit unverified")
++	return table.concat(parts, " | ")
++end
++
++return RewardPolicy

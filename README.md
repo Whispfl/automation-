@@ -1,12 +1,14 @@
-# BGSI OC — Phase 5 read-only Mastery intelligence
+# BGSI OC — Phase 5 read-only Mastery and reward intelligence
 
 Current repository: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, development branch **codex/phase4-test-b**. The trailing hyphen is part of the repository name.
+
+The new [reward intelligence](docs/PHASE5-REWARDS-READ-ONLY.md) separates free due/claimed rewards, paid World Rewards, quests, chest timers, consumable stock and pending/unknown facts. It preserves permanent Mastery priority and every existing method. [Phase5RewardsReadOnly.luau](examples/Phase5RewardsReadOnly.luau) is the current complete pinned read-only loader; controls remain STOPPED and all gameplay actions/spending are OFF. Use `OC:GetRewardPlan()` or `OC:PrintRewardPlan()` for reports. No new gameplay test is requested.
 
 The new [Mastery component](docs/PHASE5-MASTERY-READ-ONLY.md) reports native sequential tiers, eligibility evidence, prices, explicit reserves, remaining currency packages and Mastery-first recommendations. It uses the existing GameKnowledge, account reader and OCBrain; all existing methods and gameplay behavior are preserved. Qualified stationary income informs conditional funding ETA, never invented Mastery earnings.
 
 [Phase5MasteryReadOnly.luau](examples/Phase5MasteryReadOnly.luau) is the complete pinned read-only loader: controls stay STOPPED, all gameplay actions and spending are OFF. Reports are available with `OC:GetMasteryPlan()` or `OC:PrintMasteryPlan()`. Loading facts remain UNKNOWN until actual LocalData/native definitions are ready. No new gameplay test is requested.
 
-The successful hatch and isolated direct movement releases remain immutable. [Current Phase 4 acceptance](docs/PHASE4.md) keeps those milestones distinct from universal movement and full acceptance. Raw latest owner evidence remains local; public summaries are sanitized. Rewards intelligence is the next separately scoped Phase 5 milestone.
+The successful hatch, isolated direct movement and Mastery releases remain immutable. [Current Phase 4 acceptance](docs/PHASE4.md) keeps those milestones distinct from universal movement and full acceptance. Raw latest owner evidence remains local; public summaries are sanitized. Further reward authorization/receipt contracts remain separately scoped.
 
 ## Historical Phase 4 delivery notes
 

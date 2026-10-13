@@ -4,6 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {stripRewardDelta,stripRewardFiles,verifyRewardWorkspace} from './verify-phase5-rewards.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 export const PHASE5_BASELINE = 'f0efe911c8958118ae4084f88be376c647d21e33';
@@ -15,6 +16,7 @@ const changed = ['src/OCFoundation/OCConfig.luau','src/OCFoundation/OCBrain.luau
 const addition = 'src/OCFoundation/MasteryPolicy.luau';
 
 export function stripPhase5Delta(file, bytes) {
+  bytes = stripRewardDelta(file, bytes);
   const data = Buffer.from(bytes);
   if (!changed.includes(file) || !data.includes(Buffer.from('-- PHASE5_READ_ONLY_MASTERY_BEGIN'))) return bytes;
   const before = git(file);
@@ -37,7 +39,7 @@ export function stripPhase5Delta(file, bytes) {
 
 export function stripPhase5Files(files) {
   const result = new Map();
-  for (const [file,bytes] of files) {
+  for (const [file,bytes] of stripRewardFiles(files)) {
     if (file===addition) {
       assert.equal(sha(bytes),record().addition.sha256,'Unrecorded MasteryPolicy source');
       continue;
@@ -52,6 +54,7 @@ function names(directory) {
 }
 
 export function verifyPhase5Workspace() {
+  verifyRewardWorkspace();
   const metadata=record();
   assert.equal(metadata.baselineCommit,PHASE5_BASELINE);
   assert.deepEqual(metadata.changed.map(value=>value.file).sort(),[...changed].sort());
