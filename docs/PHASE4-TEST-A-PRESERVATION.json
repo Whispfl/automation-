@@ -1,0 +1,52 @@
+{
+  "baseline": "25890f224f0448f148d009e65514c129aeb4f59c",
+  "buildId": "0d5caa499c8c",
+  "release": "phase4-travel-0d5caa499c8c",
+  "checks": [
+    {
+      "file": "src/OCFoundation/EggTravelManager.luau",
+      "sha256": "7fd14d19e3befc895f3446f41d4882394d12eebc7bc555e5e8b05dd864e4cb8c"
+    },
+    {
+      "file": "src/OCFoundation/GameMechanics.luau",
+      "sha256": "a2f1a3d6ab3483db3d91e9a50975e159a5107dbdf78a26e70f9765d5e1d19f87"
+    },
+    {
+      "file": "src/OCFoundation/OCBrain.luau",
+      "sha256": "65395cdde2c8d9260a92047a5b1c7c572a667a77af70ddba907dfeead4b99c61"
+    },
+    {
+      "file": "src/OCFoundation/TaskScheduler.luau",
+      "sha256": "e2cc5aae005ff78acf839c9a892d04b213e5217f048c52bf14e5e6c8b258fcda"
+    },
+    {
+      "file": "examples/Phase4TravelOnly.luau",
+      "sha256": "0a0acbe7bdedc80ac132a1ac05594ba4166f3dfab6a6a697e49c2781467f6fcc"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "method": "EggModels",
+      "sha256": "52fb714333ae4247bb30334d6c564049f09321074f80cf09e227fb67572ea1a1"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "method": "ObserveEggModel",
+      "sha256": "d3de29137673e4f28aef1fbf330d75e2e8136c990a05cbb1182d86083f8c3945"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "method": "EggLocationCandidates",
+      "sha256": "e477aa8c94f9a12ad1eee3ca39a894572182751393ec45a4de59cda00d0c567d"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "method": "ResolveEggLocation",
+      "sha256": "3e31c438bde07852e6f166becca904156b17dc859dfbd463507c5206ecee31d3"
+    },
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "method": "ObserveEggChunker",
+      "sha256": "706eb0d9ee02430a68b973e3fc67f5df81bfc62e3be159f09cfd08c6a405c068"
+    }
+  ]
+}

@@ -116,18 +116,251 @@ test("Identity resolver excludes native visual clones while retaining distinct c
 	s:Close()
 end)
 
-test("Two same-name same-parent same-path registered originals stay ambiguous regardless of distance or expected Instance", function()
+test("Duplicate names remain ambiguous without an exact retained Instance while verified expected identity never retargets", function()
 	local s = fixture()
 	local nearer = s:Add("Common Egg", Vector3.new(1, 0, 0))
 	local farther = s:Add("Common Egg", Vector3.new(100, 0, 0))
 	s:Register({ nearer, farther })
 	assert(nearer:GetFullName() == farther:GetFullName() and nearer.Parent == farther.Parent)
 	assert(s.Knowledge:InstanceId(nearer) ~= s.Knowledge:InstanceId(farther))
+	local unresolved, reason, observed = s.Knowledge:ResolveEggInstance("Common Egg", true)
+	assert(not unresolved and reason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true) and observed.VerifiedCount == 2)
 	for _, expected in ipairs({ nearer, farther }) do
-		local record, reason, observed = s.Knowledge:ResolveEggInstance("Common Egg", true, expected)
-		assert(not record and reason:find("AMBIGUOUS_NATIVE_EGG_MODEL", 1, true) and observed.VerifiedCount == 2)
+		local record, exactReason, exactObserved = s.Knowledge:ResolveEggInstance("Common Egg", true, expected)
+		assert(record and record.Model == expected and exactReason == nil and exactObserved.VerifiedCount == 2)
 	end
+	local playerRoot = { Position = Vector3.new(0, 0, 0) }
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = nearer }, playerRoot, true))
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = farther }, playerRoot, true))
 	s:Close()
+end)
+
+test("Opened native selection identifies the exact selected Common original at 2.01 despite a distant same-name registration", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(2.01, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	s:Register({ selected, other })
+	local eligible, range = s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true)
+	assert(eligible and range.Model == selected and range.IdentityId == s.Knowledge:InstanceId(selected))
+	assert(range.Mode == "OPENED_NEAREST" and range.Range == 16 and math.abs(range.Distance - 2.01) < 1e-6)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = other }, { Position = Vector3.new(0, 0, 0) }, true))
+	s:Close()
+end)
+
+test("Opened native selection rejects nearer registered eggs and distance ties across all names", function()
+	for _, name in ipairs({ "Common Egg", "Spotted Egg" }) do
+		for _, distance in ipairs({ 1, 5, 5.04 }) do
+			local s = fixture()
+			local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+			local competitor = s:Add(name, Vector3.new(-distance, 0, 0))
+			s:Register({ selected, competitor })
+			assert(s.Knowledge:ResolveEggInstance("Common Egg", true, selected).Model == selected)
+			assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+			s:Close()
+		end
+	end
+end)
+
+test("Opened native selection ignores locked registered eggs and unregistered or decorative nearer copies", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local locked = s:Add("Spotted Egg", Vector3.new(1, 0, 0)) locked.Attributes.Unlocked = false
+	s:Add("Common Egg", Vector3.new(0.5, 0, 0))
+	s:Add("Common Egg", Vector3.new(0.25, 0, 0), true)
+	s:Register({ selected, locked })
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	s:Close()
+end)
+
+test("Opened native range uses Root with a strict 16-stud ceiling and requires native prompt visibility zero", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(16, 0, 0))
+	selected.Children.Prompt.Position = Vector3.new(100, 0, 0)
+	s:Register({ selected })
+	local root = { Position = Vector3.new(0, 0, 0) }
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	selected.Children.Root.Position = Vector3.new(16.001, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	selected.Children.Root.Position = Vector3.new(2.01, 0, 0) s.Prompts.Visible = 1
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	s.Prompts.Visible = nil
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	s:Close()
+end)
+
+test("First-time native interaction uses the exact cached Prompt rather than Root or opened-egg radius", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(30, 0, 0))
+	selected.Attributes.Unlocked = false s.Profile.EggsOpened["Common Egg"] = nil
+	selected.Children.Prompt.Position = Vector3.new(6.5, 0, 0)
+	local engine = s:Engine(selected, true) s:Register({ selected })
+	local root = { Position = Vector3.new(0, 0, 0) }
+	local eligible, range = s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true)
+	assert(eligible and range.Mode == "INITIAL_PROMPT" and range.RangeOrigin == selected.Children.Prompt and range.Range == 6.5)
+	selected.Children.Prompt.Position = Vector3.new(6.501, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	selected.Children.Prompt.Position = Vector3.new(2, 0, 0) engine.MaxActivationDistance = 1.5
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	engine.MaxActivationDistance = 100 selected.Children.Prompt.Position = Vector3.new(7, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	s:Close()
+end)
+
+test("First-time native interaction fails closed when exact prompt cache or engine eligibility is stale", function()
+	for _, mutate in ipairs({ function(s, e) s.Prompts._cache[e] = nil end,
+		function(_, e) e.Enabled = false end, function(_, e) e.RequiresLineOfSight = true end,
+		function(_, e) e.Parent = {} end, function(_, e) e.MaxActivationDistance = 0 end }) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(2, 0, 0))
+		selected.Attributes.Unlocked = false s.Profile.EggsOpened["Common Egg"] = nil
+		local engine = s:Engine(selected, true) s:Register({ selected })
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		mutate(s, engine)
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
+end)
+
+test("Overlapping first-time eligible Prompts remain blocked while a far same-name Prompt does not cause ambiguity", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(2, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	selected.Attributes.Unlocked, other.Attributes.Unlocked = false, false s.Profile.EggsOpened["Common Egg"] = nil
+	s:Engine(selected, true) s:Engine(other, true) s:Register({ selected, other })
+	local root = { Position = Vector3.new(0, 0, 0) }
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	other.Children.Prompt.Position = Vector3.new(6, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	s:Close()
+end)
+
+test("Native eligibility cannot transfer to a replacement or retain an unloaded selected original", function()
+	for _, replacement in ipairs({ false, true }) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(2.01, 0, 0))
+		local receiver = s:Register({ selected })
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		if replacement then
+			local new = s:Add("Common Egg", Vector3.new(2.01, 0, 0))
+			selected.Parent = nil receiver._chunks.current = { new }
+		else receiver._loaded.current = nil end
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
+end)
+
+test("Opened native competition includes every loaded registered original even when its name is absent from the egg catalog", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local uncatalogued = s:Add("New Native Egg", Vector3.new(1, 0, 0))
+	s.Definitions[uncatalogued.Name] = nil
+	s:Register({ selected, uncatalogued })
+	assert(#s.Knowledge:EggModels(true) == 1, "Catalog discovery deliberately cannot expose this competitor")
+	local registered = s.Knowledge:NativeRegisteredEggModels()
+	assert(registered and #registered == 2 and table.find(registered, uncatalogued))
+	local root = { Position = Vector3.new(0, 0, 0) }
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	uncatalogued.Children.Root.Position = Vector3.new(12, 0, 0)
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	uncatalogued.Children.Root.Position = Vector3.new(1, 0, 0) uncatalogued.Attributes.Unlocked = false
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	s:Close()
+end)
+
+test("Complete native registration observation rejects malformed loaded arrays and coordinate disagreement", function()
+	for _, mutate in ipairs({
+		function(s, r, target) r._chunks.current = { [1] = target, [3] = target } end,
+		function(s, r, target) r._chunks.current = { target, extra = target } end,
+		function(s, r) r._chunks.current = "unavailable" end,
+		function(s, r) r._loaded.current = false end,
+		function(s, r) r._loaded.missing = true end,
+		function(s, r) table.insert(r._chunks.current, "not an Instance") end,
+		function(s, r) table.insert(r._chunks.current, { SyntheticEggInstance = true, IsA = function() return false end }) end,
+	}) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+		local receiver = s:Register({ selected }) mutate(s, receiver, selected)
+		local models, reason = s.Knowledge:NativeRegisteredEggModels()
+		assert(not models and type(reason) == "string")
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
+end)
+
+test("Complete native registration requires coherent current original geometry and bounded observation", function()
+	for _, mutate in ipairs({
+		function(s, r, other) other.Parent = s.Generic end,
+		function(s, r, other) other.Parent = nil end,
+		function(s, r, other) other.Children.Prompt.Parent = {} end,
+		function(s, r, other) other.Children.Root.Position = Vector3.new(0/0, 0, 0) end,
+		function(s, r, other) other.SyntheticEggInstance = nil end,
+		function(s, r, other) for _ = 1, 512 do table.insert(r._chunks.current, other) end end,
+	}) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+		local other = s:Add("Spotted Egg", Vector3.new(100, 0, 0))
+		local receiver = s:Register({ selected, other }) mutate(s, receiver, other)
+		local models, reason = s.Knowledge:NativeRegisteredEggModels()
+		assert(not models and type(reason) == "string")
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
+end)
+
+test("Complete native registration deduplicates actual Instance identity across dense loaded chunks", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	local receiver = s:Register({ selected, other })
+	receiver._chunks.second, receiver._loaded.second = { selected, other }, true
+	local models = s.Knowledge:NativeRegisteredEggModels()
+	assert(models and #models == 2 and table.find(models, selected) and table.find(models, other))
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	s:Close()
+end)
+
+test("Initial native competition includes an unrelated cached BasePart or Attachment Prompt at its actual native radius", function()
+	for _, attachment in ipairs({ false, true }) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(2, 0, 0))
+		selected.Attributes.Unlocked = false s.Profile.EggsOpened[selected.Name] = nil
+		s:Engine(selected, true) s:Register({ selected })
+		local parent = { Position = Vector3.new(12, 0, 0), WorldPosition = Vector3.new(12, 0, 0),
+			IsA = function(_, kind) return kind == (attachment and "Attachment" or "BasePart") end }
+		local engine = { Parent = parent, Enabled = true, RequiresLineOfSight = true, MaxActivationDistance = 20 }
+		s.Prompts._cache[engine] = true
+		local root = { Position = Vector3.new(0, 0, 0) }
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true), "Non-egg Prompt uses its own radius, not the egg 6.5 limit")
+		engine.Enabled = false
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+		engine.Enabled = true parent.Position, parent.WorldPosition = Vector3.new(21, 0, 0), Vector3.new(21, 0, 0)
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+		s.Prompts._cache[engine] = false parent.Position, parent.WorldPosition = Vector3.new(1, 0, 0), Vector3.new(1, 0, 0)
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+		s:Close()
+	end
+end)
+
+test("Unknown enabled cached Prompt geometry or radius fails closed while removed prompts are ignored", function()
+	for _, mutate in ipairs({
+		function(parent, e) parent.Position = nil end,
+		function(parent, e) parent.Position = Vector3.new(math.huge, 0, 0) end,
+		function(parent, e) parent.IsA = function() return false end end,
+		function(parent, e) e.MaxActivationDistance = nil end,
+		function(parent, e) e.MaxActivationDistance = 0 end,
+	}) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(2, 0, 0))
+		selected.Attributes.Unlocked = false s.Profile.EggsOpened[selected.Name] = nil
+		s:Engine(selected, true) s:Register({ selected })
+		local parent = { Position = Vector3.new(100, 0, 0), IsA = function(_, kind) return kind == "BasePart" end }
+		local engine = { Parent = parent, Enabled = true, MaxActivationDistance = 6.5 } s.Prompts._cache[engine] = true
+		mutate(parent, engine)
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		engine.Parent = nil
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
 end)
 
 test("An exact observed receiver excludes a stale structural copy without choosing the nearest", function()
@@ -152,7 +385,7 @@ test("A changed Instance at the same path never replaces the Brain's retained or
 	original.Parent = nil receiver._chunks.current = { replacement }
 	assert(replacement:GetFullName() == originalPath)
 	local record, reason = s.Knowledge:ResolveEggInstance("Common Egg", true, original)
-	assert(not record and reason:find("exact egg Instance changed", 1, true))
+	assert(not record and reason:find("no name/path replacement", 1, true))
 	s:Close()
 end)
 

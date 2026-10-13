@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
+import './verify-test-a-preservation.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = await sources(root);
@@ -62,7 +63,7 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau','phase4-test-b-interaction.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');
@@ -277,7 +278,7 @@ assert.equal(autoOnceRun.status, 0, 'AUTO one-hatch Config isolation failed');
 for (const [filename, travelOnly] of [['Phase4TravelOnly.luau', true], ['Phase4OneHatchPrepared.luau', false]]) {
   const example = await readFile(path.join(root, 'examples', filename), 'utf8');
   const prefix = configPrefix(example);
-  assert(example.includes(travelOnly ? '/phase4-travel-' + generated.buildId + '/dist/OC.lua' : '/phase4-tests-141b7608bedf/dist/OC.lua'), 'Test loader needs its intended immutable pin: ' + filename);
+  assert(example.includes(travelOnly ? '/phase4-travel-0d5caa499c8c/dist/OC.lua' : '/phase4-tests-141b7608bedf/dist/OC.lua'), 'Test loader needs its intended immutable pin: ' + filename);
   const compilation = spawnSync(compiler, ['--null', path.join(root, 'examples', filename)], { encoding: 'utf8' });
   assert.equal(compilation.status, 0, filename + ' must compile: ' + compilation.stderr);
   const check = `
@@ -315,4 +316,49 @@ print("[OC TEST] ${filename}: full merged Config isolation and owner allowance O
   const result = spawnSync(executable, [testPath], { encoding: 'utf8' });
   process.stdout.write(result.stdout || ''); process.stderr.write(result.stderr || '');
   assert.equal(result.status, 0, filename + ' complete Config validation failed');
+}
+
+for (const filename of ['Phase4TestBPreflight.luau', 'Phase4TestBOneHatch.luau']) {
+  const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
+  assert(contents.includes('/phase4-hatch-' + generated.buildId + '/dist/OC.lua'), 'Test B example must pin its matching bundle');
+  const compileExample = spawnSync(compiler, ['--null', path.join(root, 'examples', filename)], { encoding: 'utf8' });
+  assert.equal(compileExample.status, 0, filename + ' compilation failed: ' + compileExample.stderr);
+  const prefix = configPrefix(contents);
+  const cases = filename.includes('Preflight') ? [[false, 0]] : [[false, 0], [true, 0], [false, 123], [true, 123]];
+  for(const [approval, accountId] of cases){
+    const text = prefix.replace('OWNER_APPROVED_ONE_COMMON_HATCH = false', 'OWNER_APPROVED_ONE_COMMON_HATCH = ' + approval)
+      .replace('local AUTHORIZED_ACCOUNT_ID = 0', 'local AUTHORIZED_ACCOUNT_ID = ' + accountId);
+    const active = filename.includes('OneHatch') && approval && accountId > 0;
+    const assertionsB = `
+local settings = config((function()
+${text}
+return Config
+end)())
+assert(settings.HATCH_SETTINGS.EGG_SELECTION_MODE == "MANUAL" and #settings.HATCH_SETTINGS.SELECTED_EGGS == 1 and settings.HATCH_SETTINGS.SELECTED_EGGS[1] == "Common Egg")
+assert(settings.PET_SETTINGS.AUTO_HATCH == ${active})
+assert(settings.HATCH_SETTINGS.MAXIMUM_EGG_COST == ${active ? 10 : 0} and settings.HATCH_SETTINGS.MAXIMUM_SESSION_COST == ${active ? 10 : 0})
+assert(settings.HATCH_SETTINGS.MAXIMUM_SESSION_HATCHES == 1 and settings.HATCH_SETTINGS.MAXIMUM_BATCH_HATCHES == 1)
+assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE == ${active})
+assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID == ${filename.includes('Preflight') ? 0 : accountId})
+assert(settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_COIN_ALLOWANCE == ${active ? 10 : 0} and settings.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_EGG_COST == ${active ? 10 : 0})
+assert(settings.EGG_TRAVEL_SETTINGS.MAXIMUM_ATTEMPTS_PER_SELECTION == 1)
+for category, keys in pairs({
+ PET_SETTINGS={"AUTO_EQUIP","EQUIP_OWNED_TEAM_ONCE","AUTO_DELETE_PETS","AUTO_CRAFT_SHINY","AUTO_FUSE_PETS"},
+ WORLD_SETTINGS={"ENABLE_WORLD_PROGRESSION","AUTO_DISCOVER_ISLANDS","AUTO_UNLOCK_WORLDS","AUTO_TRAVEL_FOR_PROGRESSION","AUTO_FARM_UNLOCK_REQUIREMENTS"},
+ FARMING_SETTINGS={"AUTO_RESOURCE_FARM","AUTO_FARM_FALLBACK"}, ISLAND_SETTINGS={"AUTO_TRAVEL_BEST_ISLAND","AUTO_EXPLORE_UNLOCKED_ISLANDS"},
+ PICKUP_SETTINGS={"BULK_COLLECT_PICKUPS","STATIONARY_ISOLATED_TEST"}, HATCH_SETTINGS={"ENABLE_BACKGROUND_PICKUPS"},
+ BUBBLE_SETTINGS={"AUTO_BLOW_BUBBLES","AUTO_SELL_BUBBLES","AUTO_BUY_GUM","AUTO_BUY_FLAVORS","ENABLE_SIMULTANEOUS_BLOWING"},
+ UPGRADE_SETTINGS={"ENABLE_SMART_UPGRADES","ENABLE_CAPACITY_UPGRADES","ENABLE_FLAVOR_UPGRADES","AUTO_EQUIP_OWNED_UPGRADES"},
+ PLAYTIME_SETTINGS={"AUTO_CLAIM_PLAYTIME"}, MYSTERY_BOX_SETTINGS={"AUTO_OPEN_MYSTERY_BOXES","ENABLE_AUTOMATIC_CONTINUATION"}, ANTIAFK_SETTINGS={"ENABLE_ANTI_AFK"},
+ FALL_EVENT_SETTINGS={"ENABLE_FALL_EVENT","AUTO_REBIRTH","AUTO_BUY_REBIRTH_UPGRADES","AUTO_USE_FALL_ELIXIRS","AUTO_BUY_AUTUMN_SHOP_ITEMS"}
+}) do for _, key in ipairs(keys) do assert(settings[category][key] == false, category .. "." .. key) end end
+assert(settings.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST == 0)
+if ${active} then assert(requireOC("OwnerHatchTestAllowance").Isolation(settings) == nil) end
+print("[OC TEST] ${filename} approval=${approval}, account=${accountId}: matching pin, price10/count1, zero unrelated actions passed")
+`;
+    await writeFile(testPath, environment+'\n'+generated.library+'\n'+assertions+'\n'+assertionsB);
+    const checked = spawnSync(executable, [testPath], { encoding: 'utf8' });
+    process.stdout.write(checked.stdout || ''); process.stderr.write(checked.stderr || '');
+    assert.equal(checked.status, 0, filename + ' activation/isolation check failed');
+  }
 }

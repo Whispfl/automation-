@@ -11,7 +11,8 @@ const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8'
 const commit = git('rev-parse', 'HEAD');
 const dist = await readFile(path.join(root, 'dist/OC.lua'));
 const buildId = dist.toString('utf8').match(/-- Build: ([a-f0-9]{12})/)[1];
-const release = 'phase4-travel-' + buildId;
+const release = 'phase4-hatch-' + buildId;
+const branch = git('branch', '--show-current');
 const rawRoot = 'https://raw.githubusercontent.com/' + repository;
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 async function get(url) {
@@ -21,8 +22,8 @@ async function get(url) {
   return Buffer.from(await response.arrayBuffer());
 }
 const publicJSON = async suffix => JSON.parse((await get('https://api.github.com/repos/' + repository + suffix)).toString('utf8'));
-const main = await publicJSON('/git/ref/heads/main');
-assert.equal(main.object.sha, commit, 'Remote main differs from the intended local commit');
+const branchRef = await publicJSON('/git/ref/heads/' + branch);
+assert.equal(branchRef.object.sha, commit, 'Remote candidate branch differs from the intended local commit');
 assert.equal(git('rev-parse', release + '^{}'), commit, 'Candidate release must point at the intended local commit');
 const tag = await publicJSON('/git/ref/tags/' + release);
 assert.equal(tag.object.type, 'commit', 'Expected the local lightweight candidate tag');
@@ -42,13 +43,17 @@ for (const [file, blob] of localFiles) {
   assert(!/^(?:\.git\/|node_modules\/|\.tools\/|\.test-output\/)|\.zip$/i.test(file), 'Private/tool/backup artifact published: ' + file);
   if (file.startsWith('docs/local-feature-studio-evidence/') && file.endsWith('.source.txt')) assert(file.endsWith('/AntiAFK_KEY_SEARCH.source.txt'), 'Raw third-party script extract published: ' + file);
 }
-console.log(`[OC] Public main ${commit}; ${localFiles.size} Git file paths/blob hashes match; pin ${release} matches`);
+console.log(`[OC] Public ${branch} ${commit}; ${localFiles.size} Git file paths/blob hashes match; pin ${release} matches`);
 
 const representative = [
   'dist/OC.lua', 'dist/OC.local.lua', 'src/OC.luau', 'src/OCFoundation/OCConfig.luau',
   'src/OCFoundation/EggTravelManager.luau', 'src/OCFoundation/RewardsManager.luau', 'src/OCFoundation/AntiAFKManager.luau',
   'src/OCFoundation/GameKnowledge.luau', 'src/OCFoundation/OCBrain.luau', 'src/OCFoundation/GameMechanics.luau',
   'src/OCFoundation/AccountPresentation.luau', 'docs/PHASE4-EGG-LOCATION-EVIDENCE.md',
+  'src/OCFoundation/HatchManager.luau', 'src/OCFoundation/PetManager.luau', 'src/OCFoundation/OwnerHatchTestAllowance.luau',
+  'docs/PHASE4-TEST-B-NATIVE-EVIDENCE.md', 'docs/PHASE4-TEST-A-PRESERVATION.json',
+  'docs/PHASE4-TEST-B-DELIVERY.md',
+  'scripts/verify-test-a-preservation.mjs', 'tests/phase4-test-b-interaction.luau',
   'tests/phase4-egg-location.luau', 'tests/phase4-location-logging.luau', 'tests/phase4-standing-location.luau',
   'scripts/build.mjs', 'scripts/test.mjs', 'package.json', 'docs/ARCHITECTURE.md', 'docs/LOCAL_FEATURES.md',
   'docs/research/replicatedstorage/README.md', 'docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md',
@@ -59,15 +64,15 @@ const representative = [
 const checks = [];
 for (const artifact of representative) {
   const expected = await readFile(path.join(root, artifact));
-  for (const ref of ['main', commit]) {
+  for (const ref of [branch, commit]) {
     const published = await get(`${rawRoot}/${ref}/${artifact}`);
     assert(published.equals(expected), `${ref}: public ${artifact} differs from local bytes`);
     checks.push({ artifact, ref, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
   }
-  console.log('[OC] Anonymous main + commit raw bytes match: ' + artifact);
+  console.log('[OC] Anonymous candidate branch + commit raw bytes match: ' + artifact);
 }
 
-for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau']) {
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TestBPreflight.luau', 'examples/Phase4TestBOneHatch.luau']) {
   const expected = await readFile(path.join(root, artifact));
   if (artifact.startsWith('examples/')) assert(expected.toString('utf8').includes(`/${repository}/${release}/dist/OC.lua`), 'Example does not load its matching pin: ' + artifact);
   const published = await get(`${rawRoot}/${release}/${artifact}`);
@@ -96,6 +101,15 @@ for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau']) {
   assert((await get(`${rawRoot}/${priorTravelRelease}/${artifact}`)).equals(expected), 'Prior owner-tested travel pin differs: ' + artifact);
   checks.push({ artifact, ref: priorTravelRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
+const approvedTravelRelease = 'phase4-travel-0d5caa499c8c';
+const approvedTravelCommit = '25890f224f0448f148d009e65514c129aeb4f59c';
+assert.equal(git('rev-parse', approvedTravelRelease + '^{}'), approvedTravelCommit, 'Owner-approved Test A local pin changed');
+assert.equal((await publicJSON('/git/ref/tags/' + approvedTravelRelease)).object.sha, approvedTravelCommit, 'Owner-approved Test A public pin changed');
+for(const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau']){
+  const expected = execFileSync('git', ['show', `${approvedTravelCommit}:${artifact}`], {cwd:root});
+  assert((await get(`${rawRoot}/${approvedTravelRelease}/${artifact}`)).equals(expected), 'Owner-approved Test A artifact changed: ' + artifact);
+  checks.push({artifact,ref:approvedTravelRelease,bytes:expected.length,sha256:sha256(expected),result:'PASS'});
+}
 // Historical action-OFF examples intentionally retain their accepted migration
 // pin. Compare its own bundle, never pretend it is the current candidate build.
 const historicalRelease = 'migration-005f77211830';
@@ -107,11 +121,12 @@ for (const artifact of ['dist/OC.lua', 'examples/EggAnalysis.luau', 'examples/Ha
   assert(published.equals(expected), 'Historical pinned artifact differs: ' + artifact);
   checks.push({ artifact, ref: historicalRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
-const report = { dateUTC: new Date().toISOString(), repository, branch: 'main', commit, buildId, release,
+const report = { dateUTC: new Date().toISOString(), repository, branch, commit, buildId, release,
+  ownerApprovedTestA: { buildId: '0d5caa499c8c', commit: approvedTravelCommit, release: approvedTravelRelease, unchanged: true },
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };
-const reportPath = path.join(root, '.test-output/phase4-egg-location-public-verification.json');
+const reportPath = path.join(root, '.test-output/phase4-test-b-public-verification.json');
 await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 console.log('[OC] Public verification PASS: ' + checks.length + ' raw content comparisons; bundle build ' + buildId);

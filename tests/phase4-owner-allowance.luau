@@ -16,7 +16,7 @@ local function options()
 		HATCH_SETTINGS = { HATCH_ONE_EGG_ONCE = true, EGG_SELECTION_MODE = "MANUAL", SELECTED_EGGS = { "Test Egg" },
 			ALLOWED_CURRENCIES = { "Coins" }, MAXIMUM_SESSION_HATCHES = 1, MAXIMUM_BATCH_HATCHES = 1,
 			MAXIMUM_EGG_COST = 10, MAXIMUM_SESSION_COST = 10, PRESERVE_PROGRESSION_RESERVE = true, ENABLE_BACKGROUND_PICKUPS = false },
-		OWNER_ONE_HATCH_TEST_SETTINGS = { OWNER_ONE_HATCH_TEST_ALLOWANCE = true, MAXIMUM_COIN_ALLOWANCE = 10, MAXIMUM_EGG_COST = 10 },
+		OWNER_ONE_HATCH_TEST_SETTINGS = { OWNER_ONE_HATCH_TEST_ALLOWANCE = true, AUTHORIZED_ACCOUNT_ID = 123, MAXIMUM_COIN_ALLOWANCE = 10, MAXIMUM_EGG_COST = 10 },
 		WORLD_SETTINGS = { ENABLE_WORLD_PROGRESSION = false, AUTO_DISCOVER_ISLANDS = false, AUTO_UNLOCK_WORLDS = false,
 			AUTO_TRAVEL_FOR_PROGRESSION = false, AUTO_FARM_UNLOCK_REQUIREMENTS = false },
 		FARMING_SETTINGS = { AUTO_RESOURCE_FARM = false, AUTO_FARM_FALLBACK = false },
@@ -98,7 +98,7 @@ local function hatchFixture()
 			local pets=copy(facts.Pets) table.insert(pets,{Id="synthetic",Name=name}) local best=ctx.ScoreTeam(ids)
 			for slot=1,#ids do local after=table.clone(ids) after[slot]="synthetic" best=math.max(best,ctx.ScoreTeam(after,pets)) end return best
 		end
-		ctx.Eggs={{Name="Test Egg",Model=s.Egg,World="The Overworld",Island="The Void",Cost={Type="Currency",Currency="Coins",Amount=10},
+		ctx.Eggs={{Name="Test Egg",Model=s.Egg,IdentityId="I_SYNTHETIC",World="The Overworld",Island="The Void",Cost={Type="Currency",Currency="Coins",Amount=10},
 			Loaded=true,Accessible=true,AccessStatus="ACCESSIBLE",InRange=true,Opened=true,Unlocked=true,Range=16,Duration=2,
 			Pool={{Chance=1,Item={Type="Pet",Name="New"}}}}}
 		ctx.EggAvailability=ctx.Eggs return snap,ctx
@@ -110,6 +110,7 @@ end
 
 test("Owner allowance defaults OFF and normal future-world reserve remain unchanged", function()
 	assert(not Defaults.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE and Defaults.OWNER_ONE_HATCH_TEST_SETTINGS.MAXIMUM_COIN_ALLOWANCE == 0)
+	assert(Defaults.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID == 0)
 	local normal = config({ RESOURCE_SETTINGS = { COIN_RESERVE = 50 } })
 	assert(Policy.Reserve(normal,snapshot(),"Coins") == 1000000050)
 	local funds = Allowance.EffectiveFunds(normal,snapshot(),"Coins","Test Egg",500,123)
@@ -251,6 +252,83 @@ test("Owner uncertain actual invocation remains consumed across a same-VM fresh 
 			clock.Time=16 s.Manager:Observe()
 			assert(s.Manager.Hatch.LastResult.Status=="UNCONFIRMED" and not s:Dispatch() and #s.Commands==1)
 			s:Close()
+		end)
+	end)
+end)
+
+test("Owner enabled allowance requires an explicit positive authorized account ID", function()
+	syntheticShared(function()
+		for _, id in ipairs({ 0, -1, 1.5, 456 }) do
+			local c=controller() c.Config.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID=id
+			local other=Allowance.new(c)
+			assert(other.Fault and not other:Eligibility("Test Egg",10,snapshot(),500,123))
+			assert(not Allowance.EffectiveFunds(c.Config,snapshot(),"Coins","Test Egg",500,123).Eligible)
+			assert(not other:GetStatus().Consumed)
+		end
+	end)
+end)
+
+test("Owner observed account switch invalidates pending authorization before consumption and across reload", function()
+	syntheticShared(function()
+		local c=controller() c.Reader.Player.UserId=456
+		assert(not c.HatchTestAllowance:AccountValid() and c.HatchTestAllowance:GetStatus().Cancelled)
+		assert(not c.HatchTestAllowance:Consume("Test Egg",10,snapshot(),500,456))
+		local loaded=Allowance.new(c)
+		assert(loaded.Fault and not loaded:Consume("Test Egg",10,snapshot(),500,456))
+		c.Reader.Player.UserId=123
+		assert(not c.HatchTestAllowance:Consume("Test Egg",10,snapshot(),500,123))
+		assert(not c.HatchTestAllowance:GetStatus().Consumed and next(shared.__OC_OWNER_ONE_HATCH_TEST_LEDGER.Accounts)==nil)
+	end)
+end)
+
+test("Owner changing the configured authorized account cannot transfer a frozen allowance", function()
+	syntheticShared(function()
+		local c=controller() c.Config.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID=456 c.Reader.Player.UserId=456
+		assert(not c.HatchTestAllowance:Eligibility("Test Egg",10,snapshot(),500,456))
+		assert(not c.HatchTestAllowance:GetStatus().Consumed)
+	end)
+end)
+
+test("Owner isolated allowance permits unchanged one-attempt selected egg travel only", function()
+	syntheticShared(function()
+		local c=controller() local travel=c.Config.EGG_TRAVEL_SETTINGS
+		travel.ENABLE_SELECTED_EGG_TRAVEL,travel.ENABLE_DIRECT_POSITIONING,travel.ENABLE_NATIVE_ISLAND_TRAVEL=true,true,true
+		travel.MAXIMUM_ATTEMPTS_PER_SELECTION=1
+		assert(Allowance.EffectiveFunds(c.Config,snapshot(),"Coins","Test Egg",500,123).Eligible)
+		travel.MAXIMUM_ATTEMPTS_PER_SELECTION=2
+		assert(not Allowance.EffectiveFunds(c.Config,snapshot(),"Coins","Test Egg",500,123).Eligible)
+		travel.ENABLE_SELECTED_EGG_TRAVEL=false
+		assert(not Allowance.EffectiveFunds(c.Config,snapshot(),"Coins","Test Egg",500,123).Eligible)
+		assert(not c.HatchTestAllowance:GetStatus().Consumed)
+	end)
+end)
+
+test("Owner hatch diagnostic captures current account native request facts and explains net Coins discrepancy", function()
+	syntheticShared(function()
+		simulated(function()
+			local s=hatchFixture() assert(s:Dispatch())
+			local before=s.Manager.Hatch:GetStatus().Pending.DiagnosticBefore
+			assert(before.AccountId==123 and before.InstanceId=="I_SYNTHETIC" and before.Coins==500)
+			assert(before.NativePrice==10 and before.RequestedCost==10 and before.StorageUsed==3 and before.StorageCapacity==100)
+			assert(before.NativeMaxHatches==1 and before.EggsOpened==0 and before.Opened and before.NativeNow~=nil)
+			s.Profile.Pets[3]={Id="received",Name="New"} s.Profile.EggsOpened["Test Egg"]=1 s.Profile.Coins=495 s.Manager:Observe()
+			local result=s.Manager.Hatch.LastResult
+			assert(result.Status=="INVENTORY_GAIN_OBSERVED" and result.DiagnosticBefore==before)
+			assert(result.CoinsComparison.ExpectedDebit==10 and result.CoinsComparison.ObservedNetDebit==5)
+			assert(result.CoinsComparison.Status=="NET_DISCREPANCY" and result.CoinsComparison.Difference==-5)
+			assert(s.Manager.Hatch:ResultText():find("NET_DISCREPANCY") and s.Manager.Hatch:Ended() and #s.Commands==1)
+			s:Close()
+		end)
+	end)
+end)
+
+test("Owner character respawn during native hatch guards dispatches no request and consumes no allowance", function()
+	syntheticShared(function()
+		simulated(function()
+			local s=hatchFixture() s.Controller.Reader.Player.Character={}
+			s.OnAuto=function() s.Controller.Reader.Player.Character={} end
+			assert(not s:Dispatch() and #s.Commands==0 and s.Manager.Hatch.RequestCost==0)
+			assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:Close()
 		end)
 	end)
 end)

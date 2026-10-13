@@ -52,6 +52,7 @@ function HatchManager:Observe(raw)
 		-- pre-request owned-team benchmark; status exposes only its evidence.
 		self.ResultBaseline = pending.UsefulnessBaseline
 		self.LastResult = { Status = confirmed and "INVENTORY_GAIN_OBSERVED" or "UNCONFIRMED", EggName = pending.EggName,
+			DiagnosticBefore = pending.DiagnosticBefore,
 			OwnerAllowance = pending.OwnerAllowance,
 			Quantity = gained, RequestedQuantity = pending.Count, CounterBefore = pending.Counter, CounterAfter = counter, CounterDelta = delta, Changes = changes,
 			BeforeBalance = pending.BeforeBalance, AfterBalance = raw and raw[pending.Currency], Balances = balances,
@@ -64,6 +65,15 @@ function HatchManager:Observe(raw)
 			UsefulnessProjectionFailures = pending.UsefulnessBaseline and pending.UsefulnessBaseline.ProjectionFailures,
 			UsefulnessEvidence = "Frozen pre-hatch best feasible owned-team native projection; bounded greedy estimate, global optimum/server modifiers unverified",
 			Attribution = "Matching received counter/inventory observations; external/manual activity cannot be excluded; balance change is separate evidence" }
+		local before = pending.DiagnosticBefore
+		local coins = balances.Coins
+		local expected = before and before.Currency == "Coins" and before.RequestedCost or nil
+		local debit = coins and type(coins.Delta) == "number" and coins.Delta == coins.Delta
+			and math.abs(coins.Delta) < math.huge and -coins.Delta or nil
+		self.LastResult.CoinsComparison = { ExpectedDebit = expected, ObservedNetDebit = debit,
+			Difference = expected ~= nil and debit ~= nil and debit - expected or nil,
+			Status = (expected == nil or debit == nil) and "UNKNOWN" or debit == expected and "NET_MATCH" or "NET_DISCREPANCY",
+			Attribution = "Net balance comparison only; concurrent credits/spending and exact server charge remain unverified" }
 		if confirmed then
 			self.VerifiedHatches += pending.Count
 			if delta ~= pending.Count or inv.TeamIndex ~= pending.TeamIndex or not PetPolicy.SameTeam(inv.Team, pending.TeamBefore) then
@@ -93,18 +103,23 @@ function HatchManager:ResultText()
 		if value then table.insert(balances, currency .. " net=" .. (value.Delta ~= nil and string.format("%+.3f", value.Delta) or "UNKNOWN")) end
 	end
 	local owner = r.OwnerAllowance
+	local before, comparison = r.DiagnosticBefore or {}, r.CoinsComparison or {}
+	local diagnosticText = string.format(" | account=%s; selected instance=%s; expected Coins debit=%s; observed net debit=%s; difference=%s; %s (server charge attribution UNKNOWN)",
+		tostring(before.AccountId or "UNKNOWN"), tostring(before.InstanceId or "UNKNOWN"), tostring(comparison.ExpectedDebit or "UNKNOWN"),
+		tostring(comparison.ObservedNetDebit or "UNKNOWN"), tostring(comparison.Difference or "UNKNOWN"), tostring(comparison.Status or "UNKNOWN"))
 	local allowanceText = owner and string.format(" | owner allowance consumed; exact requested price=%s Coins; world reserve draw=%s; net debit=%s (attribution UNKNOWN); %s",
 		tostring(owner.RequestedPrice), tostring(owner.WorldReserveBorrowed), tostring(owner.Result and owner.Result.ObservedNetDebit or "UNKNOWN"), tostring(owner.Persistence)) or ""
 	return string.format("%s | %s | requested=%s; matching inventory +%s; egg counter delta=%s | baseline=%s %s pre-hatch owned-team estimate | %s | observed %s (net, attribution unknown) | OC equipment commands during hatch=0 | %s%s",
 		r.EggName, r.Status, tostring(r.RequestedQuantity), tostring(r.Quantity), tostring(r.CounterDelta or "UNKNOWN"),
 		tostring(r.UsefulnessBaselineScore or "UNKNOWN"), tostring(r.UsefulnessCurrency or "UNKNOWN"),
 		#pets > 0 and table.concat(pets, "; ") or "No matching received pet", #balances > 0 and table.concat(balances, ", ") or "balances UNKNOWN",
-		r.Reason or "Received hatch verified; an upgrade is not guaranteed. Request ledger retained", allowanceText)
+		r.Reason or "Received hatch verified; an upgrade is not guaranteed. Request ledger retained", allowanceText .. diagnosticText)
 end
 
 function HatchManager:GetStatus()
 	return { RequestedHatches = self.RequestedHatches, RequestCost = self.RequestCost, VerifiedHatches = self.VerifiedHatches,
-		Pending = self.Pending and { EggName = self.Pending.EggName, Count = self.Pending.Count, Deadline = self.Pending.Deadline, Observed = self.Pending.Observed },
+		Pending = self.Pending and { EggName = self.Pending.EggName, Count = self.Pending.Count, Deadline = self.Pending.Deadline,
+			Observed = self.Pending.Observed, DiagnosticBefore = self.Pending.DiagnosticBefore },
 		Location = self.Location, Fault = self.Fault, LastResult = self.LastResult, BestHatch = self.BestHatch,
 		SingleHatch = self.Once, Ended = self:Ended(), EndReason = self.EndReason }
 end

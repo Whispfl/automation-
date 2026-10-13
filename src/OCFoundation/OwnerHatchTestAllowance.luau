@@ -46,7 +46,13 @@ local function isolation(config, eggName)
 		or h.ENABLE_BACKGROUND_PICKUPS ~= false or h.PRESERVE_PROGRESSION_RESERVE ~= true
 		or not finite(settings.MAXIMUM_COIN_ALLOWANCE) or settings.MAXIMUM_COIN_ALLOWANCE <= 0
 		or not finite(settings.MAXIMUM_EGG_COST) or settings.MAXIMUM_EGG_COST <= 0 then return "Owner allowance requires one named isolated MANUAL Coins hatch with positive explicit ceilings" end
-	if not config.EGG_TRAVEL_SETTINGS or config.EGG_TRAVEL_SETTINGS.MODE ~= "NORMAL" then return "Owner allowance requires NORMAL mode with all travel actions OFF" end
+	local travel = config.EGG_TRAVEL_SETTINGS
+	if not travel or travel.MODE ~= "NORMAL" then return "Owner allowance requires NORMAL mode for the isolated hatch" end
+	if travel.ENABLE_SELECTED_EGG_TRAVEL then
+		if travel.MAXIMUM_ATTEMPTS_PER_SELECTION ~= 1 then return "Owner allowance selected-egg travel requires one bounded attempt" end
+	elseif travel.ENABLE_DIRECT_POSITIONING or travel.ENABLE_NATIVE_ISLAND_TRAVEL then
+		return "Owner allowance direct/native travel requires the selected-egg travel owner"
+	end
 	for category, keys in pairs({
 		WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
 		FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" },
@@ -55,7 +61,6 @@ local function isolation(config, eggName)
 		BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
 		UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
 		PET_SETTINGS = { "AUTO_DELETE_PETS", "AUTO_CRAFT_SHINY", "AUTO_FUSE_PETS" },
-		EGG_TRAVEL_SETTINGS = { "ENABLE_SELECTED_EGG_TRAVEL", "ENABLE_DIRECT_POSITIONING", "ENABLE_NATIVE_ISLAND_TRAVEL" },
 		PLAYTIME_SETTINGS = { "AUTO_CLAIM_PLAYTIME" },
 		MYSTERY_BOX_SETTINGS = { "AUTO_OPEN_MYSTERY_BOXES", "ENABLE_AUTOMATIC_CONTINUATION" },
 		ANTIAFK_SETTINGS = { "ENABLE_ANTI_AFK" },
@@ -76,6 +81,10 @@ function Allowance.EffectiveFunds(config, snapshot, currency, eggName, balance, 
 	local reason = isolation(config, eggName)
 	if reason then result.Reason = reason return result end
 	if currency ~= "Coins" or not account(accountId) then result.Reason = "Owner allowance requires verified current account identity and Coins" return result end
+	local authorizedId = config.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID
+	if not account(authorizedId) or authorizedId ~= accountId then
+		result.Reason = "Owner allowance requires the explicit authorized account ID to match the current account" return result
+	end
 	local current, ledgerReason = ledger(false)
 	if not current then result.Reason = ledgerReason return result end
 	if current.Accounts[tostring(accountId)] then result.Reason = "Owner one-hatch allowance already consumed/unresolved for this account in this client VM; normal reserve restored" return result end
@@ -109,15 +118,34 @@ end
 function Allowance.new(controller)
 	local self = setmetatable({ Controller = controller, Persistence = limitation }, Allowance)
 	if enabled(controller.Config) then
-		self.Ledger, self.Fault = ledger(true)
+		self.AccountId = controller.Reader.Player and controller.Reader.Player.UserId
+		self.AuthorizedAccountId = controller.Config.OWNER_ONE_HATCH_TEST_SETTINGS.AUTHORIZED_ACCOUNT_ID
+		if not account(self.AccountId) or not account(self.AuthorizedAccountId) or self.AccountId ~= self.AuthorizedAccountId then
+			self.Fault = "Owner allowance explicit authorized account ID does not match the initial current account; no request"
+		else self.Ledger, self.Fault = ledger(true) end
 	end
 	return self
+end
+
+function Allowance:AccountValid()
+	if not enabled(self.Controller.Config) then return true end
+	if self.Fault then return false, self.Fault end
+	local player = self.Controller.Reader.Player
+	local settings = self.Controller.Config.OWNER_ONE_HATCH_TEST_SETTINGS
+	if not player or player.UserId ~= self.AccountId or settings.AUTHORIZED_ACCOUNT_ID ~= self.AuthorizedAccountId
+		or not account(self.AccountId) or self.AccountId ~= self.AuthorizedAccountId then
+		self.Cancelled = true
+		self.CancelReason = "Owner allowance initial/authorized account identity changed; authorization invalidated without consumption"
+	end
+	if self.Cancelled then return false, self.CancelReason or "Controller's owner test authorization stopped before request; no consumption" end
+	return true
 end
 
 function Allowance:Eligibility(eggName, price, snapshot, balance, accountId)
 	local config = self.Controller.Config
 	if not enabled(config) then return true, "Owner allowance OFF; normal policy required" end
-	if self.Cancelled then return false, "Controller's owner test authorization stopped before request; no consumption" end
+	local accountValid, accountReason = self:AccountValid()
+	if not accountValid or accountId ~= self.AccountId then return false, accountReason or "Owner allowance account identity changed; no request" end
 	local current, reason = ledger(false)
 	if not current or not self.Ledger or current ~= self.Ledger then return false, reason or "Owner allowance ledger identity changed; no request" end
 	local funds = Allowance.EffectiveFunds(config, snapshot, "Coins", eggName, balance, accountId)
@@ -168,9 +196,10 @@ function Allowance:GetStatus()
 	local current, reason = ledger(false)
 	local id = self.Controller.Reader.Player and self.Controller.Reader.Player.UserId
 	return { Enabled = enabled(self.Controller.Config), Consumed = current and account(id) and current.Accounts[tostring(id)] ~= nil or false,
+		AccountId = self.AccountId, AuthorizedAccountId = self.AuthorizedAccountId, CurrentAccountId = id,
 		Record = self.Record and copy(self.Record) or current and account(id) and current.Accounts[tostring(id)] and copy(current.Accounts[tostring(id)]),
 		Fault = self.Fault or enabled(self.Controller.Config) and (not current or current ~= self.Ledger) and (reason or "Ledger identity changed") or nil,
-		Cancelled = self.Cancelled == true, Persistence = limitation }
+		Cancelled = self.Cancelled == true, CancelReason = self.CancelReason, Persistence = limitation }
 end
 
 return Allowance

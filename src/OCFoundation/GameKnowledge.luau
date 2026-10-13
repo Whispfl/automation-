@@ -183,18 +183,21 @@ function GameKnowledge:ResolveEggInstance(name, force, expectedModel)
 		if model.Name ~= name then continue end
 		local record = self:ObserveEggModel(model)
 		observed.Count += 1 table.insert(observed.Candidates, record)
-		if record.Verified then chosen = record observed.VerifiedCount += 1
+		if record.Verified then
+			if not expectedModel or model == expectedModel then chosen = record end
+			observed.VerifiedCount += 1
 		elseif record.Root and not completeRegistry then unknown = true end
 	end
 	local reason
-	if observed.VerifiedCount > 1 then
+	if observed.VerifiedCount > 1 and not expectedModel then
 		reason = "AMBIGUOUS_NATIVE_EGG_MODEL: multiple independently registered interactive Instances; exact target unresolved; no nearest/path substitution"
 	elseif unknown then reason = self.EggObservationFinished and "NATIVE_EGG_IDENTITY_UNVERIFIED: unresolved physical candidates; native egg receiver unavailable/ambiguous; no travel attempt"
 		or "NATIVE_EGG_REGISTRATION_PENDING: physical candidates lack complete current registration evidence; no travel attempt"
-	elseif not chosen then reason = observed.Count == 0 and "Selected egg model not loaded; no force-load"
+	elseif not chosen then reason = expectedModel and "Selected exact egg Instance lacks current registration; no name/path replacement or retarget"
+		or observed.Count == 0 and "Selected egg model not loaded; no force-load"
 		or "NATIVE_EGG_IDENTITY_UNVERIFIED: no unique current interactive registration; names/paths/attributes cannot authorize travel"
 	elseif expectedModel and chosen.Model ~= expectedModel then reason = "Brain selected exact egg Instance changed; no name/path replacement or retarget" end
-	observed.Reason = reason or "UNIQUE_VERIFIED_INTERACTIVE_INSTANCE"
+	observed.Reason = reason or (expectedModel and "EXACT_RETAINED_REGISTERED_INSTANCE; native interaction eligibility checked separately" or "UNIQUE_VERIFIED_INTERACTIVE_INSTANCE")
 	return not reason and chosen or nil, reason, observed
 end
 
@@ -305,6 +308,35 @@ function GameKnowledge:ResolveEggLocation(name, force, expectedModel, characterR
 	return candidates[1], nil, observations
 end
 
+function GameKnowledge:NativeRegisteredEggModels()
+	-- Read every exact loaded value from the already identified public receiver.
+	-- Native nearest scanning is not catalog/name-filtered. Do not infer a
+	-- complete competing set from the subset returned by EggModels alone.
+	self:ObserveEggChunker()
+	local receiver, count = nil, 0
+	for observed in pairs(self.NativeEggChunkers or {}) do
+		if eggReceiver(observed) then receiver = observed count += 1 end
+	end
+	if not self.EggObservationFinished or count ~= 1 then return nil, "Complete current native egg registration evidence unavailable for nearest selection" end
+	local models, seen, entries = {}, {}, 0
+	for coord, loaded in pairs(receiver._loaded) do
+		local values = receiver._chunks[coord]
+		if loaded ~= true or type(values) ~= "table" then return nil, "Native loaded egg registration coordinates inconsistent" end
+		local length = 0
+		for index, model in pairs(values) do
+			entries += 1
+			if entries > 512 then return nil, "Native loaded egg registration observation limit exceeded" end
+			if type(index) ~= "number" or index % 1 ~= 0 or index < 1 then return nil, "Native loaded egg registration array inconsistent" end
+			length += 1
+			if typeof(model) ~= "Instance" or not model:IsA("Model") or model.Parent ~= receiver._folder
+				or not model:IsDescendantOf(workspace) or not eggParts(model) then return nil, "Native loaded original registration geometry inconsistent" end
+			if not seen[model] then seen[model] = true table.insert(models, model) end
+		end
+		for index = 1, length do if values[index] == nil then return nil, "Native loaded egg registration array has missing entries" end end
+	end
+	return models
+end
+
 function GameKnowledge:NativeEggRangeEligible(egg, root, force)
 	-- Existing native physical-egg contract: unopened Prompt / opened nearest Root.
 	-- Shared fresh observation, no positioning, registry mutation or new loop.
@@ -313,43 +345,65 @@ function GameKnowledge:NativeEggRangeEligible(egg, root, force)
 			and v.X == v.X and v.Y == v.Y and v.Z == v.Z
 			and math.abs(v.X) < math.huge and math.abs(v.Y) < math.huge and math.abs(v.Z) < math.huge
 	end
-	local ok, eligible, range = pcall(function()
+	local ok, eligible, range, reason = pcall(function()
 		local model = egg and egg.Model
-		if not model or not model.Parent or not model:IsDescendantOf(workspace) or not root or not point(root.Position) then return false end
-		local identity = self:ResolveEggInstance(model.Name, force, model)
-		if not identity then return false end
+		if not model or not model.Parent or not model:IsDescendantOf(workspace) or not root or not point(root.Position) then return false, nil, "Selected egg/character geometry unavailable" end
+		local identity, identityReason = self:ResolveEggInstance(model.Name, force, model)
+		if not identity then return false, nil, identityReason end
 		local part, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
-		if not part or not part:IsA("BasePart") or not point(part.Position) then return false end
+		if not part or not part:IsA("BasePart") or not point(part.Position) then return false, nil, "Selected original Root geometry unavailable" end
 		local raw = self.Reader:GetLiveProfile()
-		if not raw or type(raw.EggsOpened) ~= "table" then return false end
+		if not raw or type(raw.EggsOpened) ~= "table" then return false, nil, "Current account EggsOpened unavailable" end
 		local opened = model:GetAttribute("Unlocked") == true and raw.EggsOpened[model.Name] ~= nil
 		local origin, limit = part, 16
 		if not opened then
-			if not prompt or not prompt:IsA("BasePart") or not point(prompt.Position) then return false end
+			if not prompt or not prompt:IsA("BasePart") or not point(prompt.Position) then return false, nil, "Selected initial Prompt geometry unavailable" end
 			local nativePrompt = prompt:FindFirstChildOfClass("ProximityPrompt")
 			if not nativePrompt or nativePrompt.Parent ~= prompt or nativePrompt.Enabled ~= true
 				or nativePrompt.RequiresLineOfSight ~= false or not PetPolicy.Finite(nativePrompt.MaxActivationDistance)
-				or nativePrompt.MaxActivationDistance <= 0 then return false end
+				or nativePrompt.MaxActivationDistance <= 0 or identity.PromptCacheMember ~= true then return false, nil, "Selected initial native Prompt cache/eligibility unavailable" end
 			origin, limit = prompt, math.min(6.5, nativePrompt.MaxActivationDistance)
 		end
-		local record = { Range = limit, Distance = (origin.Position - root.Position).Magnitude, Opened = opened,
-			RangeOrigin = origin, RangeOriginPosition = origin.Position }
-		if record.Distance > limit then return false, record end
+		local record = { Model = model, IdentityId = identity.IdentityId, Range = limit, Distance = (origin.Position - root.Position).Magnitude, Opened = opened,
+			RangeOrigin = origin, RangeOriginPosition = origin.Position, InteractionMode = opened and "OPENED_NEAREST" or "INITIAL_PROMPT",
+			Mode = opened and "OPENED_NEAREST" or "INITIAL_PROMPT" }
+		if record.Distance > limit then return false, record, "Outside selected native " .. record.InteractionMode .. " range" end
 		if opened then
 			local prompts = self:Get("ProximityPrompt")
-			if not prompts or prompts.Visible ~= 0 then return false, record end
-			for _, other in ipairs(self:InteractiveEggModels(force)) do
+			if not prompts or prompts.Visible ~= 0 then return false, record, "Native opened scanner requires known global Prompt Visible=0" end
+			local registered, registryReason = self:NativeRegisteredEggModels()
+			if not registered then return false, record, registryReason end
+			if not table.find(registered, model) then return false, record, "Selected exact original no longer in the complete loaded registration set" end
+			for _, other in ipairs(registered) do
 				local otherRoot = other ~= model and other.Parent and other:IsDescendantOf(workspace) and other:FindFirstChild("Root")
 				if otherRoot and otherRoot:IsA("BasePart") and point(otherRoot.Position) and other:GetAttribute("Unlocked") == true
-					and (otherRoot.Position - root.Position).Magnitude <= record.Distance + 0.05 then return false, record end
+					and (otherRoot.Position - root.Position).Magnitude <= 16 and (otherRoot.Position - root.Position).Magnitude <= record.Distance + 0.05 then
+					return false, record, "Another or tied eligible registered original owns native nearest selection: " .. self:InstanceId(other)
+				end
+			end
+		else
+			-- Initial trigger closes over this exact cached prompt. Name/count transport
+			-- cannot resolve competing simultaneously usable initial prompts safely.
+			local prompts, selectedPrompt = self:Get("ProximityPrompt"), prompt:FindFirstChildOfClass("ProximityPrompt")
+			for engine, member in pairs(prompts._cache) do
+				if member ~= true or engine == selectedPrompt or not engine.Parent or engine.Enabled ~= true then continue end
+				local parent, position = engine.Parent, nil
+				if parent:IsA("BasePart") then position = parent.Position
+				elseif parent:IsA("Attachment") then position = parent.WorldPosition end
+				if not point(position) or not PetPolicy.Finite(engine.MaxActivationDistance) or engine.MaxActivationDistance <= 0 then
+					return false, record, "Other enabled cached native Prompt geometry unavailable; active initial interaction unresolved"
+				end
+				if (position - root.Position).Magnitude <= engine.MaxActivationDistance then
+					return false, record, "Competing eligible initial Prompt; exact native active prompt unresolved: " .. self:InstanceId(engine)
+				end
 			end
 		end
-		return true, record
+		return true, record, "NATIVE_INTERACTION_VERIFIED: exact selected registered original; " .. record.InteractionMode
 	end)
-	return ok and eligible == true, ok and range or nil
+	return ok and eligible == true, ok and range or nil, ok and reason or "Native interaction observation failed: " .. tostring(eligible)
 end
 
-function GameKnowledge:PetContext(snapshot, plan, tracker)
+function GameKnowledge:PetContext(snapshot, plan, tracker, retainedModel)
 	local raw = self.Reader:GetLiveProfile()
 	local currency = PetPolicy.Currency(self.Reader.Config, plan)
 	local context = { Currency = currency, AccountId = self.Reader.Player and self.Reader.Player.UserId, Eggs = {}, EggAvailability = {}, Pets = self:Get("Pets"),
@@ -456,7 +510,15 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 		if not model.Parent or not model:IsDescendantOf(workspace) then continue end
 		if byName[model.Name] then continue end
 		local def = definitions[model.Name]
-		local identity, identityReason, observed = self:ResolveEggInstance(model.Name)
+		local expected = retainedModel and retainedModel.Name == model.Name and retainedModel or nil
+		local identity, identityReason, observed = self:ResolveEggInstance(model.Name, false, expected)
+		if not identity and not expected and observed and observed.VerifiedCount > 1 then
+			-- Reuse Test A's source/access/scene-associated physical selection for
+			-- planning. Paid readiness still requires native interaction below; no
+			-- name-only nearest substitution or alteration of discovery/movement.
+			local physical = self:ResolveEggLocation(model.Name, false, nil, root)
+			if physical then identity, identityReason, observed = self:ResolveEggInstance(model.Name, false, physical.Model) end
+		end
 		context.EggIdentityDiagnostics[model.Name] = observed
 		if not identity then
 			byName[model.Name] = { Name = model.Name, Loaded = false, Accessible = false, World = def.World, Island = def.Island,
@@ -480,7 +542,7 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			if ok then pool = value end
 		end
 		local opened = model:GetAttribute("Unlocked") == true and type(profile.EggsOpened) == "table" and profile.EggsOpened[model.Name] ~= nil
-		local nativeRange, observedRange = self:NativeEggRangeEligible({ Model = model }, root)
+		local nativeRange, observedRange, interactionReason = self:NativeEggRangeEligible({ Model = model }, root)
 		local range = observedRange and observedRange.Range or opened and 16 or 6.5
 		local access = not world and "UNKNOWN_ACCESS" or (def.Event or def.ProductId or def.IsAdminEgg or model.Name == "Infinity Egg") and "UNSUPPORTED"
 			or accessible and "ACCESSIBLE" or "LOCKED_OR_UNKNOWN_UNLOCK"
@@ -492,6 +554,7 @@ function GameKnowledge:PetContext(snapshot, plan, tracker)
 			AccessStatus = access, Loaded = true, Accessible = accessible == true,
 			InRange = accessible and world == currentWorld and nativeRange, NativeRangeEligible = nativeRange,
 			RangeOrigin = observedRange and observedRange.RangeOrigin, InteractionDistance = observedRange and observedRange.Distance,
+			InteractionMode = observedRange and observedRange.InteractionMode, InteractionReason = interactionReason,
 			Cost = native(stats, "GetEggCost", self.Reader.Player, detached(profile), model.Name), Pool = pool, Luck = luck,
 			Duration = native(stats, "GetHatchDuration", detached(profile)), Opened = opened, Unlocked = model:GetAttribute("Unlocked"),
 			Reason = accessible and "Scene-present native egg; account world/island access confirmed" or "Premium/event/special/locked or unknown access; no hatch action" }

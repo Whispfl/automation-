@@ -75,7 +75,13 @@ function PetManager:Fresh()
 		config.WORLD_SETTINGS.SELECTED_WORLDS = {}
 		snapshot.ProgressionGraph = ProgressionGraph.Build(config, snapshot, c.Knowledge:Get("Worlds"), snapshot.AvailableProgression)
 	end
-	local context = c.Knowledge:PetContext(snapshot, c.Plan, c.Farming.Tracker)
+	local lease = c.EggTravel and c.EggTravel.Lease
+	local retainedModel = lease and lease.Model or self.Hatch.Location and self.Hatch.Location.Model
+	if not retainedModel and (self.Config.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") == "TRAVEL_ONLY"
+		and c.EggTravel and c.EggTravel.LastResult and c.EggTravel.LastResult.PhysicalArrivalVerified then
+		retainedModel = c.EggTravel.BrainIntent and c.EggTravel.BrainIntent.Model
+	end
+	local context = c.Knowledge:PetContext(snapshot, c.Plan, c.Farming.Tracker, retainedModel)
 	return snapshot, context
 end
 
@@ -113,6 +119,7 @@ end
 function PetManager:Observe()
 	local raw = self.Controller.Reader:GetLiveProfile()
 	local player = self.Controller.Reader.Player
+	if self.Controller.HatchTestAllowance then self.Controller.HatchTestAllowance:AccountValid() end
 	if self.Hatch.UserId and (not player or player.UserId ~= self.Hatch.UserId) then
 		if not self.Fault then self:Uncertain("Hatch account identity changed; received result belongs to an unknown account; no continuation") end
 		raw = nil -- Preserve the outstanding ledger/deadline without attributing another account's inventory.
@@ -197,6 +204,7 @@ end
 
 function PetManager:State()
 	return { Pending = self.Hatch.Pending or self.PendingEquip, Fault = self.Fault, Location = self.Hatch.Location,
+		HatchPreflight = self.HatchPreflight,
 		HatchOnce = self.Hatch.Once,
 		SessionEnded = self.Hatch:Ended(), RequestCost = self.Hatch.RequestCost, RequestedHatches = self.Hatch.RequestedHatches,
 		EquipCommands = self.EquipCommands, Attempt = self.Attempt, EquipmentContinuation = self.Transaction and not self.PendingEquip and not self.Fault and not (self.Attempt and self.Attempt.Ended)
@@ -230,7 +238,70 @@ function PetManager:Analyze(force)
 			self.LastTeamPlan = details
 		end
 	end
-	return context
+	return context, snapshot
+end
+
+-- Read-only readiness after the preserved physical travel test. This report
+-- neither authorizes an action nor changes the Brain, travel lease or budgets.
+function PetManager:ReportHatchPreflight(snapshot, context)
+	local c, settings = self.Controller, self.Config
+	local travel, result = c.EggTravel, c.EggTravel and c.EggTravel.LastResult
+	if (settings.EGG_TRAVEL_SETTINGS.MODE or "NORMAL") ~= "TRAVEL_ONLY" or not result or result.PhysicalArrivalVerified ~= true then return end
+	local intent = travel.BrainIntent
+	if not intent or intent.EggName ~= "Common Egg" or not intent.Model then return end
+	local player = c.Reader.Player
+	local accountId, character = player and player.UserId, player and player.Character
+	local raw = c.Reader:GetLiveProfile()
+	local root = c.Farming.Tracker:Root()
+	local eligible, native, nativeReason = c.Knowledge:NativeEggRangeEligible({ Model = intent.Model }, root, true)
+	local egg for _, value in ipairs(context and context.Eggs or {}) do
+		if value.Name == intent.EggName and value.Model == intent.Model then egg = value break end
+	end
+	local price = egg and egg.Cost
+	local coins = raw and raw.Coins
+	local opened = raw and type(raw.EggsOpened) == "table" and (raw.EggsOpened[intent.EggName] or 0)
+	local nextAt = player and player:GetAttribute("NextEggOpenAt")
+	local time = c.Knowledge:Get("Time")
+	local timeOK, now = pcall(function() return time and time.now() end)
+	local free = context and Policy.Finite(context.StorageCapacity) and Policy.Finite(context.StorageUsed)
+		and context.StorageCapacity - context.StorageUsed or nil
+	local reason
+	if settings.PET_SETTINGS.AUTO_HATCH or settings.OWNER_ONE_HATCH_TEST_SETTINGS.OWNER_ONE_HATCH_TEST_ALLOWANCE
+		or self.Hatch.RequestedHatches > 0 or self.Hatch.RequestCost > 0 then reason = "Preflight requires hatch and exceptional allowance OFF; zero requests and spending"
+	elseif not player or player.UserId ~= travel.BrainUserId then reason = "Current account differs from the physically arrived selection; readiness invalidated"
+	elseif not snapshot or snapshot.Ready ~= true or not raw then reason = "Current account LocalData unavailable"
+	elseif not eligible then reason = nativeReason or "Selected native hatch interaction unverified"
+	elseif not egg then reason = "Exact selected native egg price/storage analysis unavailable"
+	elseif not price or price.Type ~= "Currency" or price.Currency ~= "Coins" or not Policy.Finite(price.Amount)
+		or price.Amount <= 0 or price.Amount > 10 then reason = "Current native Common Egg Coins price unavailable or above the prepared 10-Coin ceiling"
+	elseif not Policy.Finite(coins) or coins < price.Amount then reason = "Insufficient actual Coins for the prepared one-egg price"
+	elseif not Policy.Finite(opened) or opened % 1 ~= 0 then reason = "Current account egg-opened counter unavailable"
+	elseif not context or context.InventoryFull ~= false or type(context.DigitalStorage) ~= "boolean"
+		or not Policy.Finite(context.MaxHatches) or context.MaxHatches < 1
+		or not context.DigitalStorage and (free == nil or free < 1) then reason = "Native inventory space or one-egg capacity unavailable/full"
+	elseif not context.AutoDeleteKnown or context.AutoDeleteActive then reason = "Native auto-delete settings unknown or active; OC does not modify them"
+	elseif not timeOK or not Policy.Finite(now) or nextAt ~= nil and not Policy.Finite(nextAt)
+		or nextAt and nextAt > now then reason = "Native hatch cooldown active or time/cooldown unavailable"
+	elseif not self:NativeHatchIdle() then reason = "Native hatch presentation or auto-hatch active/unavailable"
+	else reason = "Ready for separately authorized ONE Common Egg request; allowance remains OFF; normal reserve unchanged; no spending permission" end
+	local ready = reason:sub(1, 5) == "Ready"
+	if ready and (c.Reader.Player ~= player or player.UserId ~= accountId or player.Character ~= character
+		or c.Farming.Tracker:Root() ~= root or not Policy.Equal(c.Reader:GetLiveProfile(), context.AccountFacts)) then
+		ready, reason = false, "Current account/character/profile changed during read-only native readiness guards"
+	end
+	local status = ready and "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" or "HATCH_PREFLIGHT_BLOCKED"
+	local before = { AccountId = accountId, InstanceId = native and native.IdentityId or intent.IdentityId,
+		NativePrice = price and price.Amount, Coins = coins, StorageUsed = context and context.StorageUsed,
+		StorageCapacity = context and context.StorageCapacity, FreeStorage = free, DigitalStorage = context and context.DigitalStorage,
+		EggsOpened = opened, NextEggOpenAt = nextAt, InteractionMode = native and native.InteractionMode }
+	self.HatchPreflight = { Status = status, Reason = reason, Before = before, SpendingPermission = false }
+	local message = string.format("%s | egg=%s; selected instance=%s; account=%s; native price=%s Coins; current Coins=%s; storage=%s/%s; free=%s; digital=%s; EggsOpened=%s; NextEggOpenAt=%s; interaction=%s | %s | hatch requests=%s; requested spending=%s",
+		status, intent.EggName, tostring(before.InstanceId or "UNKNOWN"), tostring(before.AccountId or "UNKNOWN"),
+		tostring(before.NativePrice or "UNKNOWN"), tostring(before.Coins or "UNKNOWN"), tostring(before.StorageUsed or "UNKNOWN"),
+		tostring(before.StorageCapacity or "UNKNOWN"), tostring(before.FreeStorage or "UNKNOWN"), tostring(before.DigitalStorage),
+		tostring(before.EggsOpened or "UNKNOWN"), tostring(before.NextEggOpenAt or "ABSENT"), tostring(before.InteractionMode or "UNKNOWN"), reason,
+		tostring(self.Hatch.RequestedHatches), tostring(self.Hatch.RequestCost))
+	if self.LastHatchPreflightMessage ~= message then c:Log("HATCH_PREFLIGHT", message) self.LastHatchPreflightMessage = message end
 end
 
 function PetManager:NativeHatchIdle()
@@ -269,7 +340,8 @@ function PetManager:Select(plan)
 		end
 		self.Hatch.Location = nil
 	end
-	self:Analyze(false)
+	local preflightContext, preflightSnapshot = self:Analyze(false)
+	self:ReportHatchPreflight(preflightSnapshot, preflightContext)
 	if not self.Config.PET_SETTINGS.AUTO_HATCH and not self.Config.PET_SETTINGS.AUTO_EQUIP then
 		self.Decision = { Kind = "WAIT", OwnsLocation = false, Reason = "Read-only pet intelligence; hatch/equipment disabled" }
 		return false, self.Decision
@@ -485,11 +557,18 @@ function PetManager:Prepare(decision, token)
 	end
 	local authorization = copyFacts(config)
 	local accountId = c.Reader.Player.UserId
+	local dispatchCharacter = c.Reader.Player.Character
+	local dispatchRoot = c.Farming.Tracker:Root()
+	if not dispatchRoot then return nil, nil, nil, "Current character root unavailable before hatch guards; no request" end
 	if self.Hatch.UserId and self.Hatch.UserId ~= accountId then return nil, nil, nil, "Hatch account changed; no dispatch" end
 	local report = c.Brain:AnalyzePets(snapshot, context)
 	local fresh = c.Brain:PlanPets(report, context, self:State())
-	if fresh.Kind ~= "HATCH" or fresh.EggName ~= decision.EggName then return nil, nil, nil, "Fresh useful hatch/budget decision unavailable" end
-	local egg for _, candidate in ipairs(context.Eggs) do if candidate.Name == decision.EggName then egg = candidate break end end
+	if fresh.Kind ~= "HATCH" or fresh.EggName ~= decision.EggName or not decision.Model or fresh.Model ~= decision.Model then
+		return nil, nil, nil, "Fresh useful hatch/budget/exact selected egg decision unavailable"
+	end
+	local egg for _, candidate in ipairs(context.Eggs) do
+		if candidate.Name == decision.EggName and candidate.Model == decision.Model then egg = candidate break end
+	end
 	if not egg or not egg.InRange then return nil, nil, nil, "Manual approach within native egg range required (unopened 6.5/opened 16 studs); location retained without teleport" end
 	local ownerSettings = config.OWNER_ONE_HATCH_TEST_SETTINGS
 	if ownerSettings and ownerSettings.OWNER_ONE_HATCH_TEST_ALLOWANCE then
@@ -520,8 +599,12 @@ function PetManager:Prepare(decision, token)
 	inv = context.Inventory
 	report = c.Brain:AnalyzePets(snapshot, context)
 	fresh = c.Brain:PlanPets(report, context, self:State())
-	if not inv or fresh.Kind ~= "HATCH" or fresh.EggName ~= egg.Name then return nil, nil, nil, "Account/authorization changed during native hatch guards" end
-	local currentEgg for _, candidate in ipairs(context.Eggs) do if candidate.Name == egg.Name then currentEgg = candidate break end end
+	if not inv or fresh.Kind ~= "HATCH" or fresh.EggName ~= egg.Name or fresh.Model ~= egg.Model then
+		return nil, nil, nil, "Account/authorization/exact egg changed during native hatch guards"
+	end
+	local currentEgg for _, candidate in ipairs(context.Eggs) do
+		if candidate.Name == egg.Name and candidate.Model == egg.Model then currentEgg = candidate break end
+	end
 	if not currentEgg or currentEgg.Model ~= egg.Model or not currentEgg.InRange then return nil, nil, nil, "Native egg location changed during guards" end
 	egg, count = currentEgg, math.min(count, fresh.Count)
 	local raw = c.Reader:GetLiveProfile()
@@ -554,6 +637,7 @@ function PetManager:Prepare(decision, token)
 	local root = c.Farming.Tracker:Root()
 	if not allowed() or self.Hatch:Ended() or self.Hatch.Pending or self.PendingEquip or self.Fault
 		or not Policy.Equal(config, authorization) or c.Reader.Player.UserId ~= accountId
+		or c.Reader.Player.Character ~= dispatchCharacter or root ~= dispatchRoot
 		or not live or not Policy.Equal(live, context.AccountFacts) or live[egg.Cost.Currency] ~= snapshot.Balances[egg.Cost.Currency]
 		then return nil, nil, nil, "Account/authorization changed during final hatch guards; no request" end
 	if not capacityOK or capacityAllows ~= true then return nil, nil, nil, "Native inventory capacity changed during final guards; no request" end
@@ -566,19 +650,22 @@ function PetManager:Prepare(decision, token)
 	if decision.Model and decision.Model ~= egg.Model or fresh.Model and fresh.Model ~= egg.Model then
 		return nil, nil, nil, "Brain-selected egg identity changed; no request"
 	end
+	local nativeEligible, nativeReason
+	if type(c.Knowledge.NativeEggRangeEligible) == "function" then
+		local nativeRecord
+		nativeEligible, nativeRecord, nativeReason = c.Knowledge:NativeEggRangeEligible(egg, dispatchRoot, true)
+	end
+	if nativeEligible ~= true then return nil, nil, nil, nativeReason or "Fresh exact native hatch interaction eligibility unavailable; no request" end
 	if config.EGG_TRAVEL_SETTINGS.ENABLE_SELECTED_EGG_TRAVEL then
 		local eligible, rangeReason
 		if c.EggTravel then eligible, rangeReason = c.EggTravel:HatchEligible(egg) end
 		if not eligible then return nil, nil, nil, rangeReason or "Selected egg arrival lease/native range unavailable; no request" end
-	else
-		local root = c.Farming.Tracker:Root()
-		local eligible = type(c.Knowledge.NativeEggRangeEligible) == "function" and c.Knowledge:NativeEggRangeEligible(egg, root, true)
-		if not eligible then return nil, nil, nil, "Native egg prompt/nearest selection no longer eligible; manual approach required" end
 	end
 	if self.Hatch.Once and (count ~= 1 or Policy.HatchIsolation(config)) then return nil, nil, nil, "Single hatch authorization changed" end
 	-- Arrival/range observation can call native helpers. Preserve the final
 	-- account/config/cancellation barrier after that observation as well.
 	if not allowed() or c.Reader.Player.UserId ~= accountId or not Policy.Equal(authorization, config)
+		or c.Reader.Player.Character ~= dispatchCharacter or c.Farming.Tracker:Root() ~= dispatchRoot
 		or Policy.Currency(config, c.Plan) ~= context.Currency
 		or not Policy.Equal(c.Reader:GetLiveProfile(), context.AccountFacts) then
 		return nil, nil, nil, "Account/budget/authorization changed during final arrival observation; no request"
@@ -590,6 +677,11 @@ function PetManager:Prepare(decision, token)
 		MaxEquipped = context.MaxEquipped, TeamIndex = inv.TeamIndex, Pets = copyFacts(context.AccountFacts.Pets),
 		ById = cloneRecords(inv), Definitions = context.Pets, Config = { PET_SETTINGS = copyFacts(config.PET_SETTINGS) },
 		ScoreTeam = context.ScoreTeam, SearchBoundReached = team.SearchBoundReached, ProjectionFailures = team.ProjectionFailures }
+	local diagnosticBefore = { AccountId = accountId, InstanceId = egg.IdentityId,
+		Coins = live.Coins, NativePrice = egg.Cost.Amount, RequestedCost = egg.Cost.Amount * count, Currency = egg.Cost.Currency,
+		InventoryRecords = inv.Records, InventoryQuantity = inv.Quantity, StorageUsed = context.StorageUsed,
+		StorageCapacity = context.StorageCapacity, DigitalStorage = context.DigitalStorage, NativeMaxHatches = context.MaxHatches,
+		EggsOpened = counter, Opened = egg.Opened == true, NextEggOpenAt = finalNextAt, NativeNow = finalTime }
 	local allowanceRecord
 	if ownerSettings and ownerSettings.OWNER_ONE_HATCH_TEST_ALLOWANCE then
 		local beforeInventory = {}
@@ -597,6 +689,7 @@ function PetManager:Prepare(decision, token)
 			Shiny = pet.Shiny == true, Mythic = pet.Mythic == true, XL = pet.XL == true, Super = copyFacts(pet.Super) } end
 		local consumed, allowanceReason, record = c.HatchTestAllowance:Consume(egg.Name, egg.Cost.Amount, snapshot, live.Coins, accountId,
 			{ EggCounter = counter, Inventory = beforeInventory, PoolNames = copyFacts(names), TeamIndex = inv.TeamIndex,
+				DiagnosticBefore = copyFacts(diagnosticBefore),
 				TeamIds = table.clone(inv.Team), OwnedBenchmarkIds = table.clone(team.ProposedIds), OwnedBenchmarkScore = team.ProjectedScore,
 				Balances = { Coins = live.Coins, Gems = live.Gems }, ConfirmationDeadline = os.clock() + settings.CONFIRMATION_TIMEOUT_SECONDS })
 		if not consumed then return nil, nil, nil, allowanceReason end
@@ -608,6 +701,7 @@ function PetManager:Prepare(decision, token)
 	self.Hatch.NextRequestAt = os.clock() + math.max(settings.MINIMUM_REQUEST_INTERVAL_SECONDS, egg.Duration)
 	local balances = {} for _, currency in ipairs({ "Coins", "Gems", "Tickets", "Pearls" }) do if Policy.Finite(live[currency]) then balances[currency] = live[currency] end end
 	self.Hatch.Pending = { Before = cloneRecords(inv), Pool = names, Count = count, Counter = counter,
+		DiagnosticBefore = diagnosticBefore,
 		UsefulnessBaseline = usefulnessBaseline,
 		OwnerAllowance = allowanceRecord,
 		EggName = egg.Name, Currency = egg.Cost.Currency, BeforeBalance = live[egg.Cost.Currency], BeforeBalances = balances,
@@ -628,6 +722,28 @@ function PetManager:Definition(decision, generation)
 				local sent, reason = c.Farming.Mechanics:PetAction(self, fresh, token)
 				actionSent = sent == true
 				self.LastAction = { Requested = sent, Reason = reason }
+				if sent == true and fresh.Kind == "HATCH" and self.Hatch.Pending
+					and self.LastLoggedHatchRequest ~= self.Hatch.RequestedHatches then
+					self.LastLoggedHatchRequest = self.Hatch.RequestedHatches
+					-- Emit only after the real shared adapter returns. Captured BEFORE
+					-- facts are not a claim of server acceptance or successful delivery.
+					pcall(function()
+						local pending = self.Hatch.Pending
+						local before = pending.DiagnosticBefore or {}
+						local free = Policy.Finite(before.StorageCapacity) and Policy.Finite(before.StorageUsed)
+							and before.StorageCapacity - before.StorageUsed or nil
+						c:Log("HATCH_BEFORE_SNAPSHOT", string.format("Captured before invocation | account=%s; egg=%s; selected instance=%s; native price=%s %s; Coins=%s; inventory=%s records/%s pets; storage=%s/%s; free=%s; digital=%s; native batch capacity=%s; EggsOpened=%s; NextEggOpenAt=%s",
+							tostring(before.AccountId or "UNKNOWN"), pending.EggName, tostring(before.InstanceId or "UNKNOWN"),
+							tostring(before.NativePrice or "UNKNOWN"), tostring(before.Currency or "UNKNOWN"), tostring(before.Coins or "UNKNOWN"),
+							tostring(before.InventoryRecords or "UNKNOWN"), tostring(before.InventoryQuantity or "UNKNOWN"),
+							tostring(before.StorageUsed or "UNKNOWN"), tostring(before.StorageCapacity or "UNKNOWN"), tostring(free or "UNKNOWN"),
+							tostring(before.DigitalStorage), tostring(before.NativeMaxHatches or "UNKNOWN"), tostring(before.EggsOpened or "UNKNOWN"),
+							tostring(before.NextEggOpenAt or "ABSENT")))
+						c:Log("HATCH_REQUEST_ATTEMPTED", string.format("Native HatchEgg invocation attempted | egg=%s; selected instance=%s; count=%s; requested total=%s; requested cost=%s %s | %s | acceptance/delivery await received current-account LocalData; no uncertain retry",
+							pending.EggName, tostring(before.InstanceId or "UNKNOWN"), tostring(pending.Count), tostring(self.Hatch.RequestedHatches),
+							tostring(before.RequestedCost or "UNKNOWN"), tostring(before.Currency or "UNKNOWN"), tostring(reason)))
+					end)
+				end
 				if not sent and self.LastDispatchBlocker ~= reason then c:Log("PET][BLOCKER", reason) self.LastDispatchBlocker = reason end
 			end
 			self:Observe()

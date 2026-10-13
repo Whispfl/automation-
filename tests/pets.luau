@@ -5,6 +5,10 @@ local function registerNativeEggFixture(knowledge, model, scene)
 	if not folder then
 		assert(scene, "First native registration fixture requires scene cleanup ownership")
 		local previousFind = workspace.FindFirstChild
+		local previousTypeof = typeof
+		typeof = function(value)
+			return type(value) == "table" and rawget(value, "SyntheticEggInstance") == true and "Instance" or previousTypeof(value)
+		end
 		local rendered = previousFind(workspace, "Rendered") or { Name = "Rendered", Parent = workspace }
 		workspace.FindFirstChild = function(self, name)
 			if name == "Rendered" then return rendered end
@@ -13,6 +17,7 @@ local function registerNativeEggFixture(knowledge, model, scene)
 		local previousClose = scene.Close
 		scene.Close = function(self)
 			workspace.FindFirstChild = previousFind
+			typeof = previousTypeof
 			return previousClose(self)
 		end
 		folder = { Name = "Chunker", Parent = rendered, IsA = function(_, kind) return kind == "Folder" end }
@@ -54,6 +59,7 @@ local function registerNativeEggFixture(knowledge, model, scene)
 	end
 	if prompt == root then prompt = table.clone(prompt) end
 	model.Root, model.Prompt = root, prompt
+	model.SyntheticEggInstance, root.SyntheticEggInstance, prompt.SyntheticEggInstance = true, true, true
 	root.Parent, prompt.Parent, model.Parent = model, model, folder
 	root.IsDescendantOf = root.IsDescendantOf or function(self) return self.Parent ~= nil and self.Parent.Parent ~= nil end
 	prompt.IsDescendantOf = prompt.IsDescendantOf or root.IsDescendantOf
@@ -61,6 +67,7 @@ local function registerNativeEggFixture(knowledge, model, scene)
 	model.IsDescendantOf = model.IsDescendantOf or function(self) return self.Parent ~= nil end
 	local plate = { Parent = model, Position = root.Position, IsA = function(_, kind) return kind == "BasePart" end }
 	local cost = { Parent = model, Position = root.Position, IsA = function(_, kind) return kind == "BasePart" end }
+	plate.SyntheticEggInstance, cost.SyntheticEggInstance = true, true
 	model.FindFirstChild = function(_, name)
 		if name == "Root" then return root elseif name == "Prompt" then return prompt
 		elseif name == "Plate" then return plate elseif name == "Cost" then return cost end
