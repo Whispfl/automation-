@@ -7,4 +7,5 @@ docs/research/** -text -whitespace
 docs/verification/*.txt -text -whitespace
 docs/evidence/*.txt -text -whitespace
 docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch -text -whitespace
+docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.patch -text -whitespace
 docs/local-feature-studio-evidence/MYSTERY_GIFT_RECHECK.md -whitespace

@@ -1,5 +1,9 @@
 # Phase 4: account-aware pets and bounded native actions
 
+## Standing-search approval — safety stop on 2026-10-13
+
+The owner approved the exact four-diagonal proposal, but the required new footprint/edge fixtures exposed unsupported candidate acceptance. Per the explicit stop condition, implementation and movement publication are withheld. **No runtime/source/bundle/loader or release tag changed.** The [safety-stop evidence](PHASE4-STANDING-SEARCH-SAFETY-STOP.md) preserves baseline compilation/regression results, the failing safety gate, and a [separate unapplied footprint proposal](PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.patch) requiring new approval. The successful first hatch below remains preserved; no additional hatch or live movement test is requested.
+
 ## Latest owner-live status — 2026-10-13
 
 **First automated Common Egg receipt passed on build `100f2c1907ae`; Phase 4 remains partial.** The owner reports one count=1 request, `INVENTORY_GAIN_OBSERVED`, Normal Doggy +1 existing stack, opened counter +1, net Coins -10, equipment 0, consumed allowance and session end without retry. The owner manually approached the egg for this hatch. This does not verify universal movement or any other egg.

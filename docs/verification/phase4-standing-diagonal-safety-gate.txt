@@ -1,0 +1,44 @@
+[OC SAFETY GATE] Rigid transform multiplication and inverse preserve shifted/rotated body offsets
+[OC SAFETY GATE] Broad support retains released center winner and complete avatar clearance
+[KNOWN FAULT DETECTED] 0.8 by 0.8 floor beneath 4 by 4 projected avatar; resolver returned frame while footprint support was absent; proposed=false
+[OC SAFETY GATE] Bounded ledge does not prove whole-footprint support
+[KNOWN FAULT DETECTED] one projected avatar corner is over a physical hole; resolver returned frame while footprint support was absent; proposed=false
+[OC SAFETY GATE] Floor hole away from center remains unknown to the single ray
+[KNOWN FAULT DETECTED] shifted 4 by 4 avatar bound extends past floor edge; resolver returned frame while footprint support was absent; proposed=false
+[OC SAFETY GATE] Shifted observed body bounds are transformed and can overhang support
+[KNOWN FAULT DETECTED] 45-degree rectangular body projection extends beyond 4.1 by 4.1 floor; resolver returned frame while footprint support was absent; proposed=false
+[OC SAFETY GATE] Rotated body bounds use full rigid transform and can cross an edge
+[KNOWN FAULT DETECTED] 10-stud full accessory bound over 4.2-stud floor; physical falling outcome unproven; resolver returned frame while footprint support was absent; proposed=false
+[OC SAFETY GATE] Large accessory bound is included in clearance but supplies no support proof
+[OC SAFETY GATE] Real collidable obstruction of rotated/shifted full box remains blocked
+[OC SAFETY GATE] Diagonal-only narrow platform creates newly accepted unsupported candidate
+[OC SAFETY GATE] Disappeared floor between initial and adapter re-observation blocks assignment
+[OC SAFETY GATE] Changed elevation between initial and adapter re-observation blocks assignment
+[KNOWN FAULT DETECTED] Same-height footprint loss passes current adapter recheck; current method is unchanged
+[OC SAFETY GATE] Shrinking floor with same center and elevation survives adapter re-observation
+[KNOWN FAULT DETECTED] Synthetic floor loss after adapter standing recheck is not re-observed by final identity Validate; no live cause inferred
+[OC SAFETY GATE] Geometry disappears after final standing check before final Validate returns
+[OC SAFETY GATE] 13 audit groups matched; 7 known safety-proof gaps detected; proposed=false; NOT safety acceptance
+[OC SAFETY GATE] Rigid transform multiplication and inverse preserve shifted/rotated body offsets
+[OC SAFETY GATE] Broad support retains released center winner and complete avatar clearance
+[KNOWN FAULT DETECTED] 0.8 by 0.8 floor beneath 4 by 4 projected avatar; resolver returned frame while footprint support was absent; proposed=true
+[OC SAFETY GATE] Bounded ledge does not prove whole-footprint support
+[KNOWN FAULT DETECTED] one projected avatar corner is over a physical hole; resolver returned frame while footprint support was absent; proposed=true
+[OC SAFETY GATE] Floor hole away from center remains unknown to the single ray
+[KNOWN FAULT DETECTED] shifted 4 by 4 avatar bound extends past floor edge; resolver returned frame while footprint support was absent; proposed=true
+[OC SAFETY GATE] Shifted observed body bounds are transformed and can overhang support
+[KNOWN FAULT DETECTED] 45-degree rectangular body projection extends beyond 4.1 by 4.1 floor; resolver returned frame while footprint support was absent; proposed=true
+[OC SAFETY GATE] Rotated body bounds use full rigid transform and can cross an edge
+[KNOWN FAULT DETECTED] 10-stud full accessory bound over 4.2-stud floor; physical falling outcome unproven; resolver returned frame while footprint support was absent; proposed=true
+[OC SAFETY GATE] Large accessory bound is included in clearance but supplies no support proof
+[OC SAFETY GATE] Real collidable obstruction of rotated/shifted full box remains blocked
+[KNOWN FAULT DETECTED] Approved diagonal adds narrow-platform acceptance without either synthetic sole-center support after released variant blocked
+[OC SAFETY GATE] Diagonal-only narrow platform creates newly accepted unsupported candidate
+[OC SAFETY GATE] Disappeared floor between initial and adapter re-observation blocks assignment
+[OC SAFETY GATE] Changed elevation between initial and adapter re-observation blocks assignment
+[KNOWN FAULT DETECTED] Same-height footprint loss passes current adapter recheck; current method is unchanged
+[OC SAFETY GATE] Shrinking floor with same center and elevation survives adapter re-observation
+[KNOWN FAULT DETECTED] Synthetic floor loss after adapter standing recheck is not re-observed by final identity Validate; no live cause inferred
+[OC SAFETY GATE] Geometry disappears after final standing check before final Validate returns
+[OC SAFETY GATE] 13 audit groups matched; 8 known safety-proof gaps detected; proposed=true; NOT safety acceptance
+[OC SAFETY GATE] RELEASE_SAFETY_GATE=FAIL: unsupported footprints accepted by both variants; no movement candidate may be published under the diagonal-only approval.

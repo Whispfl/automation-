@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "status": "SEPARATE_PROPOSAL_UNAPPROVED_NOT_APPLIED",
+  "baseline": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af",
+  "baselineBuildId": "100f2c1907ae",
+  "baselineTag": "phase4-hatch-100f2c1907ae",
+  "dependency": {
+    "patchPath": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch",
+    "patchSha256": "b1131059a5b151fb699b04bbf1ae50365cbeddc9a6d2faa222d28edd42d3207f",
+    "status": "OWNER_APPROVED_BUT_NOT_APPLIED; OVERLAID_IN_MEMORY_ONLY"
+  },
+  "file": "src/OCFoundation/EggTravelManager.luau",
+  "method": "ResolveStanding",
+  "patchPath": "docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.patch",
+  "patchSha256": "e812a4acdad9a75877dbaaa175db9fb4b5be948f8369c570366e20b6768d1c36",
+  "releasedFileSha256": "7fd14d19e3befc895f3446f41d4882394d12eebc7bc555e5e8b05dd864e4cb8c",
+  "beforeOverlayFileSha256": "125fb8125a32c998ceb58e4bfa649d6d982e7f6a41da25ef3f8ac08064ecff20",
+  "proposedAfterFileSha256": "15bd589ea9ff1e81354dbe536b347a2a852f59efa4780681234d82ee0540cf3b",
+  "releasedMethodSha256": "4996169eb8641b238ac1e52b3784c57a9b690ddf3e47993ddbddb9e2b2fec09a",
+  "beforeOverlayMethodSha256": "8d3129ec4a04c80964f36a0e5f15dc8bf83656618567e9b1a197ee409b893dda",
+  "proposedAfterMethodSha256": "b00f2cf4bf49e91fc7cda952293c6b04c119b7809b0567bad24177ec28f32db6",
+  "methodHashFormat": "UTF-8 text from the exact method signature to before the next function declaration; trailing separating newline included, matching preservation extraction convention.",
+  "scope": "Only ResolveStanding: additionally require padded full-avatar OBB projection to fit one observed level solid Part/Block top face with 0.15-stud edge margin. Existing floor rays, floor anchor/slope requirements, avatar height/bounds calculations, clearance query, native range/nearest eligibility, candidate order and adapter/action/arrival guards remain unchanged.",
+  "evidence": "Center-ray and floor-exclusion policy accepts tiny or edge support even when the full avatar footprint is unsupported; a floor shrink with unchanged top Y can preserve the final root frame and evade existing frame-change comparison.",
+  "conservativeLimit": "MeshPart, UnionOperation, Terrain, non-Block Parts, tilted floors and support assembled from multiple parts remain unverified and rejected by this proposed guard, including potentially legitimate sites. Current owner-live floor topology is unavailable; this is no guarantee of universal movement or actual live-failure cause. Corners/rays alone are not proof for arbitrary floors; containment proof depends on one known solid convex Block top face.",
+  "approvalRequired": "New separate explicit approval; the approved four-diagonal scope does not authorize this support guard. No publication or runtime implementation.",
+  "remainingRace": "Existing adapter is unchanged. Two observations are not atomic with the CFrame assignment: geometry can disappear after the final standing observation. This proposal adds support evidence to each existing observation, not an atomic physics guarantee or recovery policy.",
+  "primaryApiEvidence": [
+    "https://create.roblox.com/docs/reference/engine/classes/Part#Shape",
+    "https://create.roblox.com/docs/reference/engine/classes/WorldRoot#GetPartBoundsInBox"
+  ],
+  "offlineAudit": {
+    "script": "scripts/test-phase4-footprint-proposal.mjs",
+    "scriptSha256": "0d1ce28ef9bb659af27c125e0055a75a0d2e8b88a0890e851fa0d04b83813c55",
+    "testGroupsPerVariant": 16,
+    "variants": ["ownerApprovedDiagonalsInMemoryOnly", "separateUnapprovedSupportGuardInMemoryOnly"],
+    "results": "Official Luau compilation and all 16 synthetic audit groups passed for each overlay; realistic rigid-frame multiplication and object-space transformation cover tiny/edge support, large accessories, shifted/yaw/roll bounds, changed support geometry, preserved first-five winners/order, approved first diagonal, unknown/round/tilted floors and existing clearance obstruction. No real engine physics or live movement is verified."
+  },
+  "exclusions": "No source/bundle/loader changes. No hatch, equipment, spending, transport, scheduler, identity, raycast/slope/anchor changes, avatar shrinking, extra attempt, recovery/retry or live execution."
+}

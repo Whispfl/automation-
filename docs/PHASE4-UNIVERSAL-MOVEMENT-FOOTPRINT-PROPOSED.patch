@@ -1,0 +1,37 @@
+diff --git a/src/OCFoundation/EggTravelManager.luau b/src/OCFoundation/EggTravelManager.luau
+--- a/src/OCFoundation/EggTravelManager.luau
++++ b/src/OCFoundation/EggTravelManager.luau
+@@ -470,6 +470,33 @@
+ 						if facing.Magnitude < 0.05 then return "Observed avatar facing has no upright standing direction" end
+ 					end
+ 					local frame = CFrame.lookAt(standing, standing + facing)
++					-- A center hit does not prove footprint support. Accept only a
++					-- numerically level solid block whose full padded avatar projection
++					-- fits its observed top face; other shapes remain unverified.
++					local floorFrame, floorSize = floor.CFrame, floor.Size
++					local supported = floor:IsA("Part") and floor.Shape == Enum.PartType.Block and floorFrame
++						and vector(floorSize) and floorSize.X > 0 and floorSize.Y > 0 and floorSize.Z > 0
++						and vector(floorFrame.RightVector) and vector(floorFrame.UpVector) and vector(floorFrame.LookVector)
++						and floorFrame.UpVector.Y >= 1 - 1e-6 and math.abs(floorFrame.RightVector.Y) <= 1e-6
++						and math.abs(floorFrame.LookVector.Y) <= 1e-6
++					if supported then
++						local body = frame * bodyOffset
++						local half = (bodySize + Vector3.new(0.3, 0.1, 0.3)) * 0.5
++						for _, x in ipairs({ -1, 1 }) do
++							for _, y in ipairs({ -1, 1 }) do
++								for _, z in ipairs({ -1, 1 }) do
++									local corner = body.Position + body.RightVector * (x * half.X)
++										+ body.UpVector * (y * half.Y) + body.LookVector * (z * half.Z)
++									local top = floorFrame:PointToObjectSpace(Vector3.new(corner.X, result.Position.Y, corner.Z))
++									if not vector(top) or math.abs(top.Y - floorSize.Y / 2) > 0.01
++										or math.abs(top.X) > floorSize.X / 2 - 0.15 or math.abs(top.Z) > floorSize.Z / 2 - 0.15 then
++										supported = false
++									end
++								end
++							end
++						end
++					end
++					if not supported then continue end
+ 					overlap.FilterDescendantsInstances = { record.Character, floor }
+ 					local blocked = false
+ 					for _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * bodyOffset, bodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do

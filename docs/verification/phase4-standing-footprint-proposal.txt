@@ -1,0 +1,55 @@
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] Footprint: broad block preserves original center passed
+[OC TEST] Footprint: all five previously valid winners preserve positions and order passed
+[OC TEST] Footprint: first approved diagonal retains full support guard passed
+[OC TEST] Footprint: tiny center slab cannot support full avatar passed
+[OC TEST] Footprint: edge overhang rejected despite upward center ray passed
+[OC TEST] Footprint: large horizontal accessories do not shrink passed
+[OC TEST] Footprint: shifted body support uses actual root-relative center passed
+[OC TEST] Footprint: yaw-rotated avatar corners preserve orientation passed
+[OC TEST] Footprint: rolled bounds include projected vertical half-extent passed
+[OC TEST] Footprint: yaw-rotated wide floor remains eligible passed
+[OC TEST] Footprint: unknown complex floor shape is not corner-proven passed
+[OC TEST] Footprint: round Part is not assumed rectangular passed
+[OC TEST] Footprint: near-horizontal tilted floor remains unproven passed
+[OC TEST] Footprint: geometry shrink on final observation loses support passed
+[OC TEST] Footprint: existing full-volume obstruction remains blocked passed
+[OC TEST] Footprint: finite bounded search keeps at most nine samples passed
+[OC FOOTPRINT PROPOSAL] 16 groups passed; proposed=false
+[OC TEST] Partial overrides and arrays replace without mutating defaults passed
+[OC TEST] Unknown keys, wrong types, and sparse arrays rejected passed
+[OC TEST] Missing player data stays unknown and selects a data prerequisite passed
+[OC TEST] Disabled account reader loads no modules and starts no background loop passed
+[OC TEST] Disabled recommendations and bubble features cannot produce their tasks passed
+[OC TEST] Capacity threshold and reserves affect actual decision eligibility passed
+[OC TEST] Cancellation retains one foreground lease until task returns passed
+[OC TEST] Priorities, pending replacement, and completion checks passed
+[OC TEST] Controller controls reject disabled executors and stale work passed
+[OC TEST] 9 offline tests passed. Real account/runtime verification remains pending.
+[OC TEST] Footprint: broad block preserves original center passed
+[OC TEST] Footprint: all five previously valid winners preserve positions and order passed
+[OC TEST] Footprint: first approved diagonal retains full support guard passed
+[OC TEST] Footprint: tiny center slab cannot support full avatar passed
+[OC TEST] Footprint: edge overhang rejected despite upward center ray passed
+[OC TEST] Footprint: large horizontal accessories do not shrink passed
+[OC TEST] Footprint: shifted body support uses actual root-relative center passed
+[OC TEST] Footprint: yaw-rotated avatar corners preserve orientation passed
+[OC TEST] Footprint: rolled bounds include projected vertical half-extent passed
+[OC TEST] Footprint: yaw-rotated wide floor remains eligible passed
+[OC TEST] Footprint: unknown complex floor shape is not corner-proven passed
+[OC TEST] Footprint: round Part is not assumed rectangular passed
+[OC TEST] Footprint: near-horizontal tilted floor remains unproven passed
+[OC TEST] Footprint: geometry shrink on final observation loses support passed
+[OC TEST] Footprint: existing full-volume obstruction remains blocked passed
+[OC TEST] Footprint: finite bounded search keeps at most nine samples passed
+[OC FOOTPRINT PROPOSAL] 16 groups passed; proposed=true
+[OC FOOTPRINT PROPOSAL] Exact patches/hashes verified; both variants only in memory; source/bundle unchanged; no live physics/action
