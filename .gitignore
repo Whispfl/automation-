@@ -5,6 +5,11 @@ node_modules/
 .env
 .env.*
 
+# Owner-private evidence: publish only explicitly sanitized summaries.
+.local-evidence/
+docs/evidence/PHASE4-OWNER-LIVE-DIRECT-*-CONSOLE.txt
+docs/evidence/PHASE4-OWNER-LIVE-DIRECT-*-ARCHIVE.json
+
 # Native third-party source extracts: retained locally and in the recovery backup.
 # No redistribution permission is documented; publish authored evidence instead.
 docs/local-feature-studio-evidence/*.source.txt

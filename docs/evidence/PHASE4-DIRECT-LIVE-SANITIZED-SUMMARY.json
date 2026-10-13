@@ -1,0 +1,20 @@
+{
+  "classification": "Owner-approved sanitized public evidence summary; complete raw evidence retained locally",
+  "status": "LIVE PASSED: isolated Common Egg direct movement",
+  "buildId": "1d27e2a74ae5",
+  "releaseTag": "phase4-direct-1d27e2a74ae5",
+  "implementationCommit": "4db553f3e2ce21bd1e822c9f1414a1933c8d30cb",
+  "destination": "Exact verified physical Common Egg in The Overworld",
+  "ownerConfirmedVisualMovement": true,
+  "startDistanceStuds": 62.34,
+  "finalDistanceStuds": 3.66,
+  "movementAttempts": 1,
+  "stableArrivalObserved": true,
+  "nativeInteractionVerified": true,
+  "nativeTravelCommands": 0,
+  "hatchCommands": 0,
+  "equipmentCommands": 0,
+  "spending": 0,
+  "scope": "One isolated owner-only Common Egg test; universal movement and full Phase 4 acceptance remain separate",
+  "additionalActionsAuthorized": false
+}
