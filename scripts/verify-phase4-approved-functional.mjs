@@ -4,6 +4,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sha256 } from './verify-phase4-approved-membership.mjs';
+import { STANDING_FILE, standingApprovalContext, verifyApprovedStanding } from './verify-phase4-approved-standing.mjs';
+import { FINAL_STANDING_FILE, finalStandingApprovalContext, verifyApprovedFinalStanding } from './verify-phase4-approved-final-standing.mjs';
 
 // Immutable pins are independent of the new approval JSON. Changing a record
 // cannot broaden the approved three-file transform or rewrite prior evidence.
@@ -145,11 +147,21 @@ export function verifyApprovedFunctionalBrain(before, after, record) {
   return check.afterSha256;
 }
 
-export function verifyFunctionalProtectedFiles(currentFiles, frozenFiles) {
+export function verifyFunctionalProtectedFiles(currentFiles, frozenFiles, standing, finalStanding) {
   assert.deepEqual(entries(currentFiles).map(([file]) => file).sort(), entries(frozenFiles).map(([file]) => file).sort(), 'Protected production source file set changed');
   let checked = 0;
   for (const [file, frozen] of entries(frozenFiles)) {
     if (FUNCTIONAL_FILES.some(check => check.file === file)) continue;
+    if (finalStanding && file === FINAL_STANDING_FILE) {
+      verifyApprovedFinalStanding(frozen, fileValue(currentFiles, file), finalStanding.patch, finalStanding.record);
+      checked += 1;
+      continue;
+    }
+    if (standing && file === STANDING_FILE) {
+      verifyApprovedStanding(frozen, fileValue(currentFiles, file), standing.patches, standing.record);
+      checked += 1;
+      continue;
+    }
     assert.deepEqual(Buffer.from(fileValue(currentFiles, file)), Buffer.from(frozen), `Protected production source changed: ${file}`);
     checked += 1;
   }
@@ -181,10 +193,12 @@ export async function verifyFunctionalWorkspace() {
   }
   const currentNames = await sourceFiles('src');
   const current = new Map(await Promise.all(currentNames.map(async file => [file, await readFile(path.join(root, file))]))), frozen = new Map(protectedNames.map(file => [file, gitFile(file)]));
-  const protectedCount = verifyFunctionalProtectedFiles(current, frozen);
+  const standing = await standingApprovalContext(root);
+  const finalStanding = await finalStandingApprovalContext(root);
+  const protectedCount = verifyFunctionalProtectedFiles(current, frozen, standing, finalStanding);
   const history = new Map(await Promise.all(FUNCTIONAL_HISTORICAL_RECORDS.map(async check => [check.file, await readFile(path.join(root, check.file))])));
   verifyFunctionalHistoricalRecords(history, new Map(FUNCTIONAL_HISTORICAL_RECORDS.map(check => [check.file, gitFile(check.file)])));
-  console.log(`[OC] Functional approval PASS: exact 3 files, 4 reviewed methods + 1 helper; ${protectedCount} other production source files and 5 historical records unchanged; activation remains separately unauthorized`);
+  console.log(`[OC] Functional approval PASS: exact 3 files, 4 reviewed methods + 1 helper; ${protectedCount - 2} other production source files and 5 historical records unchanged; separately approved exact standing and final adapter transforms; paid activation remains separately unauthorized`);
   return record;
 }
 

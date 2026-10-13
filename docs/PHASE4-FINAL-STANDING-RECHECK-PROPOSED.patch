@@ -1,0 +1,14 @@
+diff --git a/src/OCFoundation/GameMechanics.luau b/src/OCFoundation/GameMechanics.luau
+--- a/src/OCFoundation/GameMechanics.luau
++++ b/src/OCFoundation/GameMechanics.luau
+@@ -828,6 +828,10 @@
+ 	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled or selected-egg scheduler ownership changed" end
+ 	if final.InRange then return true, final.LocationOnly and "Already inside diagnostic physical arrival radius after guards; no assignment"
+ 		or "Already in observed native hatch range after guards; no assignment" end
++	local latestFrame, latestReason = manager:ResolveStanding(final)
++	if not latestFrame then return false, latestReason end
++	if latestFrame ~= frame then return false, "Standing geometry changed after final destination validation; explicit rearm required" end
++	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled or selected-egg scheduler ownership changed" end
+ 	self.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.
+ 	local assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)
+ 	return assigned, assigned and "Direct CFrame assigned; observed arrival/stability/range still pending" or "Direct position failed: " .. tostring(err)

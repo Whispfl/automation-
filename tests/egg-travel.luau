@@ -199,23 +199,27 @@ test("Missing geometry capability fails closed without position assignment", fun
 end)
 
 test("Standing clearance observes full avatar bounds, ceiling and unknown avatar geometry", function()
-	local oldCFrame, oldRay, oldOverlap, oldEnum = CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType
+	local oldCFrame, oldRay, oldOverlap, oldEnum, oldPartType = CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType, Enum.PartType
 	local oldCast, oldQuery = workspace.Raycast, workspace.GetPartBoundsInBox
 	local meta = {}
 	local function frame(position)
 		local value = { Position = position, RightVector = Vector3.new(1, 0, 0), UpVector = Vector3.new(0, 1, 0), LookVector = Vector3.new(0, 0, -1) }
 		function value:ToObjectSpace(other) return frame(other.Position - self.Position) end
+		function value:PointToObjectSpace(point) return point - self.Position end -- Axis-aligned synthetic support.
 		return setmetatable(value, meta)
 	end
 	function meta.__mul(a, b) return frame(a.Position + b.Position) end
 	CFrame = { lookAt = function(position) return frame(position) end }
 	RaycastParams, OverlapParams = { new = function() return {} end }, { new = function() return {} end }
 	Enum.RaycastFilterType = { Exclude = "Exclude" }
+	Enum.PartType = { Block = "Block" }
 	local ok, reason = xpcall(function()
 		local s = fixture() s.Part.Position = Vector3.new(0, 4, 0) s.Root.Position = Vector3.new(100, 4, 0)
 		s.Root.CFrame = frame(s.Root.Position)
 		s.Character.GetBoundingBox = function() return frame(s.Root.Position), Vector3.new(4, 6, 4) end
-		local floor = { Parent = true, CanCollide = true, Anchored = true, IsA = function(_, kind) return kind == "BasePart" end, IsDescendantOf = function() return true end }
+		local floor = { Parent = true, CanCollide = true, Anchored = true, Shape = Enum.PartType.Block,
+			Size = Vector3.new(40, 1, 40), CFrame = frame(Vector3.new(0, -0.5, 0)),
+			IsA = function(_, kind) return kind == "BasePart" or kind == "Part" end, IsDescendantOf = function() return true end }
 		workspace.Raycast = function(_, origin, _direction, params)
 			assert(params.FilterDescendantsInstances[1] == s.Character and params.RespectCanCollide)
 			return { Instance = floor, Position = Vector3.new(origin.X, 0, origin.Z), Normal = Vector3.new(0, 1, 0) }
@@ -229,10 +233,11 @@ test("Standing clearance observes full avatar bounds, ceiling and unknown avatar
 		local record = s.Manager:Resolve()
 		local standing = s.Manager:ResolveStanding(record)
 		assert(standing and math.abs(standing.Position.Y - 3.15) < 0.001 and queries == 1)
-		ceiling = true queries = 0 assert(s.Manager:ResolveStanding(record) == nil and queries == 5, "Ceiling collision blocks center and every bounded fallback candidate")
+		ceiling = true queries = 0 assert(s.Manager:ResolveStanding(record) == nil and queries == 9, "Ceiling collision blocks center and every bounded fallback candidate")
 		s.Character.GetBoundingBox = nil queries = 0 assert(s.Manager:ResolveStanding(record) == nil and queries == 0)
 	end, debug.traceback)
 	CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType = oldCFrame, oldRay, oldOverlap, oldEnum
+	Enum.PartType = oldPartType
 	workspace.Raycast, workspace.GetPartBoundsInBox = oldCast, oldQuery
 	assert(ok, reason)
 end)

@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "baseline": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af",
+  "preservedMilestones": [
+    {
+      "commit": "25890f224f0448f148d009e65514c129aeb4f59c",
+      "buildId": "0d5caa499c8c",
+      "tag": "phase4-travel-0d5caa499c8c",
+      "status": "Historical Test A remains immutable; this separately approved method differs."
+    },
+    {
+      "commit": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af",
+      "buildId": "100f2c1907ae",
+      "tag": "phase4-hatch-100f2c1907ae",
+      "bundleSha256": "14da5d26f543c0c1d3e9d51e946f21baafe78379502cc05e9954de864ef161e0",
+      "status": "Owner-live first hatch and exact console archive remain immutable; manual final approach, no universal travel claim."
+    }
+  ],
+  "approval": {
+    "date": "2026-10-13",
+    "title": "APPROVED — PHASE 4 SUPPLEMENTAL AVATAR FOOTPRINT SAFETY PATCH",
+    "source": "Direct human owner message in the current Codex conversation.",
+    "reviewCommit": "78b97d11f34e245f31e41ff6fac10cbd795f03da",
+    "quote": "Apply BOTH narrowly scoped patches together: 1. The previously approved four-diagonal standing-search patch. 2. This separately approved full-avatar footprint support patch. Both changes must remain exclusively inside EggTravelManager:ResolveStanding.",
+    "scope": "Only four same-radius diagonal samples appended after the five original candidates, plus padded projected-avatar support on one verified numerically level solid Block Part with 0.15-stud edge margin. Every existing floor, collision, native range and safety check remains required.",
+    "exclusions": "No avatar calculation, raycast, CFrame adapter, native travel, destination, Brain, scheduler, account/lease, arrival, cancellation, retry/recovery, registration, hatch receipt, inventory, equipment, spending or other runtime edit.",
+    "publicationCondition": "New immutable TRAVEL_ONLY ZERO-SPEND candidate only after every mandatory gate passes; any failed safety gate stops publication. This record is exact implementation evidence, not live acceptance."
+  },
+  "file": "src/OCFoundation/EggTravelManager.luau",
+  "method": "ResolveStanding",
+  "beforeFileSha256": "7fd14d19e3befc895f3446f41d4882394d12eebc7bc555e5e8b05dd864e4cb8c",
+  "afterFileSha256": "15bd589ea9ff1e81354dbe536b347a2a852f59efa4780681234d82ee0540cf3b",
+  "beforeMethodSha256": "4996169eb8641b238ac1e52b3784c57a9b690ddf3e47993ddbddb9e2b2fec09a",
+  "afterMethodSha256": "b00f2cf4bf49e91fc7cda952293c6b04c119b7809b0567bad24177ec28f32db6",
+  "beforeMethodText": "function EggTravelManager:ResolveStanding(record)\n\tlocal ok, frameOrReason = pcall(function()\n\t\tlocal root, humanoid, target = record.CharacterRoot, record.Humanoid, record.RangeOrigin\n\t\tif not live(target) or not vector(root.Size) or not finite(humanoid.HipHeight) or humanoid.HipHeight < 0 then\n\t\t\treturn \"Avatar/target geometry unavailable\"\n\t\tend\n\t\tif type(workspace.Raycast) ~= \"function\" or type(workspace.GetPartBoundsInBox) ~= \"function\"\n\t\t\tor not RaycastParams or not OverlapParams or not CFrame then return \"Standing-surface or clearance runtime unavailable\" end\n\t\tif type(record.Character.GetBoundingBox) ~= \"function\" or not root.CFrame then return \"Full observed avatar clearance unavailable\" end\n\t\tlocal bodyFrame, bodySize = record.Character:GetBoundingBox()\n\t\tif not bodyFrame or not vector(bodySize) or bodySize.X <= 0 or bodySize.Y <= 0 or bodySize.Z <= 0 then\n\t\t\treturn \"Full observed avatar bounds unavailable\"\n\t\tend\n\t\tlocal bodyOffset = root.CFrame:ToObjectSpace(bodyFrame)\n\t\tif not vector(bodyOffset.Position) or not vector(bodyOffset.RightVector) or not vector(bodyOffset.UpVector)\n\t\t\tor not vector(bodyOffset.LookVector) then return \"Full avatar/root orientation unavailable\" end\n\t\t-- Candidate root is upright. Transform the observed full avatar box relative\n\t\t-- to that root; include legs/head/accessories rather than only HRP.Size.\n\t\tlocal halfVertical = (math.abs(bodyOffset.RightVector.Y) * bodySize.X + math.abs(bodyOffset.UpVector.Y) * bodySize.Y\n\t\t\t+ math.abs(bodyOffset.LookVector.Y) * bodySize.Z) / 2\n\t\tlocal height = math.max(humanoid.HipHeight + root.Size.Y / 2, halfVertical - bodyOffset.Position.Y) + 0.15\n\t\tlocal ray = RaycastParams.new()\n\t\tray.FilterType = Enum.RaycastFilterType.Exclude\n\t\tray.FilterDescendantsInstances = { record.Character }\n\t\tray.RespectCanCollide = true\n\t\tlocal overlap = OverlapParams.new()\n\t\toverlap.FilterType = Enum.RaycastFilterType.Exclude\n\t\toverlap.RespectCanCollide = true\n\t\tlocal radius = math.min(4, record.Range / 2)\n\t\tlocal pos = target.Position\n\t\t-- Try the source-associated anchor X/Z first. Visible egg overlap alone is\n\t\t-- not collision: only actual CanCollide geometry blocks the avatar volume.\n\t\t-- Keep collidable Rendered platforms/egg parts in the floor/clearance query.\n\t\tfor _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }) do\n\t\t\tlocal horizontal = pos + offset\n\t\t\tlocal result = workspace:Raycast(horizontal + Vector3.new(0, record.Range, 0), Vector3.new(0, -record.Range * 2, 0), ray)\n\t\t\tlocal floor = result and result.Instance\n\t\t\tif live(floor) and floor.CanCollide == true and floor.Anchored == true and vector(result.Position)\n\t\t\t\tand vector(result.Normal) and result.Normal.Y >= 0.98 then\n\t\t\t\tlocal standing = Vector3.new(horizontal.X, result.Position.Y + height, horizontal.Z)\n\t\t\t\tif (standing - pos).Magnitude <= record.Range - 0.25 and self:RangeEligibleAt(record, standing) then\n\t\t\t\t\tlocal facing = Vector3.new(pos.X - standing.X, 0, pos.Z - standing.Z)\n\t\t\t\t\tif facing.Magnitude < 0.05 then\n\t\t\t\t\t\tlocal observed = root.CFrame.LookVector\n\t\t\t\t\t\tif not vector(observed) then return \"Observed avatar facing unavailable at the physical anchor\" end\n\t\t\t\t\t\tfacing = Vector3.new(observed.X, 0, observed.Z)\n\t\t\t\t\t\tif facing.Magnitude < 0.05 then return \"Observed avatar facing has no upright standing direction\" end\n\t\t\t\t\tend\n\t\t\t\t\tlocal frame = CFrame.lookAt(standing, standing + facing)\n\t\t\t\t\toverlap.FilterDescendantsInstances = { record.Character, floor }\n\t\t\t\t\tlocal blocked = false\n\t\t\t\t\tfor _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * bodyOffset, bodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do\n\t\t\t\t\t\tif obstacle.CanCollide == true then blocked = true break end\n\t\t\t\t\tend\n\t\t\t\t\tif not blocked then return frame end\n\t\t\t\tend\n\t\t\tend\n\t\tend\n\t\treturn record.LocationOnly and \"No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required\"\n\t\t\tor \"No supported floor and clear full avatar volume within native hatch range; manual approach required\"\n\tend)\n\tif not ok then return nil, \"Standing-geometry observation failed: \" .. tostring(frameOrReason) end\n\tif type(frameOrReason) == \"string\" then return nil, frameOrReason end\n\treturn frameOrReason\nend\n",
+  "afterMethodText": "function EggTravelManager:ResolveStanding(record)\n\tlocal ok, frameOrReason = pcall(function()\n\t\tlocal root, humanoid, target = record.CharacterRoot, record.Humanoid, record.RangeOrigin\n\t\tif not live(target) or not vector(root.Size) or not finite(humanoid.HipHeight) or humanoid.HipHeight < 0 then\n\t\t\treturn \"Avatar/target geometry unavailable\"\n\t\tend\n\t\tif type(workspace.Raycast) ~= \"function\" or type(workspace.GetPartBoundsInBox) ~= \"function\"\n\t\t\tor not RaycastParams or not OverlapParams or not CFrame then return \"Standing-surface or clearance runtime unavailable\" end\n\t\tif type(record.Character.GetBoundingBox) ~= \"function\" or not root.CFrame then return \"Full observed avatar clearance unavailable\" end\n\t\tlocal bodyFrame, bodySize = record.Character:GetBoundingBox()\n\t\tif not bodyFrame or not vector(bodySize) or bodySize.X <= 0 or bodySize.Y <= 0 or bodySize.Z <= 0 then\n\t\t\treturn \"Full observed avatar bounds unavailable\"\n\t\tend\n\t\tlocal bodyOffset = root.CFrame:ToObjectSpace(bodyFrame)\n\t\tif not vector(bodyOffset.Position) or not vector(bodyOffset.RightVector) or not vector(bodyOffset.UpVector)\n\t\t\tor not vector(bodyOffset.LookVector) then return \"Full avatar/root orientation unavailable\" end\n\t\t-- Candidate root is upright. Transform the observed full avatar box relative\n\t\t-- to that root; include legs/head/accessories rather than only HRP.Size.\n\t\tlocal halfVertical = (math.abs(bodyOffset.RightVector.Y) * bodySize.X + math.abs(bodyOffset.UpVector.Y) * bodySize.Y\n\t\t\t+ math.abs(bodyOffset.LookVector.Y) * bodySize.Z) / 2\n\t\tlocal height = math.max(humanoid.HipHeight + root.Size.Y / 2, halfVertical - bodyOffset.Position.Y) + 0.15\n\t\tlocal ray = RaycastParams.new()\n\t\tray.FilterType = Enum.RaycastFilterType.Exclude\n\t\tray.FilterDescendantsInstances = { record.Character }\n\t\tray.RespectCanCollide = true\n\t\tlocal overlap = OverlapParams.new()\n\t\toverlap.FilterType = Enum.RaycastFilterType.Exclude\n\t\toverlap.RespectCanCollide = true\n\t\tlocal radius = math.min(4, record.Range / 2)\n\t\tlocal pos = target.Position\n\t\t-- Try the source-associated anchor X/Z first. Visible egg overlap alone is\n\t\t-- not collision: only actual CanCollide geometry blocks the avatar volume.\n\t\t-- Keep collidable Rendered platforms/egg parts in the floor/clearance query.\n\t\tlocal diagonal = radius / math.sqrt(2)\n\t\tfor _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius),\n\t\t\tVector3.new(diagonal, 0, diagonal), Vector3.new(diagonal, 0, -diagonal), Vector3.new(-diagonal, 0, diagonal), Vector3.new(-diagonal, 0, -diagonal) }) do\n\t\t\tlocal horizontal = pos + offset\n\t\t\tlocal result = workspace:Raycast(horizontal + Vector3.new(0, record.Range, 0), Vector3.new(0, -record.Range * 2, 0), ray)\n\t\t\tlocal floor = result and result.Instance\n\t\t\tif live(floor) and floor.CanCollide == true and floor.Anchored == true and vector(result.Position)\n\t\t\t\tand vector(result.Normal) and result.Normal.Y >= 0.98 then\n\t\t\t\tlocal standing = Vector3.new(horizontal.X, result.Position.Y + height, horizontal.Z)\n\t\t\t\tif (standing - pos).Magnitude <= record.Range - 0.25 and self:RangeEligibleAt(record, standing) then\n\t\t\t\t\tlocal facing = Vector3.new(pos.X - standing.X, 0, pos.Z - standing.Z)\n\t\t\t\t\tif facing.Magnitude < 0.05 then\n\t\t\t\t\t\tlocal observed = root.CFrame.LookVector\n\t\t\t\t\t\tif not vector(observed) then return \"Observed avatar facing unavailable at the physical anchor\" end\n\t\t\t\t\t\tfacing = Vector3.new(observed.X, 0, observed.Z)\n\t\t\t\t\t\tif facing.Magnitude < 0.05 then return \"Observed avatar facing has no upright standing direction\" end\n\t\t\t\t\tend\n\t\t\t\t\tlocal frame = CFrame.lookAt(standing, standing + facing)\n\t\t\t\t\t-- A center hit does not prove footprint support. Accept only a\n\t\t\t\t\t-- numerically level solid block whose full padded avatar projection\n\t\t\t\t\t-- fits its observed top face; other shapes remain unverified.\n\t\t\t\t\tlocal floorFrame, floorSize = floor.CFrame, floor.Size\n\t\t\t\t\tlocal supported = floor:IsA(\"Part\") and floor.Shape == Enum.PartType.Block and floorFrame\n\t\t\t\t\t\tand vector(floorSize) and floorSize.X > 0 and floorSize.Y > 0 and floorSize.Z > 0\n\t\t\t\t\t\tand vector(floorFrame.RightVector) and vector(floorFrame.UpVector) and vector(floorFrame.LookVector)\n\t\t\t\t\t\tand floorFrame.UpVector.Y >= 1 - 1e-6 and math.abs(floorFrame.RightVector.Y) <= 1e-6\n\t\t\t\t\t\tand math.abs(floorFrame.LookVector.Y) <= 1e-6\n\t\t\t\t\tif supported then\n\t\t\t\t\t\tlocal body = frame * bodyOffset\n\t\t\t\t\t\tlocal half = (bodySize + Vector3.new(0.3, 0.1, 0.3)) * 0.5\n\t\t\t\t\t\tfor _, x in ipairs({ -1, 1 }) do\n\t\t\t\t\t\t\tfor _, y in ipairs({ -1, 1 }) do\n\t\t\t\t\t\t\t\tfor _, z in ipairs({ -1, 1 }) do\n\t\t\t\t\t\t\t\t\tlocal corner = body.Position + body.RightVector * (x * half.X)\n\t\t\t\t\t\t\t\t\t\t+ body.UpVector * (y * half.Y) + body.LookVector * (z * half.Z)\n\t\t\t\t\t\t\t\t\tlocal top = floorFrame:PointToObjectSpace(Vector3.new(corner.X, result.Position.Y, corner.Z))\n\t\t\t\t\t\t\t\t\tif not vector(top) or math.abs(top.Y - floorSize.Y / 2) > 0.01\n\t\t\t\t\t\t\t\t\t\tor math.abs(top.X) > floorSize.X / 2 - 0.15 or math.abs(top.Z) > floorSize.Z / 2 - 0.15 then\n\t\t\t\t\t\t\t\t\t\tsupported = false\n\t\t\t\t\t\t\t\t\tend\n\t\t\t\t\t\t\t\tend\n\t\t\t\t\t\t\tend\n\t\t\t\t\t\tend\n\t\t\t\t\tend\n\t\t\t\t\tif not supported then continue end\n\t\t\t\t\toverlap.FilterDescendantsInstances = { record.Character, floor }\n\t\t\t\t\tlocal blocked = false\n\t\t\t\t\tfor _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * bodyOffset, bodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do\n\t\t\t\t\t\tif obstacle.CanCollide == true then blocked = true break end\n\t\t\t\t\tend\n\t\t\t\t\tif not blocked then return frame end\n\t\t\t\tend\n\t\t\tend\n\t\tend\n\t\treturn record.LocationOnly and \"No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required\"\n\t\t\tor \"No supported floor and clear full avatar volume within native hatch range; manual approach required\"\n\tend)\n\tif not ok then return nil, \"Standing-geometry observation failed: \" .. tostring(frameOrReason) end\n\tif type(frameOrReason) == \"string\" then return nil, frameOrReason end\n\treturn frameOrReason\nend\n",
+  "patches": [
+    {
+      "path": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch",
+      "sha256": "b1131059a5b151fb699b04bbf1ae50365cbeddc9a6d2faa222d28edd42d3207f",
+      "beforeFileSha256": "7fd14d19e3befc895f3446f41d4882394d12eebc7bc555e5e8b05dd864e4cb8c",
+      "afterFileSha256": "125fb8125a32c998ceb58e4bfa649d6d982e7f6a41da25ef3f8ac08064ecff20",
+      "beforeMethodSha256": "4996169eb8641b238ac1e52b3784c57a9b690ddf3e47993ddbddb9e2b2fec09a",
+      "afterMethodSha256": "8d3129ec4a04c80964f36a0e5f15dc8bf83656618567e9b1a197ee409b893dda",
+      "text": "diff --git a/src/OCFoundation/EggTravelManager.luau b/src/OCFoundation/EggTravelManager.luau\n--- a/src/OCFoundation/EggTravelManager.luau\n+++ b/src/OCFoundation/EggTravelManager.luau\n@@ -452,7 +452,9 @@\n \t\t-- Try the source-associated anchor X/Z first. Visible egg overlap alone is\n \t\t-- not collision: only actual CanCollide geometry blocks the avatar volume.\n \t\t-- Keep collidable Rendered platforms/egg parts in the floor/clearance query.\n-\t\tfor _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }) do\n+\t\tlocal diagonal = radius / math.sqrt(2)\n+\t\tfor _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius),\n+\t\t\tVector3.new(diagonal, 0, diagonal), Vector3.new(diagonal, 0, -diagonal), Vector3.new(-diagonal, 0, diagonal), Vector3.new(-diagonal, 0, -diagonal) }) do\n \t\t\tlocal horizontal = pos + offset\n \t\t\tlocal result = workspace:Raycast(horizontal + Vector3.new(0, record.Range, 0), Vector3.new(0, -record.Range * 2, 0), ray)\n \t\t\tlocal floor = result and result.Instance\n"
+    },
+    {
+      "path": "docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.patch",
+      "sha256": "e812a4acdad9a75877dbaaa175db9fb4b5be948f8369c570366e20b6768d1c36",
+      "beforeFileSha256": "125fb8125a32c998ceb58e4bfa649d6d982e7f6a41da25ef3f8ac08064ecff20",
+      "afterFileSha256": "15bd589ea9ff1e81354dbe536b347a2a852f59efa4780681234d82ee0540cf3b",
+      "beforeMethodSha256": "8d3129ec4a04c80964f36a0e5f15dc8bf83656618567e9b1a197ee409b893dda",
+      "afterMethodSha256": "b00f2cf4bf49e91fc7cda952293c6b04c119b7809b0567bad24177ec28f32db6",
+      "text": "diff --git a/src/OCFoundation/EggTravelManager.luau b/src/OCFoundation/EggTravelManager.luau\n--- a/src/OCFoundation/EggTravelManager.luau\n+++ b/src/OCFoundation/EggTravelManager.luau\n@@ -470,6 +470,33 @@\n \t\t\t\t\t\tif facing.Magnitude < 0.05 then return \"Observed avatar facing has no upright standing direction\" end\n \t\t\t\t\tend\n \t\t\t\t\tlocal frame = CFrame.lookAt(standing, standing + facing)\n+\t\t\t\t\t-- A center hit does not prove footprint support. Accept only a\n+\t\t\t\t\t-- numerically level solid block whose full padded avatar projection\n+\t\t\t\t\t-- fits its observed top face; other shapes remain unverified.\n+\t\t\t\t\tlocal floorFrame, floorSize = floor.CFrame, floor.Size\n+\t\t\t\t\tlocal supported = floor:IsA(\"Part\") and floor.Shape == Enum.PartType.Block and floorFrame\n+\t\t\t\t\t\tand vector(floorSize) and floorSize.X > 0 and floorSize.Y > 0 and floorSize.Z > 0\n+\t\t\t\t\t\tand vector(floorFrame.RightVector) and vector(floorFrame.UpVector) and vector(floorFrame.LookVector)\n+\t\t\t\t\t\tand floorFrame.UpVector.Y >= 1 - 1e-6 and math.abs(floorFrame.RightVector.Y) <= 1e-6\n+\t\t\t\t\t\tand math.abs(floorFrame.LookVector.Y) <= 1e-6\n+\t\t\t\t\tif supported then\n+\t\t\t\t\t\tlocal body = frame * bodyOffset\n+\t\t\t\t\t\tlocal half = (bodySize + Vector3.new(0.3, 0.1, 0.3)) * 0.5\n+\t\t\t\t\t\tfor _, x in ipairs({ -1, 1 }) do\n+\t\t\t\t\t\t\tfor _, y in ipairs({ -1, 1 }) do\n+\t\t\t\t\t\t\t\tfor _, z in ipairs({ -1, 1 }) do\n+\t\t\t\t\t\t\t\t\tlocal corner = body.Position + body.RightVector * (x * half.X)\n+\t\t\t\t\t\t\t\t\t\t+ body.UpVector * (y * half.Y) + body.LookVector * (z * half.Z)\n+\t\t\t\t\t\t\t\t\tlocal top = floorFrame:PointToObjectSpace(Vector3.new(corner.X, result.Position.Y, corner.Z))\n+\t\t\t\t\t\t\t\t\tif not vector(top) or math.abs(top.Y - floorSize.Y / 2) > 0.01\n+\t\t\t\t\t\t\t\t\t\tor math.abs(top.X) > floorSize.X / 2 - 0.15 or math.abs(top.Z) > floorSize.Z / 2 - 0.15 then\n+\t\t\t\t\t\t\t\t\t\tsupported = false\n+\t\t\t\t\t\t\t\t\tend\n+\t\t\t\t\t\t\t\tend\n+\t\t\t\t\t\t\tend\n+\t\t\t\t\t\tend\n+\t\t\t\t\tend\n+\t\t\t\t\tif not supported then continue end\n \t\t\t\t\toverlap.FilterDescendantsInstances = { record.Character, floor }\n \t\t\t\t\tlocal blocked = false\n \t\t\t\t\tfor _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * bodyOffset, bodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do\n"
+    }
+  ],
+  "historicalRecords": [
+    {
+      "file": "docs/PHASE4-TEST-A-PRESERVATION.json",
+      "sha256": "22b156775d41f1528e3c1441cec407192cebef8a972d3429a403e4474747075a"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json",
+      "sha256": "65b762851dfd2a046713640193ddf6ab06a4028cd73afaa70a3abba88bffec95"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-CLASSIFICATION-CORRECTION.json",
+      "sha256": "97a7c2d150f8c0610a4da359f0cf135c505117be130f7a2f0ace229775243fe5"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-FUNCTIONAL-EXCEPTION.json",
+      "sha256": "bef23ddbe1e4e5ce94057a7f443a081f643340a40e9535635f9850979e262076"
+    },
+    {
+      "file": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.json",
+      "sha256": "e76d02c07ae3b17bf544f17e229b089c6e2e878ce70a1d46df8216d4bbd765f7"
+    },
+    {
+      "file": "docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.json",
+      "sha256": "72c5fe58d72c86a195e414c90f11686f26cc644791e9b84c508bc791ebb2c664"
+    },
+    {
+      "file": "docs/PHASE4-STANDING-DIAGONAL-APPROVAL.json",
+      "sha256": "5ad8bacc386fb25d17f28071b9ab78c6399a0b1028f881ee9ba33298dc166bda"
+    },
+    {
+      "file": "docs/PHASE4-FIRST-LIVE-HATCH-MILESTONE.md",
+      "sha256": "1144dd3e1eed2089f87262e6f3e76efbc5693c04a6065dff98c2324779b9a87e"
+    },
+    {
+      "file": "docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-ARCHIVE.json",
+      "sha256": "0caebc41140a0e0cd709a45c7685b3d292c5a83494d24a3a0f4f164061409bda"
+    },
+    {
+      "file": "docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-CONSOLE.txt",
+      "sha256": "0765815d70c439d9857d9ee3a3fa6390e346a9d65ff2bee7e9c8c1d900dd7df5"
+    },
+    {
+      "file": "docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-ORIGINAL-SUBMISSION.txt",
+      "sha256": "3be2f4e5be9c79f4054706f179e5d1b1a4ded5d92d0b74bf236e6d85e848451f"
+    },
+    {
+      "file": "docs/evidence/PHASE4-FIRST-LIVE-HATCH-100f2c1907ae-OWNER-REPORT.txt",
+      "sha256": "02f479fb58f3088266bb97a63c425c8baee6eba950af977bc7ce68a0102c5b10"
+    }
+  ],
+  "activation": {
+    "AUTO_HATCH": false,
+    "OWNER_ONE_HATCH_TEST_ALLOWANCE": false,
+    "OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST": false,
+    "AUTO_EQUIP": false,
+    "spendingBudgets": 0,
+    "policy": "One separately owner-run bounded movement-only test; no paid action authorization."
+  },
+  "limitations": "One known solid level Block only; Terrain, MeshPart, unions, tilted/complex or multi-piece support fail closed, including legitimate sites. Two existing standing observations are not atomic with CFrame assignment; later geometry changes remain an unresolved race. Offline fixtures do not prove universal live movement."
+}

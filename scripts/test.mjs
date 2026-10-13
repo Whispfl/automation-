@@ -4,10 +4,14 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
+import '../tests/phase4-approved-final-standing.mjs';
 import './verify-test-a-preservation.mjs';
 import '../tests/phase4-approved-membership.mjs';
 import '../tests/phase4-registration-preservation.mjs';
 import '../tests/phase4-approved-functional.mjs';
+import '../tests/phase4-approved-standing.mjs';
+import './test-phase4-standing-safety-gate.mjs';
+import './test-phase4-movement-loader.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = await sources(root);
@@ -95,7 +99,7 @@ const pickupExample = await readFile(path.join(root, 'examples/PickupOnly.luau')
 const pickupConfig = configPrefix(pickupExample);
 assertFarmingSelection(pickupConfig);
 const pickupCheck = `\nlocal pickupOverrides = (function()\n${pickupConfig}\nreturn Config\nend)()\npickupOverrides.DIAGNOSTIC_SETTINGS.ENABLE_CONSOLE_LOGGING = false\nlocal pickupController = requireOC("OCController").new(config(pickupOverrides))\nassert(pickupController.Config.PICKUP_SETTINGS.ENABLE_CONTINUOUS_SCANNING)\nfor _, key in ipairs({ "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" }) do assert(pickupController.Config.BUBBLE_SETTINGS[key] == false) end\nfor _, key in ipairs({ "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" }) do assert(pickupController.Config.UPGRADE_SETTINGS[key] == false) end\npickupController:Destroy()\nprint("[OC TEST] Pickup-only example Config isolation passed")\n`;
-await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + '\n' + progressionAssertions + '\n' + discoveryAssertions + '\n' + integrationAssertions + '\n' + economicsAssertions + '\n' + loggingAssertions + '\n' + petAssertions + '\n' + localFeatureAssertions + '\nprint("[OC TEST] MAIN_SUITE_COUNT " .. tostring(tests))\n' + exampleCheck + pickupCheck);
+await writeFile(testPath, environment + '\n' + generated.library + '\n' + assertions + '\n' + farmingAssertions + '\n' + fixesAssertions + '\n' + pickupFirstAssertions + '\n' + stationaryAssertions + '\n' + goalAssertions + '\n' + progressionAssertions + '\n' + discoveryAssertions + '\n' + integrationAssertions + '\n' + economicsAssertions + '\n' + loggingAssertions + '\n' + petAssertions + '\n' + localFeatureAssertions + '\nassert(tests == 684, "All 684 existing baseline regressions must execute")\nprint("[OC TEST] MAIN_SUITE_COUNT " .. tostring(tests))\n' + exampleCheck + pickupCheck);
 const run = spawnSync(executable, [testPath], { encoding: 'utf8' });
 process.stdout.write(run.stdout || '');
 process.stderr.write(run.stderr || '');
@@ -332,7 +336,7 @@ print("[OC TEST] ${filename}: full merged Config isolation and owner allowance O
 
 for (const filename of ['Phase4TestBPreflight.luau', 'Phase4TestBOneHatch.luau']) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
-  assert(contents.includes('/phase4-hatch-' + generated.buildId + '/dist/OC.lua'), 'Test B example must pin its matching bundle');
+  assert(contents.includes('/phase4-hatch-100f2c1907ae/dist/OC.lua'), 'Historical Test B example must preserve the owner-confirmed first-hatch release pin');
   const compileExample = spawnSync(compiler, ['--null', path.join(root, 'examples', filename)], { encoding: 'utf8' });
   assert.equal(compileExample.status, 0, filename + ' compilation failed: ' + compileExample.stderr);
   const prefix = configPrefix(contents);
@@ -380,7 +384,7 @@ print("[OC TEST] ${filename} approval=${approval}, account=${accountId}: matchin
 // The reviewed candidate has no activation switch or account supplied. Resolve
 // its complete Config through the real defaults/controller and planner offline.
 const disabledFunctionalExample = await readFile(path.join(root, 'examples/Phase4CommonFunctionalDisabled.luau'), 'utf8');
-assert(disabledFunctionalExample.includes('/phase4-hatch-' + generated.buildId + '/dist/OC.lua'), 'Disabled functional candidate must pin its matching bundle');
+assert(disabledFunctionalExample.includes('/phase4-hatch-100f2c1907ae/dist/OC.lua'), 'Disabled functional example must preserve the owner-confirmed first-hatch release pin');
 const disabledFunctionalCompile = spawnSync(compiler, ['--null', path.join(root, 'examples/Phase4CommonFunctionalDisabled.luau')], { encoding: 'utf8' });
 assert.equal(disabledFunctionalCompile.status, 0, 'Disabled functional candidate loader compilation failed: ' + disabledFunctionalCompile.stderr);
 const disabledFunctionalCheck = `

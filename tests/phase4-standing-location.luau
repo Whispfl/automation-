@@ -5,13 +5,14 @@ local before = tests
 local Travel = requireOC("EggTravelManager")
 
 local function standingFixture(callback)
-	local oldCFrame, oldRay, oldOverlap, oldEnum = CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType
+	local oldCFrame, oldRay, oldOverlap, oldEnum, oldPartType = CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType, Enum.PartType
 	local oldCast, oldQuery = workspace.Raycast, workspace.GetPartBoundsInBox
 	local meta = {}
 	local function frame(position, facing)
 		local value = { Position = position, RightVector = Vector3.new(1, 0, 0), UpVector = Vector3.new(0, 1, 0),
 			LookVector = facing or Vector3.new(-1, 0, 0) }
 		function value:ToObjectSpace(other) return frame(other.Position - self.Position) end
+		function value:PointToObjectSpace(point) return point - self.Position end -- This fixture's support block is axis-aligned.
 		return setmetatable(value, meta)
 	end
 	function meta.__mul(a, b) return frame(a.Position + b.Position, a.LookVector) end
@@ -22,11 +23,12 @@ local function standingFixture(callback)
 	end }
 	RaycastParams, OverlapParams = { new = function() return {} end }, { new = function() return {} end }
 	Enum.RaycastFilterType = { Exclude = "Exclude" }
+	Enum.PartType = { Block = "Block" }
 	local ok, reason = xpcall(function()
 		local s = { Character = {}, Casts = 0, Queries = 0 }
 		local function part(position, collidable, parent)
 			return { Position = position, Parent = parent or true, CanCollide = collidable, Anchored = true,
-				IsA = function(_, kind) return kind == "BasePart" end, IsDescendantOf = function() return true end }
+				Shape = Enum.PartType.Block, IsA = function(_, kind) return kind == "BasePart" or kind == "Part" end, IsDescendantOf = function() return true end }
 		end
 		s.Root = part(Vector3.new(100, 13.15, 100), true, s.Character)
 		s.Root.Size, s.Root.CFrame = Vector3.new(2, 2, 1), frame(s.Root.Position)
@@ -35,7 +37,8 @@ local function standingFixture(callback)
 		s.Rendered = { Name = "Rendered", Parent = workspace }
 		s.Model = { Name = "Common Egg", Parent = { Name = "Chunker", Parent = s.Rendered } }
 		s.Target = part(Vector3.new(-12, 12, -34), false, s.Model)
-		s.Floor = part(Vector3.new(-12, 10, -34), true, s.Model)
+		s.Floor = part(Vector3.new(-12, 9.5, -34), true, s.Model)
+		s.Floor.Size, s.Floor.CFrame = Vector3.new(40, 1, 40), frame(s.Floor.Position, Vector3.new(0, 0, -1))
 		s.Visual = part(Vector3.new(-12, 13, -34), false, { Name = "Generic", Parent = s.Rendered })
 		s.Solid = part(Vector3.new(-12, 13, -34), true)
 		s.Record = { Model = s.Model, TargetRoot = s.Target, RangeOrigin = s.Target,
@@ -60,6 +63,7 @@ local function standingFixture(callback)
 		callback(s)
 	end, debug.traceback)
 	CFrame, RaycastParams, OverlapParams, Enum.RaycastFilterType = oldCFrame, oldRay, oldOverlap, oldEnum
+	Enum.PartType = oldPartType
 	workspace.Raycast, workspace.GetPartBoundsInBox = oldCast, oldQuery
 	assert(ok, reason)
 end
@@ -78,7 +82,7 @@ test("TRAVEL_ONLY real collidable avatar obstruction rejects center and every fa
 	standingFixture(function(s)
 		s.Blocked = true
 		local standing, reason = s.Manager:ResolveStanding(s.Record)
-		assert(not standing and reason:find("No supported floor", 1, true) and s.Casts == 5 and s.Queries == 5)
+		assert(not standing and reason:find("No supported floor", 1, true) and s.Casts == 9 and s.Queries == 9)
 	end)
 end)
 

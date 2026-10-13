@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "baseline": "78b97d11f34e245f31e41ff6fac10cbd795f03da",
+  "approval": {
+    "date": "2026-10-13",
+    "title": "APPROVED — FINAL PHASE 4 MOVEMENT PATCH",
+    "source": "Direct human owner message in the current Codex conversation.",
+    "quote": "I approve implementation of the exact proposed patch: `docs/PHASE4-FINAL-STANDING-RECHECK-PROPOSED.patch` SHA256: `1d5259f1d8e9593f616546eb345c5c6efd8c7064f025530b2682fbec156eec4d`. This approval is limited to the proposed final standing recheck inside GameMechanics:PositionSelectedEgg.",
+    "scope": "Exactly four added adapter lines after final destination validation: repeat existing complete standing checks; reject unavailable or different full CFrame; repeat pure cancellation/lease ownership/direct-positioning checks. Retain the original selected frame, ledger and single assignment.",
+    "exclusions": "No destination selection, avatar calculation, native transition, scheduler, access/range, stable arrival, retry/recovery, hatch, equipment, inventory, spending or other protected-method changes.",
+    "publicationCondition": "New immutable TRAVEL_ONLY ZERO-SPEND candidate only after official compilation, 684 baseline regressions, final safety gate, exact three-patch preservation and distribution checks pass; owner performs one movement-only live test."
+  },
+  "file": "src/OCFoundation/GameMechanics.luau",
+  "method": "PositionSelectedEgg",
+  "beforeFileSha256": "a2f1a3d6ab3483db3d91e9a50975e159a5107dbdf78a26e70f9765d5e1d19f87",
+  "afterFileSha256": "d51154114e6309dd9042de250cbd8757ce1f61e146858960d7745397e14ab531",
+  "beforeMethodSha256": "cb8f2973810e11daaaab948e3ae0303c0bbb3ce9bea9624b6ce57b4b9d542c7a",
+  "afterMethodSha256": "e049e8c5c459c40502813312219bd2ca59b87be6a93fcf347297edd9b1396a6a",
+  "beforeMethodText": "function GameMechanics:PositionSelectedEgg(manager, record, frame, token)\n\tlocal c = self.LocalFeatureController\n\tlocal active = c and c.Scheduler and c.Scheduler.Active\n\tlocal function owns()\n\t\treturn c and c.State == \"RUNNING\" and manager == c.EggTravel and c.Scheduler.Active == active and active\n\t\t\tand active.Definition.Owner == \"EGG_TRAVEL\" and active.Definition.Generation == c.Generation and active.Token == token\n\tend\n\tif not owns() then return false, \"Selected-egg task does not own the scheduler\" end\n\tif not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Direct egg positioning disabled\" end\n\tlocal fresh, reason = manager:Validate(record, token)\n\tif not fresh then return false, reason end\n\tlocal allowed, blocker = self:LocalFeatureGuard()\n\tif not allowed then return false, blocker end\n\tfresh, reason = manager:Validate(record, token)\n\tif not fresh then return false, reason end\n\tif fresh.NeedsNativeTravel then return false, \"Correct unlocked native area must be reached first\" end\n\tif fresh.InRange then return true, fresh.LocationOnly and \"Already inside diagnostic physical arrival radius; no direct positioning needed\"\n\t\tor \"Already in observed native hatch range; no direct positioning needed\" end\n\tlocal clearedFrame, clearanceReason = manager:ResolveStanding(fresh)\n\tif not clearedFrame then return false, clearanceReason end\n\tif typeof(frame) ~= \"CFrame\" or (frame.Position - clearedFrame.Position).Magnitude > 0.25 then return false, \"Standing geometry changed during guards; explicit rearm required\" end\n\tframe = clearedFrame -- Assign exactly the freshly cleared avatar orientation/volume.\n\tif typeof(frame) ~= \"CFrame\" or not featureFinite(frame.Position.X) or not featureFinite(frame.Position.Y)\n\t\tor not featureFinite(frame.Position.Z) or not fresh.RangeOrigin\n\t\tor (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range\n\t\tor not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, fresh.LocationOnly\n\t\t\tand \"Validated standing transform unavailable or outside verified physical arrival radius\"\n\t\t\tor \"Validated standing transform unavailable or outside actual native hatch eligibility\" end\n\tif self.LastEggPositionLease == record.LeaseId then return false, \"Direct position already attempted for this lease\" end\n\tlocal final, finalReason = manager:Validate(record, token, true)\n\tif not final or final.CharacterRoot ~= fresh.CharacterRoot or final.NeedsNativeTravel then return false, finalReason or \"Selected egg/character/area changed during final positioning guards\" end\n\tif token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Cancelled or selected-egg scheduler ownership changed\" end\n\tif final.InRange then return true, final.LocationOnly and \"Already inside diagnostic physical arrival radius after guards; no assignment\"\n\t\tor \"Already in observed native hatch range after guards; no assignment\" end\n\tself.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.\n\tlocal assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)\n\treturn assigned, assigned and \"Direct CFrame assigned; observed arrival/stability/range still pending\" or \"Direct position failed: \" .. tostring(err)\nend\n\n",
+  "afterMethodText": "function GameMechanics:PositionSelectedEgg(manager, record, frame, token)\n\tlocal c = self.LocalFeatureController\n\tlocal active = c and c.Scheduler and c.Scheduler.Active\n\tlocal function owns()\n\t\treturn c and c.State == \"RUNNING\" and manager == c.EggTravel and c.Scheduler.Active == active and active\n\t\t\tand active.Definition.Owner == \"EGG_TRAVEL\" and active.Definition.Generation == c.Generation and active.Token == token\n\tend\n\tif not owns() then return false, \"Selected-egg task does not own the scheduler\" end\n\tif not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Direct egg positioning disabled\" end\n\tlocal fresh, reason = manager:Validate(record, token)\n\tif not fresh then return false, reason end\n\tlocal allowed, blocker = self:LocalFeatureGuard()\n\tif not allowed then return false, blocker end\n\tfresh, reason = manager:Validate(record, token)\n\tif not fresh then return false, reason end\n\tif fresh.NeedsNativeTravel then return false, \"Correct unlocked native area must be reached first\" end\n\tif fresh.InRange then return true, fresh.LocationOnly and \"Already inside diagnostic physical arrival radius; no direct positioning needed\"\n\t\tor \"Already in observed native hatch range; no direct positioning needed\" end\n\tlocal clearedFrame, clearanceReason = manager:ResolveStanding(fresh)\n\tif not clearedFrame then return false, clearanceReason end\n\tif typeof(frame) ~= \"CFrame\" or (frame.Position - clearedFrame.Position).Magnitude > 0.25 then return false, \"Standing geometry changed during guards; explicit rearm required\" end\n\tframe = clearedFrame -- Assign exactly the freshly cleared avatar orientation/volume.\n\tif typeof(frame) ~= \"CFrame\" or not featureFinite(frame.Position.X) or not featureFinite(frame.Position.Y)\n\t\tor not featureFinite(frame.Position.Z) or not fresh.RangeOrigin\n\t\tor (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range\n\t\tor not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, fresh.LocationOnly\n\t\t\tand \"Validated standing transform unavailable or outside verified physical arrival radius\"\n\t\t\tor \"Validated standing transform unavailable or outside actual native hatch eligibility\" end\n\tif self.LastEggPositionLease == record.LeaseId then return false, \"Direct position already attempted for this lease\" end\n\tlocal final, finalReason = manager:Validate(record, token, true)\n\tif not final or final.CharacterRoot ~= fresh.CharacterRoot or final.NeedsNativeTravel then return false, finalReason or \"Selected egg/character/area changed during final positioning guards\" end\n\tif token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Cancelled or selected-egg scheduler ownership changed\" end\n\tif final.InRange then return true, final.LocationOnly and \"Already inside diagnostic physical arrival radius after guards; no assignment\"\n\t\tor \"Already in observed native hatch range after guards; no assignment\" end\n\tlocal latestFrame, latestReason = manager:ResolveStanding(final)\n\tif not latestFrame then return false, latestReason end\n\tif latestFrame ~= frame then return false, \"Standing geometry changed after final destination validation; explicit rearm required\" end\n\tif token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Cancelled or selected-egg scheduler ownership changed\" end\n\tself.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.\n\tlocal assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)\n\treturn assigned, assigned and \"Direct CFrame assigned; observed arrival/stability/range still pending\" or \"Direct position failed: \" .. tostring(err)\nend\n\n",
+  "patch": {
+    "path": "docs/PHASE4-FINAL-STANDING-RECHECK-PROPOSED.patch",
+    "sha256": "1d5259f1d8e9593f616546eb345c5c6efd8c7064f025530b2682fbec156eec4d",
+    "text": "diff --git a/src/OCFoundation/GameMechanics.luau b/src/OCFoundation/GameMechanics.luau\n--- a/src/OCFoundation/GameMechanics.luau\n+++ b/src/OCFoundation/GameMechanics.luau\n@@ -828,6 +828,10 @@\n \tif token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Cancelled or selected-egg scheduler ownership changed\" end\n \tif final.InRange then return true, final.LocationOnly and \"Already inside diagnostic physical arrival radius after guards; no assignment\"\n \t\tor \"Already in observed native hatch range after guards; no assignment\" end\n+\tlocal latestFrame, latestReason = manager:ResolveStanding(final)\n+\tif not latestFrame then return false, latestReason end\n+\tif latestFrame ~= frame then return false, \"Standing geometry changed after final destination validation; explicit rearm required\" end\n+\tif token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, \"Cancelled or selected-egg scheduler ownership changed\" end\n \tself.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.\n \tlocal assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)\n \treturn assigned, assigned and \"Direct CFrame assigned; observed arrival/stability/range still pending\" or \"Direct position failed: \" .. tostring(err)\n"
+  },
+  "retainedProposal": {
+    "path": "docs/PHASE4-FINAL-STANDING-RECHECK-PROPOSED.json",
+    "sha256": "3db37e03101ce77f777bee75f60f219bfdfe91fa377d21c1e034f68c08a9b219",
+    "status": "Original unapproved proposal record retained unchanged; this separate record documents later direct owner approval."
+  },
+  "approvedDependencies": [
+    {
+      "path": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch",
+      "sha256": "b1131059a5b151fb699b04bbf1ae50365cbeddc9a6d2faa222d28edd42d3207f"
+    },
+    {
+      "path": "docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.patch",
+      "sha256": "e812a4acdad9a75877dbaaa175db9fb4b5be948f8369c570366e20b6768d1c36"
+    }
+  ],
+  "preservedMilestones": [
+    {
+      "commit": "25890f224f0448f148d009e65514c129aeb4f59c",
+      "buildId": "0d5caa499c8c",
+      "tag": "phase4-travel-0d5caa499c8c",
+      "status": "Historical Test A hashes remain unchanged; exact standing and adapter differences are separately approved."
+    },
+    {
+      "commit": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af",
+      "buildId": "100f2c1907ae",
+      "tag": "phase4-hatch-100f2c1907ae",
+      "bundleSha256": "14da5d26f543c0c1d3e9d51e946f21baafe78379502cc05e9954de864ef161e0",
+      "status": "Owner-live first hatch bundle, received console text and archive remain immutable; manual final approach does not establish universal travel."
+    }
+  ],
+  "actionPermissions": {
+    "AUTO_HATCH": false,
+    "OWNER_ONE_HATCH_TEST_ALLOWANCE": false,
+    "OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST": false,
+    "AUTO_EQUIP": false,
+    "spendingBudgets": 0,
+    "attempts": 1,
+    "retries": 0,
+    "policy": "Owner-run movement-only test. No hatching, equipment, purchase, pickup, farming, bubbles or unrelated automatic actions."
+  },
+  "boundedContract": "Reject changed/missing/insufficient support observed after potentially yielding final validation. No yielding validation/native helper remains between the final ResolveStanding return and the original CFrame assignment; exact CFrame comparison and pure local guards only.",
+  "nonAtomicLimit": "Workspace queries and HRP assignment are not atomic. External geometry changes after the last possible observation, physics/replication and server correction remain possible; unchanged observed stable-arrival confirmation is required. No absolute guarantee or universal live movement claim."
+}
