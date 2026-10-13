@@ -6,6 +6,7 @@ import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
 import './verify-test-a-preservation.mjs';
 import '../tests/phase4-approved-membership.mjs';
+import '../tests/phase4-registration-preservation.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = await sources(root);

@@ -273,8 +273,8 @@ test("Complete native registration observation rejects malformed loaded arrays a
 		function(s, r, target) r._chunks.current = { [0] = target } end,
 		function(s, r, target) r._chunks.current = { [1.5] = target } end,
 		function(s, r) r._chunks.current = "unavailable" end,
+		function(s, r) r._chunks.current = false end,
 		function(s, r) r._loaded.current = false end,
-		function(s, r) r._loaded.missing = true end,
 		function(s, r) table.insert(r._chunks.current, "not an Instance") end,
 		function(s, r) table.insert(r._chunks.current, { SyntheticEggInstance = true, IsA = function() return false end }) end,
 	}) do
@@ -982,6 +982,314 @@ test("Observer release preserves a newer native wrapper and a destroyed observer
 	assert(not s.Knowledge.NativeEggChunkers, "Destroyed observation must not add a captured receiver")
 	s.Delayed[1].Callback()
 	assert(s.Class.Update == newer, "Late timeout must not overwrite a newer wrapper")
+	s:Close()
+end)
+
+local function capturedReceiverScene(includeCommon)
+	local s = fixture()
+	s.Selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	s.Other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	for _ = 1, 21 do s:Add("Common Egg", Vector3.new(0, 0, 0), true) end
+	s.Unsupported = s:Add("Egg", Vector3.new(1000, 0, 0))
+	s.Definitions[s.Unsupported.Name] = nil s.Unsupported.Parent = nil
+	s.EggLike = s:Receiver(includeCommon and { s.Selected, s.Other } or {})
+	s.EggLike._chunks.unloaded = { s.Unsupported }
+	local function bare(name)
+		return { Name = name, SyntheticEggInstance = true, IsA = function(_, kind) return kind == "Model" end,
+			FindFirstChild = function() return nil end }
+	end
+	local pickup = s:Receiver({ bare("synthetic pickup") })
+	local animated = s:Receiver({ { Model = s.Selected } })
+	local twoD = s:Receiver({}) twoD.Mode, twoD._chunkSize = "2D", 256
+	local portal = s:Receiver({ bare("synthetic portal") })
+	for _, receiver in ipairs({ pickup, animated, twoD, portal }) do receiver._folder = { Name = "Chunker", Parent = s.Rendered } end
+	s.Receivers = { pickup, s.EggLike, animated, twoD, portal }
+	s.Knowledge:EggModels(true) -- Existing discovery cache, no reporting-triggered scan.
+	return s
+end
+
+local function capturedRow(s, diagnostic, receiver)
+	for _, row in ipairs(diagnostic.CapturedReceivers) do
+		if row.Id == s.Knowledge:EggDiagnosticId(receiver) then return row end
+	end
+	error("Expected captured exact receiver missing from diagnostic")
+end
+
+test("85 native updates distinguish selected originals in rejected candidates from trusted registration", function()
+	local s = capturedReceiverScene(true)
+	s:BeginObservation()
+	local earlyKey
+	for index = 1, 85 do
+		s.Class.Update(s.Receivers[(index - 1) % #s.Receivers + 1])
+		if index == 29 then
+			local early = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+			assert(early.UpdateCalls == 29 and early.CompletedUpdates == 29 and early.CandidateReceivers == 5)
+			assert(early.CapturedSelectedFound and early.CapturedOtherOriginalFound and not early.SelectedFound)
+			earlyKey = early.ReceiverObservationKey
+		end
+	end
+	local active = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	assert(active.ReceiverObservationKey == earlyKey, "An unchanged receiver snapshot must not log again merely because native call counts increase")
+	s:FinishObservation()
+	local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	assert(diagnostic.UpdateCalls == 85 and diagnostic.CompletedUpdates == 85 and diagnostic.CandidateReceivers == 5)
+	assert(diagnostic.StructureMatched == 4 and diagnostic.RejectedReceivers == 5 and diagnostic.QualifyingReceivers == 0)
+	assert(diagnostic.Stage == "TIMED_OUT_WITHOUT_QUALIFYING_EGG_RECEIVER" and diagnostic.ReceiverObservationComplete and diagnostic.FullCandidateInspectionComplete)
+	assert(diagnostic.CurrentCandidateReceiversCount == 5 and diagnostic.CapturedSelectedFound and diagnostic.CapturedOtherOriginalFound and diagnostic.OtherOriginalsFound == 1)
+	assert(not diagnostic.SelectedFound and not diagnostic.SelectedLoaded and not diagnostic.SelectedObservedFound)
+	local row = capturedRow(s, diagnostic, s.EggLike)
+	assert(row.StructureMatched and row.CatalogReady and row.ContentSourceCompatible and not row.AcceptedReceiver and not row.LastObserverQualified)
+	assert(row.ChunkCoordinates == 2 and row.LoadedCoordinates == 1 and row.Values == 3 and row.Instances == 3 and row.Models == 3)
+	assert(row.FullOriginalInterfaces == 3 and row.CatalogOriginals == 2 and row.MissingCatalog == 1 and row.Sentinels == 0)
+	assert(row.SelectedFound and row.SelectedLoaded and row.SelectedParentEqualsFolder and row.OtherOriginalsFound == 1)
+	assert(row.LastObserverReason:find("NAME_ABSENT_FROM_READY_EGG_CATALOG", 1, true))
+	assert(table.concat(row.Issues, ","):find("MISSING_CATALOG_DEFINITION=1", 1, true) and #row.Examples <= 2)
+	assert(diagnostic.ExcludedRepresentations == 21 and diagnostic.ReceiverObservationSummary:find("exact selected in ANY captured=true", 1, true))
+	assert(not s.Knowledge.NativeEggChunkers and not s.Knowledge:NativeEggRangeEligible({ Model = s.Selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	assert(s.Class.Update == s.OriginalUpdate and #s.NativeUpdateCalls == 85)
+	s:Close()
+end)
+
+test("85 unrelated native updates never establish that the actual egg receiver invocation was observed", function()
+	local s = capturedReceiverScene(false)
+	s:BeginObservation()
+	for index = 1, 85 do s.Class.Update(s.Receivers[(index - 1) % #s.Receivers + 1]) end
+	s:FinishObservation()
+	local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	assert(diagnostic.UpdateCalls == 85 and diagnostic.CompletedUpdates == 85 and diagnostic.QualifyingReceivers == 0)
+	assert(diagnostic.CurrentCandidateReceiversCount == 5 and diagnostic.FullCandidateInspectionComplete and diagnostic.ReceiverObservationComplete)
+	assert(not diagnostic.CapturedSelectedFound and not diagnostic.CapturedOtherOriginalFound and not diagnostic.SelectedFound)
+	assert(diagnostic.ReceiverObservationSummary:find("exact selected in ANY captured=false", 1, true))
+	assert(diagnostic.ReceiverUpdateAttribution == "UNVERIFIED" and diagnostic.ReceiverObservationSummary:find("egg receiver Update attribution=UNVERIFIED", 1, true))
+	assert(capturedRow(s, diagnostic, s.EggLike).SelectedParentEqualsFolder, "Matching a folder alone must not invent exact membership")
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = s.Selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	assert(s.Class.Update == s.OriginalUpdate and #s.NativeUpdateCalls == 85)
+	s:Close()
+end)
+
+test("A genuine exact egg receiver among unrelated 3D receivers remains independently verified", function()
+	local s = capturedReceiverScene(true)
+	s.EggLike._chunks.unloaded = nil
+	s:BeginObservation()
+	for index = 1, 85 do s.Class.Update(s.Receivers[(index - 1) % #s.Receivers + 1]) end
+	s:FinishObservation()
+	local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	assert(diagnostic.UpdateCalls == 85 and diagnostic.CandidateReceivers == 5 and diagnostic.StructureMatched == 4)
+	assert(diagnostic.RejectedReceivers == 4 and diagnostic.QualifyingReceivers == 1 and diagnostic.SelectedFound and diagnostic.SelectedLoaded)
+	assert(diagnostic.ReceiverUpdateAttribution == "SOURCE_MATCHING_ACCEPTED_RECEIVER_OBSERVED")
+	assert(diagnostic.CapturedSelectedFound and diagnostic.CapturedOtherOriginalFound and diagnostic.FullCandidateInspectionComplete)
+	local row = capturedRow(s, diagnostic, s.EggLike)
+	assert(row.AcceptedReceiver and row.LastObserverQualified and row.SelectedFound and row.OtherOriginalsFound == 1 and #row.Issues == 0)
+	local identity = s.Knowledge:ResolveEggInstance("Common Egg", true, s.Selected)
+	assert(identity and identity.Model == s.Selected and identity.RegisteredReceivers == 1)
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = s.Selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	s.Other.Children.Root.Position = Vector3.new(5, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = s.Selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	s:Close()
+end)
+
+test("Full candidate diagnostics preserve sparse loaded originals and legitimate unloaded sentinel entries", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	local distant = s:Add("Spotted Egg", Vector3.new(1000, 0, 0)) distant.Parent = nil
+	local sentinel = s:Add("Coming Soon", Vector3.new(1000, 0, 0)) sentinel.Parent = nil sentinel.Attributes.Unlocked = false
+	s.Definitions[sentinel.Name] = nil
+	local receiver = s:Receiver({ [2] = selected, [5] = other })
+	receiver._chunks.unloaded = { [3] = distant, [8] = sentinel }
+	s.Knowledge:EggModels(true)
+	s:BeginObservation() s.Class.Update(receiver) s:FinishObservation()
+	local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	local row = capturedRow(s, diagnostic, receiver)
+	assert(row.InspectionComplete and row.ContentSourceCompatible and row.Values == 4 and row.Instances == 4 and row.FullOriginalInterfaces == 4)
+	assert(row.ChunkCoordinates == 2 and row.LoadedCoordinates == 1 and row.CatalogOriginals == 3 and row.Sentinels == 1 and row.MissingCatalog == 0)
+	assert(#row.Issues == 0 and row.SelectedFound and row.SelectedLoaded and row.OtherOriginalsFound == 1)
+	assert(diagnostic.SelectedFound and diagnostic.CapturedSelectedFound and diagnostic.CapturedOtherOriginalFound and diagnostic.QualifyingReceivers == 1)
+	assert(s.Knowledge:ResolveEggInstance("Common Egg", true, selected).Model == selected)
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	s:Close()
+end)
+
+test("Catalog becoming ready within the passive window requires another native observed Update", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	local receiver = s:Receiver({ selected, other })
+	s.Knowledge:EggModels(true)
+	s.Dependencies.Eggs = nil
+	s:BeginObservation() s.Class.Update(receiver)
+	local missing = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	local row = capturedRow(s, missing, receiver)
+	assert(not row.CatalogReady and row.MissingCatalog == 2 and row.CatalogOriginals == 0)
+	assert(table.concat(row.Issues, ","):find("CATALOG_NOT_READY=2", 1, true))
+	assert(missing.CapturedSelectedFound and missing.CapturedOtherOriginalFound and not missing.SelectedFound and missing.QualifyingReceivers == 0)
+	s.Dependencies.Eggs = s.Definitions
+	local nowReady = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	assert(capturedRow(s, nowReady, receiver).CatalogReady and nowReady.QualifyingReceivers == 0 and not s.Knowledge.NativeEggChunkers)
+	s.Class.Update(receiver) s:FinishObservation()
+	local observed = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	assert(observed.UpdateCalls == 2 and observed.CompletedUpdates == 2 and observed.QualifyingReceivers == 1 and observed.SelectedFound)
+	assert(capturedRow(s, observed, receiver).MissingCatalog == 0 and #capturedRow(s, observed, receiver).Issues == 0)
+	s:Close()
+end)
+
+test("Catalog readiness after the window does not retroactively qualify a rejected captured receiver", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local receiver = s:Receiver({ selected })
+	s.Knowledge:EggModels(true)
+	s.Dependencies.Eggs = nil
+	s:BeginObservation() s.Class.Update(receiver) s:FinishObservation()
+	s.Dependencies.Eggs = s.Definitions
+	local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	local row = capturedRow(s, diagnostic, receiver)
+	assert(row.CatalogReady and row.ContentSourceCompatible and row.CatalogOriginals == 1 and row.MissingCatalog == 0)
+	assert(not row.LastObserverQualified and not row.AcceptedReceiver and diagnostic.CapturedSelectedFound and not diagnostic.SelectedFound)
+	assert(diagnostic.ReceiverObservationComplete and diagnostic.QualifyingReceivers == 0 and diagnostic.Stage == "TIMED_OUT_WITHOUT_QUALIFYING_EGG_RECEIVER")
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	assert(s.Class.Update == s.OriginalUpdate and #s.NativeUpdateCalls == 1)
+	s:Close()
+end)
+
+test("Partial or bounded candidate inspection reports UNKNOWN rather than claiming originals absent", function()
+	for _, kind in ipairs({ "invalid chunk", "value limit", "coordinate limit" }) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+		local unsupported = s:Add("Egg", Vector3.new(1000, 0, 0)) s.Definitions[unsupported.Name] = nil unsupported.Parent = nil
+		local receiver = s:Receiver({ unsupported })
+		if kind == "invalid chunk" then receiver._chunks.unavailable = "unavailable"
+		elseif kind == "value limit" then for index = 2, 1001 do receiver._chunks.current[index] = unsupported end
+		else for coordinate = 1, 1001 do receiver._chunks[coordinate] = {} end end
+		s.Knowledge:EggModels(true)
+		s:BeginObservation() s.Class.Update(receiver) s:FinishObservation()
+		local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+		assert(not diagnostic.FullCandidateInspectionComplete and not diagnostic.CapturedSelectedFound)
+		assert(diagnostic.ReceiverObservationSummary:find("exact selected in ANY captured=UNKNOWN", 1, true))
+		assert(not capturedRow(s, diagnostic, receiver).InspectionComplete and not diagnostic.SelectedFound)
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
+end)
+
+test("Full candidate inspection preserves observer lifecycle exact identity namespace and native invocation count", function()
+	local s = capturedReceiverScene(true)
+	s:BeginObservation()
+	local wrapper = s.Class.Update
+	s.Knowledge:ObserveEggChunker() s.Knowledge:ObserveEggChunker()
+	assert(s.Class.Update == wrapper and #s.Delayed == 1 and s.Knowledge.InstanceIds == nil)
+	s.Class.Update(s.EggLike)
+	local models, scanned = s.Knowledge.NativeEggModels, s.Knowledge.LastEggScan
+	local first = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	local second = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	assert(first.CapturedSelectedFound and second.CapturedSelectedFound and first.ReceiverObservationKey == second.ReceiverObservationKey)
+	assert(s.Knowledge.InstanceIds == nil and s.Knowledge.InstanceSequence == nil and s.Knowledge.NativeEggModels == models and s.Knowledge.LastEggScan == scanned)
+	assert(s.Class.Update == wrapper and #s.NativeUpdateCalls == 1)
+	s.Knowledge:Destroy()
+	assert(s.Class.Update == s.OriginalUpdate and not s.Knowledge.NativeEggChunkers)
+	local late = wrapper(s.EggLike)
+	assert(late == "native-result" and #s.NativeUpdateCalls == 2)
+	local stopped = s.Knowledge:NativeEggRegistrationDiagnostics(s.Selected)
+	assert(stopped.UpdateCalls == 1 and stopped.CompletedUpdates == 1 and stopped.Stage == "OBSERVER_DESTROYED")
+	s.Delayed[1].Callback()
+	assert(s.Class.Update == s.OriginalUpdate and #s.Delayed == 1)
+	s:Close()
+end)
+
+test("Native final-member removal leaves a valid empty loaded coordinate without hiding other originals", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	local removed = s:Add("Spotted Egg", Vector3.new(1000, 0, 0))
+	local receiver = s:Receiver({ selected, other })
+	receiver._chunks.last, receiver._loaded.last = { removed }, true
+	s.Knowledge:EggModels(true)
+	s:BeginObservation() s.Class.Update(receiver) s:FinishObservation()
+	assert(#s.Knowledge:NativeRegisteredEggModels() == 3)
+	-- Chunker.Remove:73-75 clears an empty _chunks bucket without clearing
+	-- _loaded. This fixture models that native assignment; OC calls no Remove.
+	receiver._chunks.last[1] = nil
+	assert(next(receiver._chunks.last) == nil)
+	receiver._chunks.last = nil
+	removed.Parent = nil
+	local models = s.Knowledge:NativeRegisteredEggModels()
+	assert(models and #models == 2 and table.find(models, selected) and table.find(models, other))
+	assert(not table.find(models, removed) and receiver._loaded.last == true)
+	local diagnostic = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	local row = capturedRow(s, diagnostic, receiver)
+	assert(row.InspectionComplete and row.ChunkCoordinates == 1 and row.LoadedCoordinates == 2 and row.EmptyLoadedCoordinates == 1)
+	assert(row.SelectedFound and row.SelectedLoaded and diagnostic.SelectedFound and diagnostic.FullCandidateInspectionComplete)
+	assert(s.Knowledge:ResolveEggInstance("Common Egg", true, selected).Model == selected)
+	local root = { Position = Vector3.new(0, 0, 0) }
+	assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	other.Children.Root.Position = Vector3.new(1, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	other.Children.Root.Position = Vector3.new(5, 0, 0)
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, root, true))
+	assert(#s.NativeUpdateCalls == 1)
+	s:Close()
+end)
+
+test("An absent loaded bucket is distinct from present malformed contents or inconsistent loaded flags", function()
+	for _, kind in ipairs({ "false values", "string values", "false loaded", "coordinate limit" }) do
+		local s = fixture()
+		local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+		local receiver = s:Register({ selected })
+		receiver._loaded.empty = true
+		assert(s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		if kind == "false values" then receiver._chunks.empty = false
+		elseif kind == "string values" then receiver._chunks.empty = "unavailable"
+		elseif kind == "false loaded" then receiver._loaded.empty = false
+		else for coordinate = 1, 1001 do receiver._loaded[coordinate] = true end end
+		local models, reason = s.Knowledge:NativeRegisteredEggModels()
+		assert(not models and type(reason) == "string")
+		assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+		s:Close()
+	end
+end)
+
+test("An emptied selected bucket cannot transfer identity to another loaded same-name original", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local other = s:Add("Common Egg", Vector3.new(100, 0, 0))
+	local receiver = s:Register({ selected })
+	receiver._chunks.other, receiver._loaded.other = { other }, true
+	assert(s.Knowledge:ResolveEggInstance("Common Egg", true, selected).Model == selected)
+	receiver._chunks.current[1] = nil
+	receiver._chunks.current = nil
+	local models = s.Knowledge:NativeRegisteredEggModels()
+	assert(models and #models == 1 and models[1] == other)
+	assert(not s.Knowledge:ResolveEggInstance("Common Egg", true, selected))
+	assert(not s.Knowledge:NativeEggRangeEligible({ Model = selected }, { Position = Vector3.new(0, 0, 0) }, true))
+	assert(receiver._loaded.current == true and selected.Parent == other.Parent)
+	s:Close()
+end)
+
+test("Read-only receiver metadata distinguishes inherited public Update from a cached own function", function()
+	local s = fixture()
+	local selected = s:Add("Common Egg", Vector3.new(5, 0, 0))
+	local receiver = s:Receiver({ selected })
+	s.Class.__index = s.Class setmetatable(receiver, s.Class)
+	s.Knowledge:EggModels(true)
+	s:BeginObservation()
+	receiver:Update()
+	local inherited = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	local inheritedRow = capturedRow(s, inherited, receiver)
+	assert(inheritedRow.ClassMetatableMatches and not inheritedRow.HasOwnUpdate and inheritedRow.ResolvedUpdateMatchesPublicClass)
+	assert(inheritedRow.FolderParentName == "Rendered" and inheritedRow.FolderParentId == s.Knowledge:EggDiagnosticId(s.Rendered))
+	assert(inherited.UpdateCalls == 1 and inherited.CompletedUpdates == 1 and #s.NativeUpdateCalls == 1)
+	-- A fixture-native cache assignment can bypass a future class wrapper. The
+	-- diagnostic reads that fact and must never replace/intercept this method.
+	receiver.Update = s.OriginalUpdate
+	receiver:Update()
+	local own = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	local ownRow = capturedRow(s, own, receiver)
+	assert(ownRow.ClassMetatableMatches and ownRow.HasOwnUpdate and not ownRow.ResolvedUpdateMatchesPublicClass)
+	assert(own.UpdateCalls == 1 and own.CompletedUpdates == 1 and #s.NativeUpdateCalls == 2)
+	assert(receiver.Update == s.OriginalUpdate and getmetatable(receiver) == s.Class and s.Knowledge.InstanceIds == nil)
+	s:FinishObservation()
+	assert(s.Class.Update == s.OriginalUpdate and receiver.Update == s.OriginalUpdate)
+	local restored = s.Knowledge:NativeEggRegistrationDiagnostics(selected)
+	assert(capturedRow(s, restored, receiver).ResolvedUpdateMatchesPublicClass)
 	s:Close()
 end)
 

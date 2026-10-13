@@ -283,7 +283,7 @@ function OCController:Log(kind, message, explicitDetail)
 		local immediate = kind == "INIT" or kind == "SCOPE" or kind == "CONTROL" or kind == "GOAL" or kind == "SUMMARY"
 			or kind == "ISLAND][VERIFIED" or kind == "WORLD][VERIFIED" or kind == "UPGRADE][VERIFIED" or kind == "FARM][RETURN"
 			or kind == "PET][ANALYSIS" or kind == "PET][VERIFIED" or kind == "PET][TEAM_PLAN" or kind == "PET][EQUIP_RESULT"
-			or kind == "EGG_PLAN" or kind == "HATCH_RESULT" or kind == "HATCH_PREFLIGHT"
+			or kind == "EGG_PLAN" or kind == "HATCH_RESULT" or kind == "HATCH_PREFLIGHT" or kind == "NATIVE_EGG_RECEIVER_OBSERVATION"
 			or kind == "EGG_TRAVEL" or kind == "PLAYTIME_RESULT" or kind == "BOX_RESULT" or kind == "ANTI_AFK"
 			or kind == "REWARD][RESULT" or kind == "REWARD][UNCONFIRMED"
 		if kind == "FARM][TRAVEL" then immediate = not message:match("^Request ") end

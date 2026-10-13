@@ -204,7 +204,11 @@ test("Test B registration-blocked preflight reports an independent modifier-awar
 		assert(report.Reason:find("NATIVE_EGG_IDENTITY_UNVERIFIED", 1, true))
 		assert(report.Before.InstanceId == s.Controller.Knowledge.InstanceIds[s.Egg])
 		assert(report.Before.NativePrice == 7 and report.Before.PriceReason == "NATIVE_STATSUTIL_QUOTE")
-		assert(s.Logs[#s.Logs]:find("native price=7 Coins", 1, true))
+		local quoted = false
+		for _, line in ipairs(s.Logs) do
+			if line:find("HATCH_PREFLIGHT ", 1, true) and line:find("native price=7 Coins", 1, true) then quoted = true end
+		end
+		assert(quoted)
 		assert(not s:Dispatch()) s:NoActions() s:Close()
 	end)
 end)
@@ -294,15 +298,75 @@ test("Test B ready and blocked preflight remain visible with debug OFF and ident
 			local s = fixture(false)
 			s.Controller.Config.DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING = false
 			s.Controller.Log = requireOC("OCController").Log
-			preflight(s) assert(#output == 1 and output[1]:find("HATCH_PREFLIGHT_READY_ALLOWANCE_OFF", 1, true))
-			preflight(s) assert(#output == 1)
+			local function countPreflight()
+				local count = 0 for _, line in ipairs(output) do if line:find("[OC][HATCH_PREFLIGHT]", 1, true) then count += 1 end end return count
+			end
+			preflight(s) assert(countPreflight() == 1 and output[1]:find("HATCH_PREFLIGHT_READY_ALLOWANCE_OFF", 1, true))
+			local initial = #output preflight(s) assert(#output == initial)
 			s.Dependencies.ProximityPrompt.Visible = 1
-			preflight(s) assert(#output == 2 and output[2]:find("HATCH_PREFLIGHT_BLOCKED", 1, true))
-			preflight(s) assert(#output == 2)
+			preflight(s) assert(countPreflight() == 2 and output[#output]:find("HATCH_PREFLIGHT_BLOCKED", 1, true))
+			local changed = #output preflight(s) assert(#output == changed)
 			assert(not s:Dispatch()) s:NoActions() s:Close()
 		end)
 	end, debug.traceback)
 	print = originalPrint assert(ok, failure)
+end)
+
+test("Test B captured rejected receiver evidence is visible with debug OFF while native price10 remains blocked without trusted registration", function()
+	local originalPrint, output = print, {}
+	print = function(value) table.insert(output, tostring(value)) end
+	local ok, failure = xpcall(function()
+		scenario(function()
+			local s = fixture(false)
+			s.Profile.EggsOpened["Common Egg"] = 2
+			s.Controller.Knowledge.NativeEggChunkers = {}
+			for _, model in ipairs(s.Models) do model.Prompt:FindFirstChildOfClass("ProximityPrompt").Parent = nil end
+			s.Controller.Config.DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING = false
+			s.Controller.Log = requireOC("OCController").Log
+			s.Controller.Knowledge.NativeEggRegistrationDiagnostics = function(_, selected)
+				assert(selected == s.Egg)
+				return { Stage = "TIMED_OUT_WITHOUT_QUALIFYING_EGG_RECEIVER", Reason = "Unsupported unloaded entry; trusted classification unchanged",
+					SelectedInstanceId = s.Controller.Knowledge.InstanceIds[selected], CapturedSelectedFound = true, CapturedOtherOriginalFound = true,
+					QualifyingReceivers = 0, ReceiverObservationComplete = true,
+					ReceiverObservationKey = "captured_selected=true; other=true; qualifiers=0; complete=true",
+					ReceiverObservationSummary = "Updates observed=85; candidates=5; exact selected original found=true; exact other original found=true; qualifiers=0; observation complete=true\n"
+						.. "candidate=syntheticR4; structure=3D; loaded=2; coordinates=3; selected=true; same folder=true; rejected=MISSING_CATALOG_DEFINITION" }
+			end
+			local report = preflight(s)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.Before.NativePrice == 10 and report.Before.PriceReason == "NATIVE_STATSUTIL_QUOTE")
+			assert(report.Registration.CapturedSelectedFound and report.Registration.CapturedOtherOriginalFound and report.Registration.QualifyingReceivers == 0)
+			assert(#output == 2 and output[1]:find("[OC][HATCH_PREFLIGHT]", 1, true)
+				and output[2]:find("[OC][NATIVE_EGG_RECEIVER_OBSERVATION]", 1, true))
+			assert(not output[1]:find("candidate=syntheticR4", 1, true) and output[2]:find("candidate=syntheticR4", 1, true))
+			assert(output[1]:find("hatch requests=0; requested spending=0", 1, true))
+			preflight(s) assert(#output == 2 and not s:Dispatch()) s:NoActions() s:Close()
+		end)
+	end, debug.traceback)
+	print = originalPrint assert(ok, failure)
+end)
+
+test("Test B receiver observation call-count churn is throttled and exact membership or completion changes appear immediately", function()
+	scenario(function(clock)
+		local s = fixture(false)
+		local updates, member, complete = 29, false, false
+		s.Controller.Knowledge.NativeEggRegistrationDiagnostics = function()
+			return { Stage = "NATIVE_UPDATES_OBSERVED_NO_QUALIFYING_EGG_RECEIVER", Reason = "Non-egg receiver remains rejected",
+				ReceiverObservationComplete = complete, ReceiverObservationKey = "selected=" .. tostring(member),
+				ReceiverObservationSummary = "Updates observed=" .. updates .. "; selected=" .. tostring(member) .. "; complete=" .. tostring(complete)
+					.. "\nreceiver=syntheticR1; non-egg content; no trusted registration granted" }
+		end
+		local function observed()
+			local count = 0 for _, line in ipairs(s.Logs) do if line:find("NATIVE_EGG_RECEIVER_OBSERVATION ", 1, true) then count += 1 end end return count
+		end
+		preflight(s) assert(observed() == 1)
+		updates = 30 clock.Time = 1 preflight(s) assert(observed() == 1)
+		updates = 31 clock.Time = 2 preflight(s) assert(observed() == 1)
+		clock.Time = s.Controller.Config.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS preflight(s) assert(observed() == 2)
+		member = true preflight(s) assert(observed() == 3)
+		complete = true preflight(s) assert(observed() == 4)
+		preflight(s) assert(observed() == 4)
+		assert(not s:Dispatch()) s:NoActions() s:Close()
+	end)
 end)
 
 test("Test B duplicate Common originals permit one explicitly bounded eligible request and no unrelated actions", function()

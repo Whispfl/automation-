@@ -313,12 +313,14 @@ function PetManager:ReportHatchPreflight(snapshot, context)
 		ready, reason = false, "Current account/character/profile changed during read-only native readiness guards"
 	end
 	local status = ready and "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" or "HATCH_PREFLIGHT_BLOCKED"
+	local receiverSummary = registration and registration.ReceiverObservationSummary
 	local before = { AccountId = accountId, InstanceId = native and native.IdentityId or intent.IdentityId or registration and registration.SelectedInstanceId,
 		NativePrice = price and price.Amount, PriceReason = priceReason, Coins = coins, StorageUsed = context and context.StorageUsed,
 		StorageCapacity = context and context.StorageCapacity, FreeStorage = free, DigitalStorage = context and context.DigitalStorage,
 		EggsOpened = opened, NextEggOpenAt = nextAt, InteractionMode = native and native.InteractionMode,
-		RegistrationReason = registration and registration.Reason or "REGISTRATION_DIAGNOSTICS_UNAVAILABLE",
-		RegistrationSummary = registration and registration.Summary or "native registration diagnostic unavailable" }
+		RegistrationReason = registration and (registration.Stage or registration.Reason) or "REGISTRATION_DIAGNOSTICS_UNAVAILABLE",
+		RegistrationSummary = type(receiverSummary) == "string" and receiverSummary:match("^[^\n]+")
+			or registration and registration.Summary or "native registration diagnostic unavailable" }
 	self.HatchPreflight = { Status = status, Reason = reason, Before = before, Registration = registration, SpendingPermission = false }
 	local message = string.format("%s | egg=%s; selected instance=%s; account=%s; native price=%s Coins (%s); current Coins=%s; storage=%s/%s; free=%s; digital=%s; EggsOpened=%s; NextEggOpenAt=%s; interaction=%s | %s | registration=%s; %s | hatch requests=%s; requested spending=%s",
 		status, intent.EggName, tostring(before.InstanceId or "UNKNOWN"), tostring(before.AccountId or "UNKNOWN"),
@@ -336,6 +338,18 @@ function PetManager:ReportHatchPreflight(snapshot, context)
 		or nowAt - (self.LastHatchPreflightAt or -math.huge) >= settings.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then
 		c:Log("HATCH_PREFLIGHT", message)
 		self.LastHatchPreflightMessage, self.LastHatchPreflightSemantic, self.LastHatchPreflightAt = message, semantic, nowAt
+	end
+	-- Candidate inventory is evidence only, including receivers that the trusted
+	-- registry rejected. A changed completion/membership result appears once;
+	-- native call-count churn uses the existing bounded reporting interval.
+	if type(receiverSummary) == "string" and receiverSummary ~= "" then
+		local receiverKey = tostring(registration.ReceiverObservationKey or registration.Stage or registration.Reason)
+			.. "|complete=" .. tostring(registration.ReceiverObservationComplete == true)
+		if self.LastEggReceiverObservationSummary ~= receiverSummary and (self.LastEggReceiverObservationKey ~= receiverKey
+			or nowAt - (self.LastEggReceiverObservationAt or -math.huge) >= settings.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then
+			c:Log("NATIVE_EGG_RECEIVER_OBSERVATION", receiverSummary)
+			self.LastEggReceiverObservationSummary, self.LastEggReceiverObservationKey, self.LastEggReceiverObservationAt = receiverSummary, receiverKey, nowAt
+		end
 	end
 end
 
