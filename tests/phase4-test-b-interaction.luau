@@ -82,7 +82,10 @@ local function fixture(enabled)
 	end
 	s.Egg = s:AddEgg("Common Egg", 2.01)
 	s.Other = s:AddEgg("Common Egg", 100)
-	s.Controller.Knowledge.EggModels = function() return s.Models end
+	s.Controller.Knowledge.EggModels = function(self)
+		local catalog = {} for _, model in ipairs(s.Models) do if d.Eggs[model.Name] then table.insert(catalog, model) end end
+		self.NativeEggModels = catalog return catalog
+	end
 	s.Controller.HatchTestAllowance = Allowance.new(s.Controller)
 	s.Manager = Pets.new(s.Controller) s.Controller.Pets = s.Manager
 	s.Coordinator.Mechanics.Guard = function()
@@ -109,6 +112,52 @@ local function fixture(enabled)
 		assert(self.Manager.EquipCommands == 0 and #self.Teleports == 0 and #self.Calls == 0 and self.Blows == 0)
 	end
 	return s
+end
+
+local function mixedNativeQueue(enabled)
+	local s = fixture(enabled)
+	local knowledge = s.Controller.Knowledge
+	s.Profile.EggsOpened["Common Egg"] = 2
+	local cold = {}
+	for index = 1, 53 do table.insert(cold, s:AddEgg("Spotted Egg", 1000 + index)) end
+	for index = 1, 21 do table.insert(cold, s:AddEgg("Coming Soon", 2000 + index)) end
+	for index = 1, 60 do table.insert(cold, s:AddEgg("Egg", 3000 + index)) end
+	s.Dependencies.Eggs["Coming Soon"], s.Dependencies.Eggs.Egg = nil, nil
+	knowledge.NativeEggFixtureAssets["Coming Soon"], knowledge.NativeEggFixtureAssets.Egg = nil, nil
+	local receiver = knowledge.NativeEggFixtureReceiver
+	receiver._folder.SyntheticEggInstance = true
+	receiver._chunks, receiver._loaded = { loaded = { s.Egg, s.Other }, coldA = {}, coldB = {} }, { loaded = true }
+	for index, model in ipairs(cold) do
+		model.Parent = nil
+		table.insert(index <= 67 and receiver._chunks.coldA or receiver._chunks.coldB, model)
+	end
+	-- Source-owned opened originals no longer have an attached initial Buy Prompt.
+	-- Their exact current loaded queue membership must establish identity instead.
+	for _, model in ipairs(s.Models) do model.Prompt:FindFirstChildOfClass("ProximityPrompt").Parent = nil end
+	local class = {} class.__index = class
+	class.Remove = function() error("Read-only egg preflight cannot remove a native value") end
+	class.IsValueLoaded = function() error("Classifier must read the queue without calling native methods") end
+	s.NativeUpdates = 0
+	class.Update = function(actual, position)
+		assert(actual == receiver and position == s.Root.Position)
+		s.NativeUpdates += 1 return "unchanged native result", nil, 3
+	end
+	setmetatable(receiver, class)
+	s.Dependencies.Chunker = class
+	knowledge.NativeEggChunkers, knowledge.EggObservationFinished = {}, nil
+	s.NativeClass, s.ColdOriginals = class, cold
+	knowledge:ObserveEggChunker()
+	local result = table.pack(class.Update(receiver, s.Root.Position))
+	assert(result.n == 3 and result[1] == "unchanged native result" and result[2] == nil and result[3] == 3)
+	assert(knowledge.NativeEggChunkers[receiver] == true and s.NativeUpdates == 1)
+	return s
+end
+
+local function completeNativeObservation(s, clock)
+	local knowledge = s.Controller.Knowledge
+	clock.Time = knowledge.EggObservationDeadline + 0.1
+	knowledge:ObserveEggChunker()
+	assert(knowledge.EggObservationFinished and knowledge.ChunkerObserver == nil)
 end
 
 local function scenario(callback)
@@ -186,6 +235,113 @@ test("Test B read-only arrived preflight exposes native cooldown full storage pr
 			local s = fixture(false) mutate(s)
 			local report = preflight(s)
 			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.SpendingPermission == false)
+			assert(not s:Dispatch()) s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B actual passive classifier accepts the observed 136-member mixed queue and completes ready preflight with allowance OFF", function()
+	scenario(function(clock)
+		local s = mixedNativeQueue(false)
+		local knowledge, receiver = s.Controller.Knowledge, s.Controller.Knowledge.NativeEggFixtureReceiver
+		local row = knowledge.EggObserverStats.Receivers[receiver]
+		assert(row.Qualifies and row.Entries == 136 and row.CatalogOriginals == 55 and row.Sentinels == 21 and row.NonCatalogOriginals == 60)
+		local pending = preflight(s)
+		assert(pending.Status == "HATCH_PREFLIGHT_BLOCKED" and pending.Before.NativePrice == 10 and pending.SpendingPermission == false)
+		completeNativeObservation(s, clock)
+		local report = preflight(s)
+		assert(report.Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" and report.SpendingPermission == false)
+		assert(report.Before.NativePrice == 10 and report.Before.PriceReason == "NATIVE_STATSUTIL_QUOTE" and report.Before.EggsOpened == 2)
+		assert(report.Before.InstanceId == knowledge:InstanceId(s.Egg) and report.Before.InteractionMode == "OPENED_NEAREST")
+		assert(report.Registration.QualifyingReceivers == 1 and report.Registration.SelectedFound and report.Registration.SelectedLoaded)
+		local loaded = knowledge:NativeRegisteredEggModels()
+		assert(#loaded == 2 and table.find(loaded, s.Egg) and table.find(loaded, s.Other))
+		assert(knowledge:InstanceId(s.Egg) ~= knowledge:InstanceId(s.Other) and s.NativeUpdates == 1)
+		local logCount = #s.Logs preflight(s) assert(#s.Logs == logCount)
+		assert(not s:Dispatch()) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B classified noncatalog queue members block closer or tied all-name selection without becoming paid targets", function()
+	for _, distance in ipairs({ 1, 2.01 }) do
+		scenario(function(clock)
+			local s = mixedNativeQueue(false)
+			local knowledge, receiver = s.Controller.Knowledge, s.Controller.Knowledge.NativeEggFixtureReceiver
+			local unknown = table.remove(receiver._chunks.coldB)
+			assert(unknown.Name == "Egg" and s.Dependencies.Eggs[unknown.Name] == nil)
+			unknown.Parent = receiver._folder
+			unknown.Root.Position = s.Root.Position + Vector3.new(distance, 0, 0)
+			unknown.Prompt.Position = unknown.Root.Position
+			table.insert(receiver._chunks.loaded, unknown)
+			s.NativeClass.Update(receiver, s.Root.Position)
+			assert(knowledge.NativeEggChunkers[receiver] and knowledge.EggObserverStats.Receivers[receiver].Qualifies)
+			completeNativeObservation(s, clock)
+			local registered = knowledge:NativeRegisteredEggModels()
+			assert(#registered == 3 and table.find(registered, unknown))
+			assert(not knowledge:ResolveEggInstance("Egg", true, unknown), "Queue membership cannot create a known paid target")
+			local eligible, observed, reason = knowledge:NativeEggRangeEligible({ Model = s.Egg }, s.Root, true)
+			assert(not eligible and observed.Model == s.Egg and reason:find("Another or tied eligible registered original", 1, true))
+			assert(not knowledge:NativeEggRangeEligible({ Model = unknown }, s.Root, true))
+			local report = preflight(s)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.Before.NativePrice == 10 and report.SpendingPermission == false)
+			assert(not s:Dispatch()) s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B a positively classified unknown original cannot dispatch an authorized synthetic paid hatch", function()
+	scenario(function(clock)
+		local s = mixedNativeQueue(true)
+		local receiver, knowledge = s.Controller.Knowledge.NativeEggFixtureReceiver, s.Controller.Knowledge
+		local unknown = table.remove(receiver._chunks.coldB)
+		unknown.Parent = receiver._folder
+		unknown.Root.Position = s.Root.Position + Vector3.new(3, 0, 0)
+		unknown.Prompt.Position = unknown.Root.Position
+		table.insert(receiver._chunks.loaded, unknown)
+		s.NativeClass.Update(receiver, s.Root.Position)
+		completeNativeObservation(s, clock)
+		s.Controller.Config.HATCH_SETTINGS.SELECTED_EGGS = { "Egg" }
+		local decision, context = s:Decision()
+		assert(decision.Kind == "WAIT")
+		local blocked
+		for _, egg in ipairs(context.Eggs) do if egg.Name == "Egg" then blocked = egg end end
+		assert(blocked and blocked.AccessStatus == "UNKNOWN_DEFINITION" and blocked.Model == nil and blocked.Cost == nil)
+		assert(not knowledge:ResolveEggInstance("Egg", true, unknown) and not s:Dispatch())
+		assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B selected visual prerequisite is separate from accepted exact queue membership and the independent price10 quote", function()
+	for _, missing in ipairs({ true, false }) do
+		scenario(function(clock)
+			local s = mixedNativeQueue(false)
+			completeNativeObservation(s, clock)
+			local knowledge = s.Controller.Knowledge
+			if missing then knowledge.NativeEggFixtureAssets["Common Egg"] = nil
+			else knowledge.NativeEggFixtureAssets["Common Egg"] = { IsA = function() return false end } end
+			assert(knowledge:ResolveEggInstance("Common Egg", true, s.Egg).Model == s.Egg)
+			local eligible, _, reason = knowledge:NativeEggRangeEligible({ Model = s.Egg }, s.Root, true)
+			assert(not eligible and reason:find("Selected native visual prerequisite unavailable", 1, true))
+			local report = preflight(s)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.Before.NativePrice == 10 and report.SpendingPermission == false)
+			assert(report.Registration.QualifyingReceivers == 1 and report.Registration.SelectedLoaded)
+			assert(not s:Dispatch()) s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B mixed-queue registration cannot bypass current UI account storage cooldown or native hatch-idle guards", function()
+	for _, mutate in ipairs({ function(s) s.Dependencies.ProximityPrompt.Visible = 1 end,
+		function(s) s.Controller.Reader.Player.UserId = 456 end,
+		function(s) s.Storage = 2 end, function(s) s.NextAt = 101 end,
+		function(s) s.Hatching = true end, function(s) s.NativeAuto = "Common Egg" end,
+		function(s) s.Profile.AutoDelete = { Rare = true } end }) do
+		scenario(function(clock)
+			local s = mixedNativeQueue(false)
+			completeNativeObservation(s, clock) mutate(s)
+			local report = preflight(s)
+			assert(report.Registration.QualifyingReceivers == 1 and report.Registration.SelectedLoaded)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.Before.NativePrice == 10 and report.SpendingPermission == false)
 			assert(not s:Dispatch()) s:NoActions() s:Close()
 		end)
 	end

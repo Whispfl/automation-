@@ -6,6 +6,14 @@ local function registerNativeEggFixture(knowledge, model, scene)
 		assert(scene, "First native registration fixture requires scene cleanup ownership")
 		local previousFind = workspace.FindFirstChild
 		local previousTypeof = typeof
+		local previousAssetsOverride, inheritedAssets = rawget(knowledge, "Assets"), knowledge.Assets
+		local visualRows = {}
+		knowledge.NativeEggFixtureAssets = visualRows
+		local eggAssets = { FindFirstChild = function(_, name) return visualRows[name] end }
+		knowledge.Assets = function(self, name)
+			if name == "Eggs" then return eggAssets end
+			return inheritedAssets(self, name)
+		end
 		typeof = function(value)
 			return type(value) == "table" and rawget(value, "SyntheticEggInstance") == true and "Instance" or previousTypeof(value)
 		end
@@ -18,6 +26,7 @@ local function registerNativeEggFixture(knowledge, model, scene)
 		scene.Close = function(self)
 			workspace.FindFirstChild = previousFind
 			typeof = previousTypeof
+			knowledge.Assets, knowledge.NativeEggFixtureAssets = previousAssetsOverride, nil
 			return previousClose(self)
 		end
 		folder = { Name = "Chunker", Parent = rendered, IsA = function(_, kind) return kind == "Folder" end }
@@ -50,6 +59,8 @@ local function registerNativeEggFixture(knowledge, model, scene)
 		knowledge.NativeEggChunkers = { [receiver] = true }
 		knowledge.EggObservationFinished = true
 	end
+	-- Explicit test visual prerequisite, separate from original registration.
+	knowledge.NativeEggFixtureAssets[model.Name] = { Name = model.Name, IsA = function(_, kind) return kind == "Model" end }
 	local root, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
 	if root.Parent and root.Parent ~= model and root.Parent ~= true then root = table.clone(root) end
 	if not prompt or not prompt.IsA or not prompt:IsA("BasePart") then

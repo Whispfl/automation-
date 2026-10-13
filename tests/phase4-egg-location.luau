@@ -11,7 +11,7 @@ local function fixture()
 	local s = { Models = {}, Definitions = {}, Logs = {}, Commands = {}, Delayed = {}, Character = {}, CurrentWorld = "The Overworld" }
 	s.Workspace = { Name = "Workspace" }
 	s.Rendered = { Name = "Rendered", Parent = s.Workspace }
-	s.Folder = { Name = "Chunker", Parent = s.Rendered, IsA = function(_, kind) return kind == "Folder" end }
+	s.Folder = { Name = "Chunker", Parent = s.Rendered, SyntheticLocationInstance = true, IsA = function(_, kind) return kind == "Folder" end }
 	s.Generic = { Name = "Generic", Parent = s.Rendered, IsA = function(_, kind) return kind == "Folder" end }
 	s.Profile = { Coins = 100, Gems = 50, WorldsUnlocked = { ["The Overworld"] = true }, AreasUnlocked = { Zen = true, ["The Void"] = true }, EggsOpened = {} }
 	s.WorldDefinitions = { ["The Overworld"] = { Islands = { { Name = "The Void", Height = 500 }, { Name = "Zen", Height = 1000 } } },
@@ -57,6 +57,7 @@ local function fixture()
 	s.Player = { UserId = 123, Character = s.Character }
 	s.Prompts = { Visible = 0, _cache = {} }
 	s.Class = { Update = function(_, ...) return "native-existing-state", table.pack(...) end }
+	s.Class.__index = s.Class
 	s.NativeUpdate = s.Class.Update
 	s.Dependencies = { Eggs = s.Definitions, Worlds = s.WorldDefinitions, Chunker = s.Class, ProximityPrompt = s.Prompts,
 		WorldUtil = { GetPlayerWorld = function() return s.CurrentWorld end } }
@@ -92,7 +93,7 @@ local function fixture()
 		local receiver = { Mode = "3D", _chunkSize = 128, RenderDistance = 2, _folder = self.Folder, _chunks = { current = models }, _loaded = { current = true },
 			Remove = function() error("Travel observation cannot mutate the native receiver") end }
 		function receiver:IsValueLoaded(model) return self._loaded.current == true and table.find(self._chunks.current, model) ~= nil end
-		return receiver
+		return setmetatable(receiver, self.Class)
 	end
 	function s:Register(models)
 		self.Receiver = self:Receiver(models) self.Knowledge.NativeEggChunkers = { [self.Receiver] = true } return self.Receiver

@@ -1,0 +1,127 @@
+diff --git a/src/OCFoundation/GameKnowledge.luau b/src/OCFoundation/GameKnowledge.luau
+--- a/src/OCFoundation/GameKnowledge.luau
++++ b/src/OCFoundation/GameKnowledge.luau
+@@ -93,5 +93,45 @@
+ end
+ 
+-function GameKnowledge:InstanceId(instance)
++local function classifyObservedEggQueue(receiver, class, definitions)
++	-- Queue identity is distinct from private interaction/paid eligibility.
++	if type(receiver) ~= "table" or type(class) ~= "table" or getmetatable(receiver) ~= class
++		or type(receiver.Remove) ~= "function" or type(receiver.IsValueLoaded) ~= "function"
++		or typeof(receiver._folder) ~= "Instance" or not receiver._folder:IsA("Folder")
++		or not eggReceiver(receiver) then return false, "NATIVE_CLASS_OR_QUEUE_STRUCTURE_UNVERIFIED" end
++	if type(definitions) ~= "table" then return false, "EGG_CATALOG_NOT_READY_FOR_POSITIVE_ANCHOR" end
++	local coordinates, entries, loadedCoordinates, loadedCatalog = 0, 0, 0, 0
++	for coord, loaded in pairs(receiver._loaded) do
++		loadedCoordinates += 1
++		if loadedCoordinates > 1000 then return false, "LOADED_COORDINATE_LIMIT_EXCEEDED" end
++		if loaded ~= true then return false, "LOADED_FLAG_INCONSISTENT" end
++		local values = receiver._chunks[coord]
++		-- Native Remove can leave a true loaded flag with an absent bucket.
++		if values ~= nil and type(values) ~= "table" then return false, "CHUNK_VALUES_NOT_TABLE" end
++	end
++	for coord, values in pairs(receiver._chunks) do
++		coordinates += 1
++		if coordinates > 1000 then return false, "COORDINATE_LIMIT_EXCEEDED" end
++		if type(values) ~= "table" then return false, "CHUNK_VALUES_NOT_TABLE" end
++		local loaded = receiver._loaded[coord] == true
++		for index, value in pairs(values) do
++			entries += 1
++			if entries > 1000 then return false, "ENTRY_LIMIT_EXCEEDED" end
++			if type(index) ~= "number" or index < 1 or index % 1 ~= 0 then return false, "UNSUPPORTED_MEMBER_KEY" end
++			if typeof(value) ~= "Instance" or not value:IsA("Model") or not eggParts(value) then
++				return false, "ORIGINAL_INTERFACE_OR_GEOMETRY_INCOMPLETE"
++			end
++			if loaded then
++				if value.Parent ~= receiver._folder or not value:IsDescendantOf(workspace) then
++					return false, "LOADED_MEMBER_ANCESTRY_INCONSISTENT"
++				end
++				if definitions[value.Name] then loadedCatalog += 1 end
++			elseif value.Parent ~= nil then return false, "UNLOADED_MEMBER_ANCESTRY_INCONSISTENT" end
++		end
++	end
++	if loadedCatalog == 0 then return false, "NO_LOADED_CATALOG_ORIGINAL_ANCHOR" end
++	return true, "SOURCE_MATCHING_ORIGINAL_QUEUE_OBSERVED; private interaction/target eligibility checked separately"
++end
++
++function GameKnowledge:InstanceId(instance)
+ 	if not instance then return "NONE" end
+ 	self.InstanceIds = self.InstanceIds or setmetatable({}, { __mode = "k" })
+@@ -362,5 +402,11 @@
+ 		if not model or not model.Parent or not model:IsDescendantOf(workspace) or not root or not point(root.Position) then return false, nil, "Selected egg/character geometry unavailable" end
+ 		local identity, identityReason = self:ResolveEggInstance(model.Name, force, model)
+-		if not identity then return false, nil, identityReason end
++		if not identity then return false, nil, identityReason end
++		-- Native create returns before private registration without its visual asset.
++		local assets = self:Assets("Eggs")
++		local visual = assets and assets:FindFirstChild(model.Name)
++		if not visual or not visual:IsA("Model") then
++			return false, nil, "Selected native visual prerequisite unavailable; private interaction registration unverified"
++		end
+ 		local part, prompt = model:FindFirstChild("Root"), model:FindFirstChild("Prompt")
+ 		if not part or not part:IsA("BasePart") or not point(part.Position) then return false, nil, "Selected original Root geometry unavailable" end
+@@ -687,29 +733,14 @@
+ 			end
+ 			pcall(function() -- Observation failures must never interrupt the game's Update.
+-				if type(chunker) == "table" and type(chunker.Remove) == "function" and type(chunker.IsValueLoaded) == "function" then
+-					-- Settings alone are shared by pickups/portals/animated objects.
+-					-- Egg receiver additionally contains ONLY exact catalog-backed full
+-					-- original interfaces. Read memberships after the native Update.
+-					if not self.EggObservationFinished and self.EggObservationDeadline and os.clock() < self.EggObservationDeadline
+-						and eggReceiver(chunker) then
+-						local found, valid, count = false, true, 0
+-						local definitions = self:Get("Eggs") or {}
+-						for _, values in pairs(chunker._chunks) do
+-							if type(values) ~= "table" then valid = false break end
+-							for _, value in pairs(values) do
+-								count += 1
+-								if count > 1000 or typeof(value) ~= "Instance" or not eggParts(value)
+-									or not definitions[value.Name] and value.Name ~= "Coming Soon" then valid = false break end
+-								-- Source explicitly registers this nonselectable sentinel
+-								-- (ClientScript:670-672). It cannot authorize travel.
+-								if definitions[value.Name] then found = true end
+-							end
+-							if not valid then break end
+-						end
+-						if found and valid then
+-							self.NativeEggChunkers = self.NativeEggChunkers or setmetatable({}, { __mode = "k" })
+-							self.NativeEggChunkers[chunker] = true
+-						end
+-					end
++				-- Settings alone are shared; inspect every original after native Update.
++				if not self.EggObservationFinished and self.EggObservationDeadline and os.clock() < self.EggObservationDeadline then
++					if type(chunker) == "table" and self.NativeEggChunkers then self.NativeEggChunkers[chunker] = nil end
++					local valid = classifyObservedEggQueue(chunker, class, self:Get("Eggs"))
++					if valid then
++						self.NativeEggChunkers = self.NativeEggChunkers or setmetatable({}, { __mode = "k" })
++						self.NativeEggChunkers[chunker] = true
++					end
++				end
++				if type(chunker) == "table" and type(chunker.Remove) == "function" and type(chunker.IsValueLoaded) == "function" then
+ 					for _, pickup in pairs(self.CleanupRegistry or {}) do
+ 						if pickup.Parent and pickup.Parent == chunker._folder and chunker:IsValueLoaded(pickup) then
+@@ -763,5 +794,5 @@
+ 	end
+ 	row.Calls += 1
+-	row.StructureMatched, row.Qualifies, row.Entries, row.CatalogOriginals, row.Sentinels = false, false, 0, 0, 0
++	row.StructureMatched, row.Qualifies, row.Entries, row.CatalogOriginals, row.Sentinels, row.NonCatalogOriginals = false, false, 0, 0, 0, 0
+ 	row.FolderId = self:EggDiagnosticId(receiver._folder)
+ 	local function reject(reason) row.Reason = reason end
+@@ -811,10 +842,10 @@
+ 				reject("ORIGINAL_INTERFACE_OR_GEOMETRY_INCOMPLETE: " .. table.concat(missing, ",") .. suffix) return
+ 			end
+-			if not definitions[value.Name] and value.Name ~= "Coming Soon" then reject("NAME_ABSENT_FROM_READY_EGG_CATALOG; catalog ready=" .. tostring(row.EggDefinitionsReady) .. suffix) return end
+-			if definitions[value.Name] then row.CatalogOriginals += 1 else row.Sentinels += 1 end
+-		end
+-	end
+-	row.Qualifies = row.CatalogOriginals > 0
+-	row.Reason = row.Qualifies and "SOURCE_MATCHING_RECEIVER_OBSERVED" or "NO_CATALOG_BACKED_ORIGINALS; catalog ready=" .. tostring(row.EggDefinitionsReady)
++			if definitions[value.Name] then row.CatalogOriginals += 1
++			elseif value.Name == "Coming Soon" then row.Sentinels += 1
++			else row.NonCatalogOriginals += 1 end
++		end
++	end
++	row.Qualifies, row.Reason = classifyObservedEggQueue(receiver, self:Get("Chunker"), self:Get("Eggs"))
+ end
+ 

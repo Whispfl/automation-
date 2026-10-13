@@ -56,7 +56,11 @@ const representative = [
   'docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json', 'docs/PHASE4-REGISTRATION-OBSERVATION-EVIDENCE.md',
   'docs/PHASE4-PROTECTED-MEMBERSHIP-PROPOSAL.md', 'docs/PHASE4-REGISTRATION-PREFLIGHT-DELIVERY.md',
   'docs/PHASE4-ZERO-RECEIVER-EVIDENCE.md', 'docs/PHASE4-ZERO-RECEIVER-DELIVERY.md',
+  'docs/PHASE4-RECEIVER-CLASSIFICATION-PROPOSAL.md', 'docs/PHASE4-RECEIVER-CLASSIFICATION-PROPOSED.patch',
+  'docs/PHASE4-APPROVED-CLASSIFICATION-CORRECTION.json', 'docs/PHASE4-RECEIVER-CLASSIFICATION-DELIVERY.md',
+  'scripts/verify-phase4-approved-classification.mjs',
   'tests/phase4-registration-preservation.mjs', 'scripts/verify-public.mjs',
+  'tests/pets.luau',
   'scripts/verify-test-a-preservation.mjs', 'tests/phase4-test-b-interaction.luau',
   'scripts/verify-phase4-approved-membership.mjs', 'tests/phase4-approved-membership.mjs', 'tests/phase4-egg-identity.luau',
   'tests/phase4-egg-location.luau', 'tests/phase4-location-logging.luau', 'tests/phase4-standing-location.luau',
@@ -110,6 +114,15 @@ for (const artifact of ['dist/OC.lua', 'examples/Phase4TestBPreflight.luau', 'ex
   assert((await get(`${rawRoot}/${incomingTestBRelease}/${artifact}`)).equals(expected), 'Incoming Test B artifact changed: ' + artifact);
   checks.push({ artifact, ref: incomingTestBRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
+const receiverDiagnosticRelease = 'phase4-hatch-6dfccccdf6cf';
+const receiverDiagnosticCommit = '478ce3710ba2ece46d46653d4372ededc3638e2f';
+assert.equal(git('rev-parse', receiverDiagnosticRelease + '^{}'), receiverDiagnosticCommit, 'Receiver diagnostic local pin changed');
+assert.equal((await publicJSON('/git/ref/tags/' + receiverDiagnosticRelease)).object.sha, receiverDiagnosticCommit, 'Receiver diagnostic public pin changed');
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TestBPreflight.luau', 'examples/Phase4TestBOneHatch.luau', 'docs/PHASE4-TEST-A-PRESERVATION.json', 'docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json']) {
+  const expected = execFileSync('git', ['show', `${receiverDiagnosticCommit}:${artifact}`], { cwd: root });
+  assert((await get(`${rawRoot}/${receiverDiagnosticRelease}/${artifact}`)).equals(expected), 'Receiver diagnostic artifact changed: ' + artifact);
+  checks.push({ artifact, ref: receiverDiagnosticRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
+}
 const priorTestRelease = 'phase4-tests-141b7608bedf';
 const priorTestCommit = git('rev-parse', priorTestRelease + '^{}');
 for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau', 'examples/Phase4OneHatchPrepared.luau']) {
@@ -148,6 +161,7 @@ const report = { dateUTC: new Date().toISOString(), repository, branch, commit, 
   ownerApprovedTestA: { buildId: '0d5caa499c8c', commit: approvedTravelCommit, release: approvedTravelRelease, unchanged: true },
   previousTestB: { buildId: '59c475d125c2', commit: previousTestBCommit, release: previousTestBRelease, unchanged: true },
   incomingTestB: { buildId: '926bc78d88af', commit: incomingTestBCommit, release: incomingTestBRelease, unchanged: true },
+  receiverDiagnostic: { buildId: '6dfccccdf6cf', commit: receiverDiagnosticCommit, release: receiverDiagnosticRelease, unchanged: true },
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };
