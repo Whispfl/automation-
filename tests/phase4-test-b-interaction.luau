@@ -347,6 +347,257 @@ test("Test B mixed-queue registration cannot bypass current UI account storage c
 	end
 end)
 
+-- Native source writes profile.AutoDelete[petName] as nil/true. The following
+-- malformed shapes exercise the existing conservative veto; its legacy flags
+-- and merged log wording do not prove those shapes are genuinely active.
+local function autoDeleteCases()
+	return {
+		{ Name = "missing", Apply = function(s) s.Profile.AutoDelete = nil end },
+		{ Name = "scalar false", Apply = function(s) s.Profile.AutoDelete = false end },
+		{ Name = "scalar string", Apply = function(s) s.Profile.AutoDelete = "unknown" end },
+		{ Name = "flat false", Apply = function(s) s.Profile.AutoDelete = { New = false } end },
+		{ Name = "nested false", Apply = function(s) s.Profile.AutoDelete = { New = { Shiny = false } } end },
+		{ Name = "nested true", Apply = function(s) s.Profile.AutoDelete = { New = { Shiny = true } } end },
+		{ Name = "nested empty", Apply = function(s) s.Profile.AutoDelete = { New = {} } end },
+		{ Name = "malformed nested", Apply = function(s) s.Profile.AutoDelete = { New = { Shiny = "unsupported" } } end },
+		{ Name = "native active", Apply = function(s) s.Profile.AutoDelete = { New = true } end },
+	}
+end
+
+test("Test B auto-delete facts use the current detached LocalData field without inserting a default", function()
+	scenario(function()
+		local s = fixture(false)
+		for _, entry in ipairs(autoDeleteCases()) do
+			entry.Apply(s)
+			local original = s.Profile.AutoDelete
+			local _, context = s.Manager:Fresh()
+			assert(Policy.Equal(context.AccountFacts.AutoDelete, original), entry.Name)
+			assert(s.Profile.AutoDelete == original, "Reader must not replace the received field: " .. entry.Name)
+			assert(context.AutoDeleteKnown == (type(original) == "table"), entry.Name)
+			if type(original) == "table" then assert(context.AccountFacts.AutoDelete ~= original, "Detached helper facts required") end
+		end
+		s.Profile.AutoDelete = {}
+		local _, context = s.Manager:Fresh()
+		assert(context.AutoDeleteKnown and context.AutoDeleteActive == false and next(context.AccountFacts.AutoDelete) == nil)
+		context.AccountFacts.AutoDelete.New = true
+		assert(next(s.Profile.AutoDelete) == nil, "Changing detached facts cannot modify the native setting")
+		s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B accepted 136-member queue does not turn missing malformed or native-active auto-delete into ready preflight", function()
+	for _, entry in ipairs(autoDeleteCases()) do
+		scenario(function(clock)
+			local s = mixedNativeQueue(false)
+			completeNativeObservation(s, clock) entry.Apply(s)
+			local _, captured = s.Manager:Fresh()
+			local original, facts = s.Profile.AutoDelete, captured.AccountFacts.AutoDelete
+			local report = preflight(s)
+			assert(report.Registration.QualifyingReceivers == 1 and report.Registration.SelectedLoaded, entry.Name)
+			assert(report.Before.NativePrice == 10 and report.Before.InteractionMode == "OPENED_NEAREST", entry.Name)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.SpendingPermission == false, entry.Name)
+			assert(report.Reason == "Native auto-delete settings unknown or active; OC does not modify them", entry.Name)
+			assert((s.AutoCalls or 0) == 0, "Later native idle checks were not established through this blocker")
+			assert(not s:Dispatch() and s.Profile.AutoDelete == original and Policy.Equal(s.Profile.AutoDelete, facts), entry.Name)
+			assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B paid capacity policy conservatively vetoes missing malformed and native-active auto-delete without consuming approval", function()
+	for _, entry in ipairs(autoDeleteCases()) do
+		scenario(function()
+			local s = fixture(true) entry.Apply(s)
+			local snapshot, context = s.Manager:Fresh()
+			local report = s.Controller.Brain:AnalyzePets(snapshot, context)
+			assert(#report.Eggs == 1 and report.Eggs[1].CapacityStatus ~= "AVAILABLE", entry.Name)
+			assert(s:Decision().Kind == "WAIT" and not s:Dispatch(), entry.Name)
+			assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B auto-delete active empty active transitions refresh facts and read-only readiness each time", function()
+	scenario(function()
+		local s = fixture(false)
+		s.Profile.AutoDelete = { New = true }
+		local _, activeFacts = s.Manager:Fresh()
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED")
+		s.Profile.AutoDelete = {}
+		local _, disabledFacts = s.Manager:Fresh()
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF")
+		assert(activeFacts.AutoDeleteActive and activeFacts.AccountFacts.AutoDelete.New == true)
+		assert(disabledFacts.AutoDeleteKnown and disabledFacts.AutoDeleteActive == false)
+		s.Profile.AutoDelete.New = true
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED" and disabledFacts.AutoDeleteActive == false)
+		assert(next(disabledFacts.AccountFacts.AutoDelete) == nil and not s:Dispatch())
+		assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B LocalData readiness or missing current profile cannot reuse disabled auto-delete readiness", function()
+	scenario(function()
+		local s = fixture(false)
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF")
+		local snapshot, live = s.Controller.Reader.GetSnapshot, s.Controller.Reader.GetLiveProfile
+		s.Controller.Reader.GetSnapshot = function(self) local current = snapshot(self) current.Ready = false return current end
+		local _, context = s.Manager:Fresh()
+		assert(context.Error == "Current LocalData unavailable" and context.AutoDeleteKnown == nil)
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED")
+		s.Controller.Reader.GetSnapshot = snapshot
+		s.Controller.Reader.GetLiveProfile = function() return nil end
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED")
+		s.Controller.Reader.GetLiveProfile = live
+		assert(preflight(s).Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" and not s:Dispatch())
+		assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B empty and partially initialized profiles cannot infer native auto-delete or hatch readiness", function()
+	for _, enabled in ipairs({ false, true }) do
+		for _, profile in ipairs({ {}, { AutoDelete = {} }, { AutoDelete = {}, Coins = 500, EggsOpened = { ["Common Egg"] = 0 } },
+			{ AutoDelete = {}, Coins = 500, EggsOpened = { ["Common Egg"] = 0 }, Pets = {}, Teams = {} } }) do
+			scenario(function()
+				local s = fixture(enabled)
+				-- Current StatsUtil:GetMaxEggHatches (571-612) indexes
+				-- PermanentBuffs/Passes and iterates MasteryUpgrades;
+				-- HasDigitalStorage (615-622) indexes Passes. The generic
+				-- fixture's fixed results cannot certify these absent fields.
+				local stats = s.Dependencies.StatsUtil
+				local hatches, digital = stats.GetMaxEggHatches, stats.HasDigitalStorage
+				stats.GetMaxEggHatches = function(self, facts)
+					assert(type(facts.PermanentBuffs) == "table" and type(facts.MasteryUpgrades) == "table"
+						and type(facts.Passes) == "table", "Native hatch-capacity prerequisites unavailable")
+					return hatches(self, facts)
+				end
+				stats.HasDigitalStorage = function(self, facts)
+					assert(type(facts.Passes) == "table", "Native digital-storage prerequisites unavailable")
+					return digital(self, facts)
+				end
+				-- This assignment simulates a received incomplete account payload;
+				-- any subsequent mutation by OC is forbidden and checked separately.
+				s.Profile = profile
+				local _, context = s.Manager:Fresh()
+				assert(context.Inventory == nil and context.Error and Policy.Equal(context.AccountFacts, profile),
+					"incomplete profile: inventory=" .. tostring(context.Inventory) .. "; error=" .. tostring(context.Error)
+						.. "; same facts=" .. tostring(Policy.Equal(context.AccountFacts, profile)))
+				assert(context.MaxHatches == nil and context.DigitalStorage == nil, "Failed native helpers must remain unknown")
+				if not enabled then assert(preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED") end
+				assert(s:Decision().Kind == "WAIT" and not s:Dispatch())
+				assert(s.Profile == profile and Policy.Equal(s.Profile, context.AccountFacts))
+				assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+			end)
+		end
+	end
+end)
+
+test("Test B actual native LocalData reader invalidates readiness when its ready state payload or service disappears", function()
+	scenario(function()
+		local s = fixture(false)
+		local reader = s.Controller.Reader
+		local nativeReady, nativePayload = true, s.Profile
+		local service = { IsReady = function() return nativeReady end, Get = function() return nativePayload end }
+		local available = true
+		local dependency = reader._dependency
+		reader._dependency = function(self, name)
+			if name == "LocalData" then return available and service or nil end
+			return dependency(self, name)
+		end
+		reader.GetLiveProfile = requireOC("AccountStateReader").GetLiveProfile
+		assert(reader:GetLiveProfile() == s.Profile and preflight(s).Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF")
+		nativeReady = false
+		assert(reader:GetLiveProfile() == nil and preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED")
+		nativeReady, nativePayload = true, nil
+		assert(reader:GetLiveProfile() == nil and preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED")
+		nativePayload, available = s.Profile, false
+		assert(reader:GetLiveProfile() == nil and preflight(s).Status == "HATCH_PREFLIGHT_BLOCKED")
+		available = true
+		assert(reader:GetLiveProfile() == s.Profile and preflight(s).Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF")
+		assert(next(s.Profile.AutoDelete) == nil and not s:Dispatch())
+		assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B repeated unknown auto-delete observations have no elapsed-time fallback or setting mutation", function()
+	for _, entry in ipairs({ autoDeleteCases()[1], autoDeleteCases()[3], autoDeleteCases()[8] }) do
+		scenario(function(clock)
+			local s = fixture(false) entry.Apply(s)
+			local _, captured = s.Manager:Fresh()
+			local original = s.Profile.AutoDelete
+			for _ = 1, 10 do
+				clock.Time += 60
+				local report = preflight(s)
+				assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.SpendingPermission == false, entry.Name)
+				assert(s:Decision().Kind == "WAIT" and not s:Dispatch(), entry.Name)
+				assert(s.Profile.AutoDelete == original and Policy.Equal(s.Profile.AutoDelete, captured.AccountFacts.AutoDelete))
+			end
+			assert((s.AutoCalls or 0) == 0 and not s.Controller.HatchTestAllowance:GetStatus().Consumed)
+			s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B current auto-delete change after context capture invalidates read-only preflight readiness", function()
+	for _, entry in ipairs(autoDeleteCases()) do
+		scenario(function()
+			local s = fixture(false)
+			local report = preflight(s, function(_, context)
+				assert(context.AutoDeleteKnown and context.AutoDeleteActive == false)
+				entry.Apply(s)
+			end)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.SpendingPermission == false, entry.Name)
+			assert(report.Reason == "Current account/character/profile changed during read-only native readiness guards", entry.Name)
+			assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B auto-delete changing during the read-only native idle guard cannot produce ready status", function()
+	for _, entry in ipairs(autoDeleteCases()) do
+		scenario(function()
+			local s = fixture(false)
+			s.OnAuto = function(call) assert(call == 1) entry.Apply(s) end
+			local report = preflight(s)
+			assert(s.AutoCalls == 1 and report.Status == "HATCH_PREFLIGHT_BLOCKED", entry.Name)
+			assert(report.Reason == "Current account/character/profile changed during read-only native readiness guards", entry.Name)
+			assert(report.SpendingPermission == false and not s.Controller.HatchTestAllowance:GetStatus().Consumed)
+			s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B first and final native hatch guards recheck an auto-delete change without spending or allowance consumption", function()
+	for _, at in ipairs({ 1, 2 }) do
+		for _, entry in ipairs(autoDeleteCases()) do
+			scenario(function()
+				local s = fixture(true)
+				s.OnAuto = function(call) if call == at then entry.Apply(s) end end
+				assert(not s:Dispatch() and s.AutoCalls == at, entry.Name)
+				assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+			end)
+		end
+	end
+end)
+
+test("Test B final exact range observation cannot carry stale disabled auto-delete facts into dispatch", function()
+	for _, entry in ipairs(autoDeleteCases()) do
+		scenario(function()
+			local s = fixture(true)
+			local original, mutated = s.Controller.Knowledge.NativeEggRangeEligible, false
+			s.Controller.Knowledge.NativeEggRangeEligible = function(self, egg, root, force)
+				local eligible, native, reason = original(self, egg, root, force)
+				if (s.AutoCalls or 0) >= 2 and not mutated then
+					assert(eligible and egg.Model == s.Egg, "The exact selected native interaction was checked first")
+					entry.Apply(s) mutated = true
+				end
+				return eligible, native, reason
+			end
+			assert(not s:Dispatch() and mutated and s.AutoCalls == 2, entry.Name)
+			assert(not s.Controller.HatchTestAllowance:GetStatus().Consumed) s:NoActions() s:Close()
+		end)
+	end
+end)
+
 test("Test B registration-blocked preflight reports an independent modifier-aware native price without permission", function()
 	scenario(function()
 		local s = fixture(false)
