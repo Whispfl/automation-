@@ -47,6 +47,7 @@ local function fixture()
 	s.Controller.Farming.Mechanics.PositionSelectedEgg = function(_, manager, record, frame, token)
 		assert(manager:Validate(record, token))
 		table.insert(s.Commands, "DIRECT_POSITION")
+		manager.Lease.DirectPositionAttempted = true -- The production adapter marks the actual dispatch, not the standing preflight.
 		if s.PositionFailure then return false, "Synthetic transform failure" end
 		if not s.NoArrival then s.Root.Position = frame.Position end
 		if s.OnPosition then s.OnPosition() end
@@ -215,7 +216,16 @@ test("Standing clearance observes full avatar bounds, ceiling and unknown avatar
 		local s = fixture() s.Part.Position = Vector3.new(0, 4, 0) s.Root.Position = Vector3.new(100, 4, 0)
 		s.Root.CFrame = frame(s.Root.Position)
 		s.Character.GetBoundingBox = function() return frame(s.Root.Position), Vector3.new(4, 6, 4) end
-		local floor = { Parent = true, CanCollide = true, Anchored = true, IsA = function(_, kind) return kind == "BasePart" end, IsDescendantOf = function() return true end }
+		local floor = { Name = "SyntheticFloor", Parent = workspace, CanCollide = true, Anchored = true,
+			Position = Vector3.new(0, -1, 0), Size = Vector3.new(100, 2, 100), CFrame = frame(Vector3.new(0, -1, 0)),
+			CollisionGroup = "Default", AssemblyLinearVelocity = Vector3.new(0, 0, 0), AssemblyAngularVelocity = Vector3.new(0, 0, 0),
+			IsA = function(_, kind) return kind == "BasePart" end, IsDescendantOf = function() return true end,
+			GetFullName = function() return "Workspace.SyntheticFloor" end }
+		floor.AssemblyRootPart = floor
+		local obstacle = table.clone(floor)
+		obstacle.Name, obstacle.Position = "SyntheticCeiling", Vector3.new(0, 5, 0)
+		obstacle.CFrame, obstacle.AssemblyRootPart = frame(obstacle.Position), obstacle
+		obstacle.GetFullName = function() return "Workspace.SyntheticCeiling" end
 		workspace.Raycast = function(_, origin, _direction, params)
 			assert(params.FilterDescendantsInstances[1] == s.Character and params.RespectCanCollide)
 			return { Instance = floor, Position = Vector3.new(origin.X, 0, origin.Z), Normal = Vector3.new(0, 1, 0) }
@@ -224,7 +234,7 @@ test("Standing clearance observes full avatar bounds, ceiling and unknown avatar
 		workspace.GetPartBoundsInBox = function(_, _cf, size, params)
 			queries += 1 assert(size.X >= 4 and size.Y > 6 and size.Z >= 4, "Root-only clearance ignores actual head/legs")
 			assert(params.FilterDescendantsInstances[1] == s.Character and params.FilterDescendantsInstances[2] == floor)
-			return ceiling and { { CanCollide = true } } or {}
+			return ceiling and { obstacle } or {}
 		end
 		local record = s.Manager:Resolve()
 		local standing = s.Manager:ResolveStanding(record)

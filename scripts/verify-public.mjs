@@ -49,6 +49,8 @@ const representative = [
   'src/OCFoundation/EggTravelManager.luau', 'src/OCFoundation/RewardsManager.luau', 'src/OCFoundation/AntiAFKManager.luau',
   'src/OCFoundation/GameKnowledge.luau', 'src/OCFoundation/OCBrain.luau', 'src/OCFoundation/GameMechanics.luau',
   'src/OCFoundation/AccountPresentation.luau', 'docs/PHASE4-EGG-LOCATION-EVIDENCE.md',
+  'src/OCFoundation/EggStandingGeometry.luau', 'docs/PHASE4-STANDING-EVIDENCE.md',
+  'tests/phase4-standing-geometry.luau', 'tests/phase4-standing-dispatch.luau',
   'tests/phase4-egg-location.luau', 'tests/phase4-location-logging.luau', 'tests/phase4-standing-location.luau',
   'scripts/build.mjs', 'scripts/test.mjs', 'package.json', 'docs/ARCHITECTURE.md', 'docs/LOCAL_FEATURES.md',
   'docs/research/replicatedstorage/README.md', 'docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md',
@@ -96,6 +98,13 @@ for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau']) {
   assert((await get(`${rawRoot}/${priorTravelRelease}/${artifact}`)).equals(expected), 'Prior owner-tested travel pin differs: ' + artifact);
   checks.push({ artifact, ref: priorTravelRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
+const priorLocationRelease = 'phase4-travel-0d5caa499c8c';
+const priorLocationCommit = git('rev-parse', priorLocationRelease + '^{}');
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TravelOnly.luau']) {
+  const expected = execFileSync('git', ['show', `${priorLocationCommit}:${artifact}`], { cwd: root });
+  assert((await get(`${rawRoot}/${priorLocationRelease}/${artifact}`)).equals(expected), 'Prior owner-tested location pin differs: ' + artifact);
+  checks.push({ artifact, ref: priorLocationRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
+}
 // Historical action-OFF examples intentionally retain their accepted migration
 // pin. Compare its own bundle, never pretend it is the current candidate build.
 const historicalRelease = 'migration-005f77211830';
@@ -111,7 +120,7 @@ const report = { dateUTC: new Date().toISOString(), repository, branch: 'main', 
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };
-const reportPath = path.join(root, '.test-output/phase4-egg-location-public-verification.json');
+const reportPath = path.join(root, '.test-output/phase4-standing-public-verification.json');
 await mkdir(path.dirname(reportPath), { recursive: true });
 await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 console.log('[OC] Public verification PASS: ' + checks.length + ' raw content comparisons; bundle build ' + buildId);

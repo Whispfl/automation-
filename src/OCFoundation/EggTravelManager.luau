@@ -3,6 +3,7 @@
 -- executes its task; native transport/direct transforms stay in GameMechanics.
 local EggTravelManager = {}
 EggTravelManager.__index = EggTravelManager
+local Standing = require(script.Parent.EggStandingGeometry)
 
 local function finite(n) return type(n) == "number" and n == n and math.abs(n) < math.huge end
 local function vector(v) return v ~= nil and finite(v.X) and finite(v.Y) and finite(v.Z) end
@@ -61,6 +62,10 @@ function EggTravelManager:DiagnosticTrace(event, record, reason)
 	end
 	local intent = self.BrainIntent or {}
 	local distance = record and finite(record.Distance) and string.format("%.2f", record.Distance) or "UNKNOWN"
+	if record and record.LocationOnly and record.StandingDestination and vector(record.CharacterRoot.Position) and vector(record.TargetRoot.Position) then
+		distance = string.format("%.2f horizontal; %.2f 3D", Vector3.new(record.CharacterRoot.Position.X - record.TargetRoot.Position.X, 0, record.CharacterRoot.Position.Z - record.TargetRoot.Position.Z).Magnitude,
+			(record.CharacterRoot.Position - record.TargetRoot.Position).Magnitude)
+	end
 	local name, world = tostring(record and record.EggName or intent.EggName or "UNSELECTED"), tostring(record and record.World or intent.World or "UNKNOWN")
 	local island = tostring(record and record.Island or intent.Island or "surface/UNKNOWN")
 	local generation = tostring(record and record.Generation or intent.Generation or self.Controller.Generation or "UNKNOWN")
@@ -96,6 +101,7 @@ function EggTravelManager:DiagnosticTrace(event, record, reason)
 	local evidence = record and (record.LocationOnly and "access=LocalData unlock membership; location=verified native physical original Root; physical radius is diagnostic policy, hatch eligibility separate"
 		or "access=LocalData unlock membership + resolved native egg; geometry=actual Root/Prompt; clearance/arrival verified separately")
 		or "access/instance/standing geometry=preflight unresolved; no arrival claimed"
+	if record and record.LocationOnly and record.StandingDestination then evidence ..= "; radius is horizontal near-Root; verified support/standing height required" end
 	self:Report(string.format("%s | egg=%s; instance=%s | world=%s; island=%s | generation=%s; revision=%s | distance=%s; %s radius=%s | %s | %s | direct attempts=%d; native travel attempts=%d; hatch commands=0; spending=0",
 		event, name, tostring(identity or "UNRESOLVED"), world, island, generation, revision, distance, record and record.LocationOnly and "physical policy" or "native", tostring(record and record.Range or "UNKNOWN"), evidence, reason,
 		direct and 1 or 0, native and 1 or 0), "DIAGNOSTIC:" .. key)
@@ -354,6 +360,7 @@ function EggTravelManager:Resolve(force)
 		-- island. Absence of an Island annotation cannot authorize a vertical jump.
 		NeedsNativeTravel = currentWorld ~= world or math.abs(root.Position.Y - part.Position.Y) > 16,
 		Destination = destination, DestinationPath = path, NativeAreaKnown = known == true }
+	if self.Lease and self.Lease.Model == model then record.StandingDestination = self.Lease.StandingDestination end
 	local eligible, rangeBlocker = self:RangeEligibleAt(record, root.Position)
 	record.InRange, record.RangeBlocker = currentWorld == world and eligible, rangeBlocker
 	if diagnostic then
@@ -369,6 +376,15 @@ function EggTravelManager:RangeEligibleAt(record, position, force)
 	if record.LocationOnly then
 		if record.LocationVerified ~= true or record.RangeOrigin ~= record.TargetRoot or not finite(record.PhysicalRange)
 			or record.PhysicalRange <= 0 then return false, "Physical egg location identity/anchor unavailable" end
+		if record.StandingDestination then
+			local proof = record.StandingDestination
+			local valid, reason = Standing.CheckProof(record, proof)
+			if not valid then return false, reason end
+			local horizontal = Vector3.new(position.X - record.TargetRoot.Position.X, 0, position.Z - record.TargetRoot.Position.Z).Magnitude
+			if horizontal > record.PhysicalRange then return false, "PHYSICAL_HORIZONTAL_RANGE_EXCEEDED" end
+			if math.abs(position.Y - proof.Position.Y) > 0.5 then return false, "PHYSICAL_STANDING_HEIGHT_UNOBSERVED" end
+			return true
+		end
 		if distance <= record.PhysicalRange then return true end
 		return false, "Outside diagnostic physical arrival radius; native hatch eligibility is separate"
 	end
@@ -416,73 +432,130 @@ function EggTravelManager:Validate(record, token, force)
 	end
 	if os.clock() >= lease.Deadline then return nil, "Egg location lease expired" end
 	fresh.LeaseId = lease.LeaseId
+	if lease.StandingDestination then
+		local frame, standingReason = self:ResolveStanding(fresh)
+		if not frame then return nil, standingReason end
+	end
 	return fresh
 end
 
 function EggTravelManager:ResolveStanding(record)
-	local ok, frameOrReason = pcall(function()
-		local root, humanoid, target = record.CharacterRoot, record.Humanoid, record.RangeOrigin
-		if not live(target) or not vector(root.Size) or not finite(humanoid.HipHeight) or humanoid.HipHeight < 0 then
-			return "Avatar/target geometry unavailable"
-		end
+	local report = { Model = record.Model, IdentityId = record.IdentityId, Root = record.TargetRoot and record.TargetRoot.Position,
+		Prompt = record.PromptPart and record.PromptPart.Position, Candidates = {}, ReadOnly = true }
+	local ok, frameOrReason, resolvedProof = pcall(function()
+		local root, target = record.CharacterRoot, record.RangeOrigin
+		if not live(target) or not vector(target.Position) or not finite(record.Range) or record.Range <= 0 then return "TARGET_GEOMETRY_UNAVAILABLE" end
 		if type(workspace.Raycast) ~= "function" or type(workspace.GetPartBoundsInBox) ~= "function"
-			or not RaycastParams or not OverlapParams or not CFrame then return "Standing-surface or clearance runtime unavailable" end
-		if type(record.Character.GetBoundingBox) ~= "function" or not root.CFrame then return "Full observed avatar clearance unavailable" end
-		local bodyFrame, bodySize = record.Character:GetBoundingBox()
-		if not bodyFrame or not vector(bodySize) or bodySize.X <= 0 or bodySize.Y <= 0 or bodySize.Z <= 0 then
-			return "Full observed avatar bounds unavailable"
+			or not RaycastParams or not OverlapParams or not CFrame then return "STANDING_RUNTIME_UNAVAILABLE" end
+		local avatar, avatarReason, partialAvatar = Standing.Avatar(record)
+		report.Avatar = avatar or partialAvatar
+		if not avatar then return avatarReason end
+		if avatar.SupportIntersection then return "AVATAR_SOLID_BELOW_SUPPORTED_FEET:bottom=" .. tostring(avatar.ClearanceBottom) end
+		local prior = record.StandingDestination
+		if prior then
+			local valid, reason = Standing.CheckProof(record, prior)
+			if not valid then return reason end
+			if math.abs(avatar.Height - prior.AvatarHeight) > 0.5 then return "AVATAR_STANDING_HEIGHT_CHANGED" end
 		end
-		local bodyOffset = root.CFrame:ToObjectSpace(bodyFrame)
-		if not vector(bodyOffset.Position) or not vector(bodyOffset.RightVector) or not vector(bodyOffset.UpVector)
-			or not vector(bodyOffset.LookVector) then return "Full avatar/root orientation unavailable" end
-		-- Candidate root is upright. Transform the observed full avatar box relative
-		-- to that root; include legs/head/accessories rather than only HRP.Size.
-		local halfVertical = (math.abs(bodyOffset.RightVector.Y) * bodySize.X + math.abs(bodyOffset.UpVector.Y) * bodySize.Y
-			+ math.abs(bodyOffset.LookVector.Y) * bodySize.Z) / 2
-		local height = math.max(humanoid.HipHeight + root.Size.Y / 2, halfVertical - bodyOffset.Position.Y) + 0.15
-		local ray = RaycastParams.new()
-		ray.FilterType = Enum.RaycastFilterType.Exclude
-		ray.FilterDescendantsInstances = { record.Character }
-		ray.RespectCanCollide = true
-		local overlap = OverlapParams.new()
-		overlap.FilterType = Enum.RaycastFilterType.Exclude
-		overlap.RespectCanCollide = true
-		local radius = math.min(4, record.Range / 2)
-		local pos = target.Position
-		-- Try the source-associated anchor X/Z first. Visible egg overlap alone is
-		-- not collision: only actual CanCollide geometry blocks the avatar volume.
-		-- Keep collidable Rendered platforms/egg parts in the floor/clearance query.
-		for _, offset in ipairs({ Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }) do
+		local ray, overlap = RaycastParams.new(), OverlapParams.new()
+		ray.FilterType, ray.FilterDescendantsInstances, ray.RespectCanCollide, ray.CollisionGroup = Enum.RaycastFilterType.Exclude, { record.Character }, true, avatar.CollisionGroup
+		overlap.FilterType, overlap.RespectCanCollide, overlap.CollisionGroup = Enum.RaycastFilterType.Exclude, true, avatar.CollisionGroup
+		local up, down = Standing.SearchDepth(record, avatar)
+		if prior then up, down = prior.RayUp, prior.RayDown end
+		local pos, radius = target.Position, math.min(4, record.Range / 2)
+		local offsets = prior and { Vector3.new(prior.Position.X - pos.X, 0, prior.Position.Z - pos.Z) }
+			or { Vector3.new(0, 0, 0), Vector3.new(radius, 0, 0), Vector3.new(-radius, 0, 0), Vector3.new(0, 0, radius), Vector3.new(0, 0, -radius) }
+		for index, offset in ipairs(offsets) do
 			local horizontal = pos + offset
-			local result = workspace:Raycast(horizontal + Vector3.new(0, record.Range, 0), Vector3.new(0, -record.Range * 2, 0), ray)
+			local candidate = { Id = index, X = horizontal.X, Z = horizontal.Z, RayStartY = pos.Y + up, RayEndY = pos.Y - down,
+				BlockingParts = {}, RangeEligible = false }
+			table.insert(report.Candidates, candidate)
+			local result = workspace:Raycast(Vector3.new(horizontal.X, candidate.RayStartY, horizontal.Z), Vector3.new(0, -up - down, 0), ray)
 			local floor = result and result.Instance
-			if live(floor) and floor.CanCollide == true and floor.Anchored == true and vector(result.Position)
-				and vector(result.Normal) and result.Normal.Y >= 0.98 then
-				local standing = Vector3.new(horizontal.X, result.Position.Y + height, horizontal.Z)
-				if (standing - pos).Magnitude <= record.Range - 0.25 and self:RangeEligibleAt(record, standing) then
-					local facing = Vector3.new(pos.X - standing.X, 0, pos.Z - standing.Z)
+			if floor then
+				candidate.Hit = Standing.Part(floor)
+				candidate.Hit.PartPosition = candidate.Hit.Position
+				candidate.Hit.Position, candidate.Hit.Normal = result.Position, result.Normal
+			end
+			local supported, supportReason = Standing.Support(floor, result and result.Normal)
+			if not result then candidate.Reason = "NO_FLOOR_HIT"
+			elseif not supported then candidate.Reason = supportReason
+			elseif not vector(result.Position) then candidate.Reason = "SUPPORT_HIT_POSITION_UNAVAILABLE"
+			elseif prior and (floor ~= prior.Support or (result.Position - prior.SupportHitPosition).Magnitude > 0.1) then candidate.Reason = "STANDING_SUPPORT_RAY_CHANGED"
+			else
+				local position = prior and prior.Position or Vector3.new(horizontal.X, result.Position.Y + avatar.Height, horizontal.Z)
+				candidate.ProposedPosition, candidate.ProposedRootY = position, position.Y
+				candidate.AnchorDistance = (position - pos).Magnitude
+				candidate.HorizontalDistance = Vector3.new(position.X - pos.X, 0, position.Z - pos.Z).Magnitude
+				local proof = prior or { Position = position, Model = record.Model, TargetRoot = record.TargetRoot,
+					Support = floor, SupportPosition = floor.Position, SupportSize = floor.Size, SupportFrame = floor.CFrame,
+					SupportHitPosition = result.Position, SupportNormal = result.Normal, AnchorPosition = record.TargetRoot.Position,
+					CharacterRoot = root, AvatarHeight = avatar.Height, HorizontalRadius = record.PhysicalRange,
+					RayUp = up, RayDown = down, CollisionGroup = avatar.CollisionGroup }
+				local ranged = table.clone(record) ranged.StandingDestination = proof
+				local eligible, rangeReason = self:RangeEligibleAt(ranged, position)
+				candidate.RangeEligible = eligible == true
+				if not eligible then candidate.Reason = rangeReason
+				else
+					local facing = Vector3.new(pos.X - position.X, 0, pos.Z - position.Z)
 					if facing.Magnitude < 0.05 then
 						local observed = root.CFrame.LookVector
-						if not vector(observed) then return "Observed avatar facing unavailable at the physical anchor" end
+						if not vector(observed) then return "AVATAR_FACING_UNAVAILABLE" end
 						facing = Vector3.new(observed.X, 0, observed.Z)
-						if facing.Magnitude < 0.05 then return "Observed avatar facing has no upright standing direction" end
 					end
-					local frame = CFrame.lookAt(standing, standing + facing)
+					if facing.Magnitude < 0.05 then return "AVATAR_UPRIGHT_FACING_UNAVAILABLE" end
+					local frame = prior and prior.Frame or CFrame.lookAt(position, position + facing)
 					overlap.FilterDescendantsInstances = { record.Character, floor }
-					local blocked = false
-					for _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * bodyOffset, bodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do
-						if obstacle.CanCollide == true then blocked = true break end
+					for _, obstacle in ipairs(workspace:GetPartBoundsInBox(frame * avatar.BodyOffset, avatar.BodySize + Vector3.new(0.3, 0.1, 0.3), overlap)) do
+						if obstacle.CanCollide == true then
+							candidate.BlockingCount = (candidate.BlockingCount or 0) + 1
+							if #candidate.BlockingParts < 6 then table.insert(candidate.BlockingParts, Standing.Part(obstacle)) end
+						end
 					end
-					if not blocked then return frame end
+					if (candidate.BlockingCount or 0) > 0 then candidate.Reason = "AVATAR_COLLISION:" .. candidate.BlockingParts[1].Path
+					else
+						candidate.Reason, proof.Frame = "ACCEPTED_SUPPORTED_CLEAR_POSE", frame
+						return frame, proof
+					end
 				end
 			end
 		end
-		return record.LocationOnly and "No supported floor and clear full avatar volume within diagnostic physical radius; manual approach required"
-			or "No supported floor and clear full avatar volume within native hatch range; manual approach required"
+		local reasons = {} for _, candidate in ipairs(report.Candidates) do table.insert(reasons, "C" .. candidate.Id .. "=" .. tostring(candidate.Reason)) end
+		return "STANDING_DESTINATION_BLOCKED | " .. table.concat(reasons, "; ")
 	end)
-	if not ok then return nil, "Standing-geometry observation failed: " .. tostring(frameOrReason) end
-	if type(frameOrReason) == "string" then return nil, frameOrReason end
-	return frameOrReason
+	local reason = not ok and "STANDING_OBSERVATION_FAILED:" .. tostring(frameOrReason) or type(frameOrReason) == "string" and frameOrReason or nil
+	report.Reason = reason or "STANDING_DESTINATION_RESOLVED"
+	self.LastStandingReport = report
+	self:ReportStandingDiagnostics(record, report)
+	if reason then return nil, reason end
+	return frameOrReason, nil, resolvedProof
+end
+
+function EggTravelManager:ReportStandingDiagnostics(record, report)
+	if (self:Settings().MODE or "NORMAL") ~= "TRAVEL_ONLY" then return end
+	self.StandingReports = self.StandingReports or setmetatable({}, { __mode = "k" })
+	if not record.Model or self.StandingReports[record.Model] then return end
+	self.StandingReports[record.Model] = true -- Once per retained actual Instance, never every guard/tick.
+	local function point(value) return vector(value) and string.format("(%.3f,%.3f,%.3f)", value.X, value.Y, value.Z) or "UNKNOWN" end
+	local function part(value)
+			return value and string.format("%s; hit/pos=%s; part center=%s; size=%s; anchored=%s; collide=%s; query=%s; group=%s; assembly=%s; velocity=%s/%s",
+				value.Path, point(value.Position), point(value.PartPosition or value.Position), point(value.Size), tostring(value.Anchored), tostring(value.CanCollide), tostring(value.CanQuery), tostring(value.CollisionGroup), tostring(value.AssemblyRoot), point(value.LinearVelocity), point(value.AngularVelocity)) or "NO_HIT"
+	end
+	local avatar, lines = report.Avatar, {}
+	if avatar then
+		table.insert(lines, string.format("avatar aggregate=%s; offset=%s; usable=%s; offset=%s; body source=%s; HRP height=%s; group=%s; noncollidable extras=%d; solid extras=%d; unexpected shown=%d",
+			point(avatar.AggregateSize), point(avatar.AggregateOffset.Position), point(avatar.BodySize), point(avatar.BodyOffset.Position), avatar.BodySource, tostring(avatar.Height), avatar.CollisionGroup,
+			avatar.IgnoredNonCollidableCount, avatar.CollidableExtraCount, #avatar.UnexpectedParts))
+		for _, unexpected in ipairs(avatar.UnexpectedParts) do table.insert(lines, "avatar extra: " .. part(unexpected)) end
+	end
+	for _, candidate in ipairs(report.Candidates) do
+		table.insert(lines, string.format("C%d X/Z=(%.3f,%.3f); ray Y=%.3f->%.3f; %s; normal=%s; proposed HRP=%s; anchor distance=%s; horizontal distance=%s; range=%s; blockers=%d; result=%s",
+			candidate.Id, candidate.X, candidate.Z, candidate.RayStartY, candidate.RayEndY, part(candidate.Hit), point(candidate.Hit and candidate.Hit.Normal), point(candidate.ProposedPosition),
+			tostring(candidate.AnchorDistance or "NOT_COMPUTED"), tostring(candidate.HorizontalDistance or "NOT_COMPUTED"), tostring(candidate.RangeEligible), candidate.BlockingCount or 0, tostring(candidate.Reason)))
+		for _, obstacle in ipairs(candidate.BlockingParts) do table.insert(lines, "C" .. candidate.Id .. " blocker: " .. part(obstacle)) end
+	end
+	self:Report("STANDING_DIAGNOSTIC_READ_ONLY | egg=" .. tostring(record.EggName) .. "; instance=" .. tostring(record.IdentityId)
+		.. "; Root=" .. point(report.Root) .. "; Prompt=" .. point(report.Prompt) .. "; final=" .. report.Reason .. "\n" .. table.concat(lines, "\n"), "STANDING:" .. tostring(record.IdentityId), true)
 end
 
 function EggTravelManager:Release(reason, blocked)
@@ -626,13 +699,13 @@ function EggTravelManager:Execute(record, token)
 	local deadline = math.min(lease.Deadline, os.clock() + settings.ARRIVAL_TIMEOUT_SECONDS)
 	if not fresh.InRange then
 		if not settings.ENABLE_DIRECT_POSITIONING then self:Release("Native area reached; selected egg remains outside range; manual approach required", true) return { Verified = false, Reason = self.Reason } end
-		local frame, geometryReason = self:ResolveStanding(fresh)
+		local frame, geometryReason, proof = self:ResolveStanding(fresh)
 		if not frame then self:Release(geometryReason, true) return { Verified = false, Reason = geometryReason } end
+		lease.StandingDestination = proof
+		self:DiagnosticTrace("STANDING_DESTINATION_RESOLVED", fresh, "Observed support ray, actual body clearance and permitted range identify one retained standing pose; no assignment yet")
 		fresh, reason = self:Validate(lease, token)
 		if not fresh then self:Release(reason, true) return { Verified = false, Reason = reason } end
-		lease.DirectPositionAttempted = true -- Retain even on uncertain adapter error; no automatic repeat.
 		lease.RequestedStandingPosition = frame.Position
-		self:DiagnosticTrace("DIRECT_POSITION_ATTEMPTED", fresh, "One existing guarded HRP CFrame adapter attempt; standing surface/full-avatar clearance observed; assignment does not certify arrival")
 		local ok, why = c.Farming.Mechanics:PositionSelectedEgg(self, fresh, frame, token)
 		if not ok then self:DiagnosticTrace("DIRECT_POSITION_FAILED", fresh, why or "Direct assignment failed/unconfirmed") self:Release(why or "Direct positioning failed/unconfirmed", true) return { Verified = false, Reason = self.Reason } end
 	end
@@ -675,10 +748,17 @@ function EggTravelManager:Execute(record, token)
 					self.LastResult.World, self.LastResult.Island = fresh.World, fresh.Island
 					self.LastResult.PhysicalArrivalVerified, self.LastResult.InteractionVerified = true, interaction == true
 					self.LastResult.IdentityId = fresh.IdentityId
+					if lease.StandingDestination then
+						self.LastResult.RootDistance = fresh.Distance
+						self.LastResult.Distance = Vector3.new(fresh.CharacterRoot.Position.X - fresh.TargetRoot.Position.X, 0, fresh.CharacterRoot.Position.Z - fresh.TargetRoot.Position.Z).Magnitude
+						self.LastResult.StandingPosition = lease.StandingDestination.Position
+						self.LastResult.SupportPath = Standing.Path(lease.StandingDestination.Support)
+					end
 					self.LastResult.HatchInteraction = interaction and "HATCH_RANGE_OBSERVED" or "HATCH_INTERACTION_UNVERIFIED"
 					self.LastResult.InteractionReason = interactionReason
 					self.LastResult.NativeRange = native and native.Range
-					self.LastResult.RangeOrigin = "VERIFIED_PHYSICAL_EGG_ROOT; diagnostic 6.5-stud policy"
+					self.LastResult.RangeOrigin = lease.StandingDestination and "VERIFIED_PHYSICAL_EGG_ROOT; horizontal 6.5-stud policy + observed support/standing height"
+						or "VERIFIED_PHYSICAL_EGG_ROOT; diagnostic 6.5-stud policy"
 					self.LastResult.Reason = "Stable physical arrival near the exact verified egg Root observed; native hatch eligibility is a separate read-only result; owner live acceptance still required"
 					self.Reason, self.LastPreflightReason = nil, nil
 					self.DiagnosticEnded, self.Lease = true, nil
@@ -686,7 +766,7 @@ function EggTravelManager:Execute(record, token)
 					self:DiagnosticTrace(self.LastResult.HatchInteraction, fresh, interactionReason)
 				end
 				self:Report(string.format("%s | %s | distance=%.2f/%s; stability=%ss; direct attempt=%s; native travel attempt=%s; hatch commands=0; spending=0",
-					fresh.EggName, self.LastResult.Status, fresh.Distance, tostring(fresh.Range), tostring(settings.STABILITY_SECONDS), tostring(lease.DirectPositionAttempted == true), tostring(lease.NativeTravelAttempted == true)))
+					fresh.EggName, self.LastResult.Status, self.LastResult.Distance, tostring(fresh.Range), tostring(settings.STABILITY_SECONDS), tostring(lease.DirectPositionAttempted == true), tostring(lease.NativeTravelAttempted == true)))
 				return { Verified = true, Reason = self.LastResult.Reason }
 			end
 		else stableAt, stablePosition = nil, nil end
@@ -719,7 +799,7 @@ function EggTravelManager:Destroy() if self.Destroyed then return end self:Halt(
 function EggTravelManager:GetStatus()
 	return { Enabled = self:Settings() and self:Settings().ENABLE_SELECTED_EGG_TRAVEL == true,
 		Lease = self.Lease, OwnsLocation = self:OwnsLocation(), Attempts = table.clone(self.Attempts),
-		LastResult = self.LastResult, Reason = self.Reason, LastPreflightReason = self.LastPreflightReason, BrainIntent = self.BrainIntent,
+		LastResult = self.LastResult, Reason = self.Reason, LastPreflightReason = self.LastPreflightReason, BrainIntent = self.BrainIntent, LastStandingReport = self.LastStandingReport,
 		Mode = (self:Settings() or {}).MODE or "NORMAL", DiagnosticConsumed = self.DiagnosticConsumed == true, DiagnosticEnded = self.DiagnosticEnded == true,
 		HatchPermission = "SEPARATE", LiveVerification = "OWNER_PENDING" }
 end

@@ -62,7 +62,7 @@ const integrationAssertions = await readFile(path.join(root, 'tests/integration.
 const economicsAssertions = await readFile(path.join(root, 'tests/economics.luau'), 'utf8');
 const loggingAssertions = await readFile(path.join(root, 'tests/logging.luau'), 'utf8');
 const petAssertions = await readFile(path.join(root, 'tests/pets.luau'), 'utf8');
-const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
+const localFeatureAssertions = (await Promise.all(['egg-travel.luau','rewards.luau','anti-afk.luau','local-features.luau','phase4-roi.luau','phase4-hatch-integration.luau','phase4-travel-integration.luau','phase4-controller-integration.luau','phase4-pickups.luau','phase4-benchmark-fixes.luau','phase4-travel-only.luau','phase4-owner-allowance.luau','phase4-position-guards.luau','phase4-travel-logging.luau','phase4-egg-identity.luau','phase4-location-logging.luau','phase4-egg-location.luau','phase4-standing-location.luau','phase4-standing-geometry.luau','phase4-standing-dispatch.luau'].map(name => readFile(path.join(root, 'tests',name),'utf8')))).join('\n');
 function configPrefix(contents) {
   const call = contents.indexOf('loadstring(game:HttpGet(');
   assert(call >= 0, 'Example must use the public loader');

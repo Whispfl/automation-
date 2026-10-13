@@ -2,6 +2,9 @@
 -- One ordinary accessible physical egg; hatch eligibility is verified separately.
 -- Signed coordinates, actual world/island geometry and exact Instance retention.
 -- Visual overlap may be valid; standing support and real collision clearance apply.
+-- One bounded standing report includes actual ray hits, body/cosmetic bounds,
+-- collision group, candidate rejections and retained support/standing pose.
+-- Arrival requires observed position and stability; assignment alone is pending.
 -- Expanded read-only evidence on demand: OC:PrintEggLocations("Common Egg").
 local Config = {
 	GENERAL_SETTINGS = { OC_ENABLED = true, AUTO_START = true, ENABLE_RECOMMENDATIONS = true },
@@ -27,5 +30,5 @@ local Config = {
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-travel-0d5caa499c8c/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-travel-79273e3c1cc9/dist/OC.lua"))()(Config)
 return OC

@@ -26,7 +26,10 @@ local function standingFixture(callback)
 		local s = { Character = {}, Casts = 0, Queries = 0 }
 		local function part(position, collidable, parent)
 			return { Position = position, Parent = parent or true, CanCollide = collidable, Anchored = true,
-				IsA = function(_, kind) return kind == "BasePart" end, IsDescendantOf = function() return true end }
+				Size = Vector3.new(2, 2, 2), CFrame = frame(position), CollisionGroup = "Default",
+				AssemblyLinearVelocity = Vector3.new(0, 0, 0), AssemblyAngularVelocity = Vector3.new(0, 0, 0),
+				IsA = function(_, kind) return kind == "BasePart" end, IsDescendantOf = function() return true end,
+				GetFullName = function() return "Workspace.SyntheticStandingPart" end }
 		end
 		s.Root = part(Vector3.new(100, 13.15, 100), true, s.Character)
 		s.Root.Size, s.Root.CFrame = Vector3.new(2, 2, 1), frame(s.Root.Position)
@@ -35,7 +38,9 @@ local function standingFixture(callback)
 		s.Rendered = { Name = "Rendered", Parent = workspace }
 		s.Model = { Name = "Common Egg", Parent = { Name = "Chunker", Parent = s.Rendered } }
 		s.Target = part(Vector3.new(-12, 12, -34), false, s.Model)
-		s.Floor = part(Vector3.new(-12, 10, -34), true, s.Model)
+		s.Floor = part(Vector3.new(-12, 9, -34), true, s.Model)
+		s.Floor.Size = Vector3.new(20, 2, 20)
+		s.Floor.AssemblyRootPart = s.Floor
 		s.Visual = part(Vector3.new(-12, 13, -34), false, { Name = "Generic", Parent = s.Rendered })
 		s.Solid = part(Vector3.new(-12, 13, -34), true)
 		s.Record = { Model = s.Model, TargetRoot = s.Target, RangeOrigin = s.Target,
@@ -78,7 +83,7 @@ test("TRAVEL_ONLY real collidable avatar obstruction rejects center and every fa
 	standingFixture(function(s)
 		s.Blocked = true
 		local standing, reason = s.Manager:ResolveStanding(s.Record)
-		assert(not standing and reason:find("No supported floor", 1, true) and s.Casts == 5 and s.Queries == 5)
+		assert(not standing and reason:find("AVATAR_COLLISION", 1, true) and s.Casts == 5 and s.Queries == 5)
 	end)
 end)
 

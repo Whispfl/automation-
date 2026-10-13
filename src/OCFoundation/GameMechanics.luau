@@ -814,21 +814,39 @@ function GameMechanics:PositionSelectedEgg(manager, record, frame, token)
 		or "Already in observed native hatch range; no direct positioning needed" end
 	local clearedFrame, clearanceReason = manager:ResolveStanding(fresh)
 	if not clearedFrame then return false, clearanceReason end
+	if fresh.LocationOnly and type(fresh.StandingDestination) ~= "table" then return false, "Verified physical standing destination evidence unavailable" end
 	if typeof(frame) ~= "CFrame" or (frame.Position - clearedFrame.Position).Magnitude > 0.25 then return false, "Standing geometry changed during guards; explicit rearm required" end
 	frame = clearedFrame -- Assign exactly the freshly cleared avatar orientation/volume.
 	if typeof(frame) ~= "CFrame" or not featureFinite(frame.Position.X) or not featureFinite(frame.Position.Y)
 		or not featureFinite(frame.Position.Z) or not fresh.RangeOrigin
-		or (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range
+		or not fresh.LocationOnly and (frame.Position - fresh.RangeOrigin.Position).Magnitude > fresh.Range
 		or not manager:RangeEligibleAt(fresh, frame.Position, true) then return false, fresh.LocationOnly
-			and "Validated standing transform unavailable or outside verified physical arrival radius"
+			and "Validated standing transform unavailable or outside verified physical support/radius"
 			or "Validated standing transform unavailable or outside actual native hatch eligibility" end
 	if self.LastEggPositionLease == record.LeaseId then return false, "Direct position already attempted for this lease" end
 	local final, finalReason = manager:Validate(record, token, true)
 	if not final or final.CharacterRoot ~= fresh.CharacterRoot or final.NeedsNativeTravel then return false, finalReason or "Selected egg/character/area changed during final positioning guards" end
+	if final.LocationOnly and final.StandingDestination ~= fresh.StandingDestination then return false, "Selected physical standing evidence changed during final guards" end
+	local finalFrame, finalStandingReason = manager:ResolveStanding(final)
+	if not finalFrame then return false, finalStandingReason end
+	if typeof(finalFrame) ~= "CFrame" or not featureFinite(finalFrame.Position.X) or not featureFinite(finalFrame.Position.Y)
+		or not featureFinite(finalFrame.Position.Z) or not final.RangeOrigin or (finalFrame.Position - frame.Position).Magnitude > 0.25
+		or not final.LocationOnly and (finalFrame.Position - final.RangeOrigin.Position).Magnitude > final.Range
+		or not manager:RangeEligibleAt(final, finalFrame.Position, true) then
+		return false, "Exact standing destination/support changed during final guards; no assignment"
+	end
+	frame = finalFrame
 	if token:CheckCancelled() or not owns() or not self.Config.EGG_TRAVEL_SETTINGS.ENABLE_DIRECT_POSITIONING then return false, "Cancelled or selected-egg scheduler ownership changed" end
 	if final.InRange then return true, final.LocationOnly and "Already inside diagnostic physical arrival radius after guards; no assignment"
 		or "Already in observed native hatch range after guards; no assignment" end
 	self.LastEggPositionLease = record.LeaseId -- Mark before assignment; failure cannot trigger repeated snapping.
+	local lease = manager.Lease
+	if lease and lease.LeaseId == record.LeaseId then lease.DirectPositionAttempted = true end
+	record.DirectPositionAttempted, final.DirectPositionAttempted = true, true
+	if type(manager.DiagnosticTrace) == "function" then
+		manager:DiagnosticTrace("DIRECT_POSITION_ATTEMPTED", final, "One guarded HRP CFrame assignment at the exact revalidated standing destination; actual stable arrival remains pending")
+	end
+	fresh = final -- Preserve the single assignment site while using the final revalidated character.
 	local assigned, err = pcall(function() fresh.CharacterRoot.CFrame = frame end)
 	return assigned, assigned and "Direct CFrame assigned; observed arrival/stability/range still pending" or "Direct position failed: " .. tostring(err)
 end

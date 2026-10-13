@@ -51,12 +51,14 @@ end)
 
 test("Actual adapter permits signed physical anchor coordinates without requiring hatch registration", function()
 	local s = fixture() s.Frame = frame(Vector3.new(-10, -5, -79))
+	local standingEvidence = { Frame = s.Frame }
 	local validate = s.Manager.Validate
 	s.Manager.Validate = function(...)
 		local fresh, reason = validate(...)
 		if fresh then
 			fresh.LocationOnly, fresh.LocationVerified, fresh.InteractionVerified = true, true, false
 			fresh.Range, fresh.PhysicalRange, fresh.RangeOrigin = 6.5, 6.5, { Position = s.Frame.Position }
+			fresh.StandingDestination = standingEvidence
 		end
 		return fresh, reason
 	end

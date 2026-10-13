@@ -82,6 +82,8 @@ local function fixture(manual)
 		if not fresh then return false, reason end
 		assert(manager.DiagnosticConsumed, "Diagnostic permission must be consumed before position assignment")
 		table.insert(s.Commands, "DIRECT_POSITION")
+		manager.Lease.DirectPositionAttempted = true
+		manager:DiagnosticTrace("DIRECT_POSITION_ATTEMPTED", record, "Synthetic guarded transform dispatch; observed arrival remains pending")
 		if s.PositionFailure then return false, "Synthetic CFrame assignment rejected" end
 		if not s.NoArrival then s.Root.Position = frame.Position end
 		if s.OnPosition then s.OnPosition() end
