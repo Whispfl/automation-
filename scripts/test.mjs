@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
 import './verify-test-a-preservation.mjs';
+import '../tests/phase4-approved-membership.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = await sources(root);
@@ -354,6 +355,7 @@ for category, keys in pairs({
 }) do for _, key in ipairs(keys) do assert(settings[category][key] == false, category .. "." .. key) end end
 assert(settings.WORLD_SETTINGS.MAXIMUM_WORLD_UNLOCK_COST == 0)
 if ${active} then assert(requireOC("OwnerHatchTestAllowance").Isolation(settings) == nil) end
+assert(settings.UPGRADE_SETTINGS.MAXIMUM_PURCHASE_COST == 0)
 print("[OC TEST] ${filename} approval=${approval}, account=${accountId}: matching pin, price10/count1, zero unrelated actions passed")
 `;
     await writeFile(testPath, environment+'\n'+generated.library+'\n'+assertions+'\n'+assertionsB);

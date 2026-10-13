@@ -117,13 +117,14 @@ local function scenario(callback)
 	shared = previous assert(ok, reason)
 end
 
-local function preflight(s)
+local function preflight(s, beforeReport)
 	s.Controller.Config.EGG_TRAVEL_SETTINGS.MODE = "TRAVEL_ONLY"
 	-- The synthetic arrival observation authorizes reporting only; this helper
 	-- performs no movement and supplies no spending approval.
 	s.Controller.EggTravel = { LastResult = { PhysicalArrivalVerified = true },
 		BrainIntent = { EggName = "Common Egg", Model = s.Egg }, BrainUserId = 123 }
 	local snapshot, context = s.Manager:Fresh()
+	if beforeReport then beforeReport(snapshot, context) end
 	s.Manager:ReportHatchPreflight(snapshot, context)
 	return s.Manager.HatchPreflight
 end
@@ -188,6 +189,120 @@ test("Test B read-only arrived preflight exposes native cooldown full storage pr
 			assert(not s:Dispatch()) s:NoActions() s:Close()
 		end)
 	end
+end)
+
+test("Test B registration-blocked preflight reports an independent modifier-aware native price without permission", function()
+	scenario(function()
+		local s = fixture(false)
+		s.Cost = 7
+		s.Controller.Knowledge.NativeEggChunkers = {}
+		for _, model in ipairs(s.Models) do model.Prompt:FindFirstChildOfClass("ProximityPrompt").Parent = nil end
+		local report = preflight(s, function(_, context)
+			assert(context.Eggs[1].Model == nil and context.Eggs[1].Cost.Amount == 10)
+		end)
+		assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.SpendingPermission == false)
+		assert(report.Reason:find("NATIVE_EGG_IDENTITY_UNVERIFIED", 1, true))
+		assert(report.Before.InstanceId == s.Controller.Knowledge.InstanceIds[s.Egg])
+		assert(report.Before.NativePrice == 7 and report.Before.PriceReason == "NATIVE_STATSUTIL_QUOTE")
+		assert(s.Logs[#s.Logs]:find("native price=7 Coins", 1, true))
+		assert(not s:Dispatch()) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B native preflight quote requires current known ordinary Coins catalog and available valid helper output", function()
+	for _, variant in ipairs({ "missing_catalog", "unsupported_catalog", "missing_helper", "throw", "invalid_currency", "invalid_amount" }) do
+		scenario(function()
+			local s = fixture(false)
+			local report = preflight(s, function()
+				if variant == "missing_catalog" then s.Dependencies.Eggs["Common Egg"] = nil
+				elseif variant == "unsupported_catalog" then s.Dependencies.Eggs["Common Egg"].ProductId = 12345
+				elseif variant == "missing_helper" then s.Dependencies.StatsUtil.GetEggCost = nil
+				elseif variant == "throw" then s.Dependencies.StatsUtil.GetEggCost = function() error("Synthetic missing price") end
+				elseif variant == "invalid_currency" then s.Dependencies.StatsUtil.GetEggCost = function() return { Type = "Currency", Currency = "Gems", Amount = 7 } end
+				else s.Dependencies.StatsUtil.GetEggCost = function() return { Type = "Currency", Currency = "Coins", Amount = math.huge } end end
+			end)
+			assert(report.Status == "HATCH_PREFLIGHT_BLOCKED" and report.Before.NativePrice == nil)
+			local reason = variant == "missing_catalog" and "NATIVE_PRICE_DEFINITION_UNAVAILABLE"
+				or variant == "unsupported_catalog" and "NATIVE_PRICE_UNSUPPORTED_DEFINITION"
+				or variant == "missing_helper" and "NATIVE_PRICE_HELPER_UNAVAILABLE"
+				or variant == "throw" and "NATIVE_PRICE_HELPER_FAILED" or "NATIVE_PRICE_INVALID_QUOTE"
+			assert(report.Before.PriceReason == reason and report.SpendingPermission == false)
+			s:NoActions() s:Close()
+		end)
+	end
+end)
+
+test("Test B read-only native price quotation cannot mutate current LocalData through helper account caches", function()
+	scenario(function()
+		local s = fixture(false)
+		local original = { Coins = s.Profile.Coins, PetAmount = s.Profile.Pets[1].Amount, TeamId = s.Profile.Teams[1].Pets[1] }
+		s.Dependencies.StatsUtil.GetEggCost = function(_, player, facts, name)
+			assert(player == s.Controller.Reader.Player and name == "Common Egg" and facts ~= s.Profile)
+			facts.Coins, facts.Pets[1].Amount, facts.Teams[1].Pets[1] = 1, 999, "mutated detached quote"
+			return { Type = "Currency", Currency = "Coins", Amount = 7 }
+		end
+		local report = preflight(s)
+		assert(report.Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" and report.Before.NativePrice == 7)
+		assert(s.Profile.Coins == original.Coins and s.Profile.Pets[1].Amount == original.PetAmount
+			and s.Profile.Teams[1].Pets[1] == original.TeamId)
+		assert(not s:Dispatch()) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B preflight status changes appear immediately while routine balance churn is throttled", function()
+	scenario(function(clock)
+		local s = fixture(false)
+		preflight(s) local count = #s.Logs
+		s.Profile.Coins += 1 clock.Time = 1 preflight(s) assert(#s.Logs == count)
+		s.Profile.Coins += 1 clock.Time = 2 preflight(s) assert(#s.Logs == count)
+		clock.Time = s.Controller.Config.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS
+		preflight(s) assert(#s.Logs == count + 1)
+		s.Dependencies.ProximityPrompt.Visible = 1
+		preflight(s) assert(#s.Logs == count + 2 and s.Manager.HatchPreflight.Status == "HATCH_PREFLIGHT_BLOCKED")
+		preflight(s) assert(#s.Logs == count + 2)
+		assert(not s:Dispatch()) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B native registration diagnostics report the retained Instance without replacing eligibility or flooding update counters", function()
+	scenario(function(clock)
+		local s = fixture(false)
+		local calls, diagnosticReason = 0, "OBSERVER_NATIVE_UPDATE_PENDING"
+		s.Controller.Knowledge.NativeEggRegistrationDiagnostics = function(_, selected)
+			assert(selected == s.Egg) calls += 1
+			return { Reason = diagnosticReason, Summary = "read-only native Update count=" .. calls }
+		end
+		local report = preflight(s) local count = #s.Logs
+		assert(report.Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" and report.Before.RegistrationReason == diagnosticReason)
+		assert(report.Registration.Summary == report.Before.RegistrationSummary and report.Before.RegistrationSummary:find("count=1", 1, true))
+		clock.Time = 1 preflight(s) assert(#s.Logs == count and calls == 2)
+		diagnosticReason = "OBSERVER_WINDOW_ENDED_BEFORE_QUALIFYING_UPDATE"
+		preflight(s) assert(#s.Logs == count + 1 and s.Manager.HatchPreflight.Before.RegistrationReason == diagnosticReason)
+		s.Controller.Knowledge.NativeEggRegistrationDiagnostics = function() error("Synthetic optional diagnostic failure") end
+		report = preflight(s)
+		assert(report.Before.RegistrationReason == "REGISTRATION_DIAGNOSTICS_UNAVAILABLE"
+			and report.Status == "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" and report.SpendingPermission == false)
+		assert(not s:Dispatch()) s:NoActions() s:Close()
+	end)
+end)
+
+test("Test B ready and blocked preflight remain visible with debug OFF and identical reports remain silent", function()
+	local originalPrint, output = print, {}
+	print = function(value) table.insert(output, tostring(value)) end
+	local ok, failure = xpcall(function()
+		scenario(function()
+			local s = fixture(false)
+			s.Controller.Config.DIAGNOSTIC_SETTINGS.ENABLE_DEBUG_LOGGING = false
+			s.Controller.Log = requireOC("OCController").Log
+			preflight(s) assert(#output == 1 and output[1]:find("HATCH_PREFLIGHT_READY_ALLOWANCE_OFF", 1, true))
+			preflight(s) assert(#output == 1)
+			s.Dependencies.ProximityPrompt.Visible = 1
+			preflight(s) assert(#output == 2 and output[2]:find("HATCH_PREFLIGHT_BLOCKED", 1, true))
+			preflight(s) assert(#output == 2)
+			assert(not s:Dispatch()) s:NoActions() s:Close()
+		end)
+	end, debug.traceback)
+	print = originalPrint assert(ok, failure)
 end)
 
 test("Test B duplicate Common originals permit one explicitly bounded eligible request and no unrelated actions", function()

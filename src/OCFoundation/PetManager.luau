@@ -254,10 +254,33 @@ function PetManager:ReportHatchPreflight(snapshot, context)
 	local raw = c.Reader:GetLiveProfile()
 	local root = c.Farming.Tracker:Root()
 	local eligible, native, nativeReason = c.Knowledge:NativeEggRangeEligible({ Model = intent.Model }, root, true)
+	local registration
+	if type(c.Knowledge.NativeEggRegistrationDiagnostics) == "function" then
+		local ok, record = pcall(function() return c.Knowledge:NativeEggRegistrationDiagnostics(intent.Model) end)
+		if ok and type(record) == "table" then registration = record end
+	end
 	local egg for _, value in ipairs(context and context.Eggs or {}) do
 		if value.Name == intent.EggName and value.Model == intent.Model then egg = value break end
 	end
-	local price = egg and egg.Cost
+	-- Native pricing is a read-only account/catalog quote. Missing registration
+	-- must not disguise an available quote, and a quote grants no interaction proof.
+	local definitions, stats = c.Knowledge:Get("Eggs"), c.Knowledge:Get("StatsUtil")
+	local definition = type(definitions) == "table" and definitions[intent.EggName]
+	local price, priceReason
+	if not raw or not snapshot or snapshot.Ready ~= true then priceReason = "NATIVE_PRICE_ACCOUNT_UNAVAILABLE"
+	elseif type(definition) ~= "table" then priceReason = "NATIVE_PRICE_DEFINITION_UNAVAILABLE"
+	elseif not definition.World or definition.Event or definition.ProductId or definition.IsAdminEgg
+		or intent.EggName == "Infinity Egg" or type(definition.Cost) ~= "table"
+		or definition.Cost.Type ~= "Currency" or definition.Cost.Currency ~= "Coins"
+		or not Policy.Finite(definition.Cost.Amount) or definition.Cost.Amount <= 0 then priceReason = "NATIVE_PRICE_UNSUPPORTED_DEFINITION"
+	elseif not stats or type(stats.GetEggCost) ~= "function" then priceReason = "NATIVE_PRICE_HELPER_UNAVAILABLE"
+	else
+		local ok, quote = pcall(function() return stats:GetEggCost(player, copyFacts(raw), intent.EggName) end)
+		if not ok then priceReason = "NATIVE_PRICE_HELPER_FAILED"
+		elseif type(quote) ~= "table" or quote.Type ~= "Currency" or quote.Currency ~= "Coins"
+			or not Policy.Finite(quote.Amount) or quote.Amount <= 0 then priceReason = "NATIVE_PRICE_INVALID_QUOTE"
+		else price, priceReason = quote, "NATIVE_STATSUTIL_QUOTE" end
+	end
 	local coins = raw and raw.Coins
 	local opened = raw and type(raw.EggsOpened) == "table" and (raw.EggsOpened[intent.EggName] or 0)
 	local nextAt = player and player:GetAttribute("NextEggOpenAt")
@@ -290,18 +313,30 @@ function PetManager:ReportHatchPreflight(snapshot, context)
 		ready, reason = false, "Current account/character/profile changed during read-only native readiness guards"
 	end
 	local status = ready and "HATCH_PREFLIGHT_READY_ALLOWANCE_OFF" or "HATCH_PREFLIGHT_BLOCKED"
-	local before = { AccountId = accountId, InstanceId = native and native.IdentityId or intent.IdentityId,
-		NativePrice = price and price.Amount, Coins = coins, StorageUsed = context and context.StorageUsed,
+	local before = { AccountId = accountId, InstanceId = native and native.IdentityId or intent.IdentityId or registration and registration.SelectedInstanceId,
+		NativePrice = price and price.Amount, PriceReason = priceReason, Coins = coins, StorageUsed = context and context.StorageUsed,
 		StorageCapacity = context and context.StorageCapacity, FreeStorage = free, DigitalStorage = context and context.DigitalStorage,
-		EggsOpened = opened, NextEggOpenAt = nextAt, InteractionMode = native and native.InteractionMode }
-	self.HatchPreflight = { Status = status, Reason = reason, Before = before, SpendingPermission = false }
-	local message = string.format("%s | egg=%s; selected instance=%s; account=%s; native price=%s Coins; current Coins=%s; storage=%s/%s; free=%s; digital=%s; EggsOpened=%s; NextEggOpenAt=%s; interaction=%s | %s | hatch requests=%s; requested spending=%s",
+		EggsOpened = opened, NextEggOpenAt = nextAt, InteractionMode = native and native.InteractionMode,
+		RegistrationReason = registration and registration.Reason or "REGISTRATION_DIAGNOSTICS_UNAVAILABLE",
+		RegistrationSummary = registration and registration.Summary or "native registration diagnostic unavailable" }
+	self.HatchPreflight = { Status = status, Reason = reason, Before = before, Registration = registration, SpendingPermission = false }
+	local message = string.format("%s | egg=%s; selected instance=%s; account=%s; native price=%s Coins (%s); current Coins=%s; storage=%s/%s; free=%s; digital=%s; EggsOpened=%s; NextEggOpenAt=%s; interaction=%s | %s | registration=%s; %s | hatch requests=%s; requested spending=%s",
 		status, intent.EggName, tostring(before.InstanceId or "UNKNOWN"), tostring(before.AccountId or "UNKNOWN"),
-		tostring(before.NativePrice or "UNKNOWN"), tostring(before.Coins or "UNKNOWN"), tostring(before.StorageUsed or "UNKNOWN"),
+		tostring(before.NativePrice or "UNKNOWN"), tostring(before.PriceReason), tostring(before.Coins or "UNKNOWN"), tostring(before.StorageUsed or "UNKNOWN"),
 		tostring(before.StorageCapacity or "UNKNOWN"), tostring(before.FreeStorage or "UNKNOWN"), tostring(before.DigitalStorage),
 		tostring(before.EggsOpened or "UNKNOWN"), tostring(before.NextEggOpenAt or "ABSENT"), tostring(before.InteractionMode or "UNKNOWN"), reason,
+		tostring(before.RegistrationReason), tostring(before.RegistrationSummary),
 		tostring(self.Hatch.RequestedHatches), tostring(self.Hatch.RequestCost))
-	if self.LastHatchPreflightMessage ~= message then c:Log("HATCH_PREFLIGHT", message) self.LastHatchPreflightMessage = message end
+	-- A new readiness/blocker/identity/quote appears immediately. Routine balance
+	-- and capacity churn is coalesced under the existing diagnostic interval.
+	local semantic = table.concat({ status, reason, tostring(before.InstanceId), tostring(before.AccountId),
+		tostring(before.NativePrice), priceReason, tostring(before.InteractionMode), tostring(before.RegistrationReason) }, "|")
+	local nowAt = os.clock()
+	if self.LastHatchPreflightMessage ~= message and (self.LastHatchPreflightSemantic ~= semantic
+		or nowAt - (self.LastHatchPreflightAt or -math.huge) >= settings.DIAGNOSTIC_SETTINGS.MINIMUM_LOG_INTERVAL_SECONDS) then
+		c:Log("HATCH_PREFLIGHT", message)
+		self.LastHatchPreflightMessage, self.LastHatchPreflightSemantic, self.LastHatchPreflightAt = message, semantic, nowAt
+	end
 end
 
 function PetManager:NativeHatchIdle()

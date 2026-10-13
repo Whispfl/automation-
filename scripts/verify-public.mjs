@@ -53,7 +53,10 @@ const representative = [
   'src/OCFoundation/HatchManager.luau', 'src/OCFoundation/PetManager.luau', 'src/OCFoundation/OwnerHatchTestAllowance.luau',
   'docs/PHASE4-TEST-B-NATIVE-EVIDENCE.md', 'docs/PHASE4-TEST-A-PRESERVATION.json',
   'docs/PHASE4-TEST-B-DELIVERY.md',
+  'docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json', 'docs/PHASE4-REGISTRATION-OBSERVATION-EVIDENCE.md',
+  'docs/PHASE4-PROTECTED-MEMBERSHIP-PROPOSAL.md', 'docs/PHASE4-REGISTRATION-PREFLIGHT-DELIVERY.md',
   'scripts/verify-test-a-preservation.mjs', 'tests/phase4-test-b-interaction.luau',
+  'scripts/verify-phase4-approved-membership.mjs', 'tests/phase4-approved-membership.mjs', 'tests/phase4-egg-identity.luau',
   'tests/phase4-egg-location.luau', 'tests/phase4-location-logging.luau', 'tests/phase4-standing-location.luau',
   'scripts/build.mjs', 'scripts/test.mjs', 'package.json', 'docs/ARCHITECTURE.md', 'docs/LOCAL_FEATURES.md',
   'docs/research/replicatedstorage/README.md', 'docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md',
@@ -86,6 +89,15 @@ for (const artifact of ['dist/OC.lua', 'examples/Phase4AutoOnce.luau']) {
   const expected = execFileSync('git', ['show', `${priorPhase4Commit}:${artifact}`], { cwd: root });
   assert((await get(`${rawRoot}/${priorPhase4Release}/${artifact}`)).equals(expected), 'Prior tested Phase4 pin differs: ' + artifact);
   checks.push({ artifact, ref: priorPhase4Release, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
+}
+const previousTestBRelease = 'phase4-hatch-59c475d125c2';
+const previousTestBCommit = '358bd6b22a2158ad4be14a7a9adc1561566697b2';
+assert.equal(git('rev-parse', previousTestBRelease + '^{}'), previousTestBCommit, 'Previous Test B local pin changed');
+assert.equal((await publicJSON('/git/ref/tags/' + previousTestBRelease)).object.sha, previousTestBCommit, 'Previous Test B public pin changed');
+for (const artifact of ['dist/OC.lua', 'examples/Phase4TestBPreflight.luau', 'examples/Phase4TestBOneHatch.luau', 'docs/PHASE4-TEST-A-PRESERVATION.json']) {
+  const expected = execFileSync('git', ['show', `${previousTestBCommit}:${artifact}`], { cwd: root });
+  assert((await get(`${rawRoot}/${previousTestBRelease}/${artifact}`)).equals(expected), 'Previous Test B artifact changed: ' + artifact);
+  checks.push({ artifact, ref: previousTestBRelease, bytes: expected.length, sha256: sha256(expected), result: 'PASS' });
 }
 const priorTestRelease = 'phase4-tests-141b7608bedf';
 const priorTestCommit = git('rev-parse', priorTestRelease + '^{}');
@@ -123,6 +135,7 @@ for (const artifact of ['dist/OC.lua', 'examples/EggAnalysis.luau', 'examples/Ha
 }
 const report = { dateUTC: new Date().toISOString(), repository, branch, commit, buildId, release,
   ownerApprovedTestA: { buildId: '0d5caa499c8c', commit: approvedTravelCommit, release: approvedTravelRelease, unchanged: true },
+  previousTestB: { buildId: '59c475d125c2', commit: previousTestBCommit, release: previousTestBRelease, unchanged: true },
   anonymousAccess: true, publishedFilesCompared: localFiles.size, publicTreeComplete: true,
   bundleSHA256: sha256(dist), localBundleSHA256: sha256(await readFile(path.join(root, 'dist/OC.local.lua'))),
   rawChecks: checks, result: 'PASS', scope: 'Publication/content verification only; no gameplay executed' };

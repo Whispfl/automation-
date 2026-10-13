@@ -23,12 +23,12 @@ local Config = {
 	ISLAND_SETTINGS = { AUTO_TRAVEL_BEST_ISLAND = false, AUTO_EXPLORE_UNLOCKED_ISLANDS = false },
 	PICKUP_SETTINGS = { BULK_COLLECT_PICKUPS = false, STATIONARY_ISOLATED_TEST = false },
 	BUBBLE_SETTINGS = { AUTO_BLOW_BUBBLES = false, AUTO_SELL_BUBBLES = false, AUTO_BUY_GUM = false, AUTO_BUY_FLAVORS = false, ENABLE_SIMULTANEOUS_BLOWING = false },
-	UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false, ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false },
+	UPGRADE_SETTINGS = { ENABLE_SMART_UPGRADES = false, ENABLE_CAPACITY_UPGRADES = false, ENABLE_FLAVOR_UPGRADES = false, AUTO_EQUIP_OWNED_UPGRADES = false, MAXIMUM_PURCHASE_COST = 0 },
 	PLAYTIME_SETTINGS = { AUTO_CLAIM_PLAYTIME = false },
 	MYSTERY_BOX_SETTINGS = { AUTO_OPEN_MYSTERY_BOXES = false, ENABLE_AUTOMATIC_CONTINUATION = false },
 	ANTIAFK_SETTINGS = { ENABLE_ANTI_AFK = false },
 	DIAGNOSTIC_SETTINGS = { ENABLE_CONSOLE_LOGGING = true, ENABLE_DEBUG_LOGGING = false, SUMMARY_INTERVAL_SECONDS = 15 },
 }
 
-local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-hatch-59c475d125c2/dist/OC.lua"))()(Config)
+local OC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Whispfl/automation-/phase4-hatch-926bc78d88af/dist/OC.lua"))()(Config)
 return OC

@@ -146,7 +146,13 @@ function GameKnowledge:ObserveEggModel(model)
 		if model.Parent ~= receiver._folder then continue end
 		for coord in pairs(receiver._loaded) do
 			local values = receiver._chunks[coord]
-			if type(values) == "table" and table.find(values, model) then registered += 1 break end
+			local member = false
+			if type(values) == "table" then
+				for _, value in pairs(values) do
+					if value == model then member = true break end
+				end
+			end
+			if member then registered += 1 break end
 		end
 	end
 	record.RegisteredReceivers = registered
@@ -322,17 +328,16 @@ function GameKnowledge:NativeRegisteredEggModels()
 	for coord, loaded in pairs(receiver._loaded) do
 		local values = receiver._chunks[coord]
 		if loaded ~= true or type(values) ~= "table" then return nil, "Native loaded egg registration coordinates inconsistent" end
-		local length = 0
 		for index, model in pairs(values) do
 			entries += 1
 			if entries > 512 then return nil, "Native loaded egg registration observation limit exceeded" end
 			if type(index) ~= "number" or index % 1 ~= 0 or index < 1 then return nil, "Native loaded egg registration array inconsistent" end
-			length += 1
 			if typeof(model) ~= "Instance" or not model:IsA("Model") or model.Parent ~= receiver._folder
 				or not model:IsDescendantOf(workspace) or not eggParts(model) then return nil, "Native loaded original registration geometry inconsistent" end
 			if not seen[model] then seen[model] = true table.insert(models, model) end
 		end
-		for index = 1, length do if values[index] == nil then return nil, "Native loaded egg registration array has missing entries" end end
+		-- Native Remove leaves holes (Chunker:66-75). Generic iteration reads
+		-- every remaining exact value; a hole is not an unknown registry entry.
 	end
 	return models
 end
@@ -662,8 +667,17 @@ function GameKnowledge:EnsureChunkerObserver()
 		local observer
 		observer = function(chunker, ...)
 			-- Observe the real receiver; preserve native Update arguments/results and never choose an action here.
+			if not self.Destroyed and self.ChunkerObserver == observer then
+				pcall(self.RecordNativeEggUpdate, self, chunker, true)
+			end
 			local result = table.pack(original(chunker, ...))
 			if self.Destroyed or self.ChunkerObserver ~= observer then return table.unpack(result, 1, result.n) end
+			-- Reporting only: separate protection prevents diagnostics from changing
+			-- the existing registration/pickup observation or native return values.
+			local diagnosticOK, diagnosticError = pcall(self.RecordNativeEggUpdate, self, chunker)
+			if not diagnosticOK then
+				self.EggObserverDiagnosticError = tostring(diagnosticError)
+			end
 			pcall(function() -- Observation failures must never interrupt the game's Update.
 				if type(chunker) == "table" and type(chunker.Remove) == "function" and type(chunker.IsValueLoaded) == "function" then
 					-- Settings alone are shared by pickups/portals/animated objects.
@@ -703,10 +717,207 @@ function GameKnowledge:EnsureChunkerObserver()
 		end
 		self.ChunkerObserver = observer
 		local ok = pcall(function() class.Update = self.ChunkerObserver end)
-		if not ok then self:ReleaseChunkerObserver() return nil, "Native Chunker receiver observation unavailable" end
+		if not ok then self.EggObserverInstallFailure = true self:ReleaseChunkerObserver() return nil, "Native Chunker receiver observation unavailable" end
+		self.EggObserverInstalled = true
 		self.ChunkerObserverAt = os.clock()
 	end
 	return true
+end
+
+function GameKnowledge:EggDiagnosticId(instance)
+	if not instance then return "NONE" end
+	-- Physical selection has an existing InstanceId tie order. Diagnostics must
+	-- never allocate into that namespace before the Brain observes originals.
+	if self.EggDiagnosticIds and self.EggDiagnosticIds[instance] then return self.EggDiagnosticIds[instance] end
+	if self.InstanceIds and self.InstanceIds[instance] then return self.InstanceIds[instance] end
+	self.EggDiagnosticIds = self.EggDiagnosticIds or setmetatable({}, { __mode = "k" })
+	if not self.EggDiagnosticIds[instance] then
+		self.EggDiagnosticSequence = (self.EggDiagnosticSequence or 0) + 1
+		self.EggDiagnosticIds[instance] = string.format("D%04d", self.EggDiagnosticSequence)
+	end
+	return self.EggDiagnosticIds[instance]
+end
+
+function GameKnowledge:RecordNativeEggUpdate(receiver, entered)
+	-- No native method invocation, mutation, registry inference or timer here.
+	if self.Destroyed or self.EggObservationFinished or not self.EggObservationDeadline
+		or os.clock() >= self.EggObservationDeadline then return end
+	self.EggObserverStats = self.EggObserverStats or { UpdateCalls = 0, CompletedUpdates = 0, Receivers = setmetatable({}, { __mode = "k" }), ReceiverCount = 0 }
+	local stats = self.EggObserverStats
+	if entered then stats.UpdateCalls += 1 return end
+	stats.CompletedUpdates += 1
+	if type(receiver) ~= "table" then stats.NonTableCalls = (stats.NonTableCalls or 0) + 1 return end
+	local row = stats.Receivers[receiver]
+	if not row then
+		if stats.ReceiverCount >= 64 then stats.LimitExceeded = true return end
+		stats.ReceiverCount += 1
+		row = { Id = self:EggDiagnosticId(receiver), Calls = 0 }
+		stats.Receivers[receiver] = row
+	end
+	row.Calls += 1
+	row.StructureMatched, row.Qualifies, row.Entries, row.CatalogOriginals, row.Sentinels = false, false, 0, 0, 0
+	row.FolderId = self:EggDiagnosticId(receiver._folder)
+	local function reject(reason) row.Reason = reason end
+	if type(receiver.Remove) ~= "function" then reject("MISSING_REMOVE_INTERFACE") return end
+	if type(receiver.IsValueLoaded) ~= "function" then reject("MISSING_IS_VALUE_LOADED_INTERFACE") return end
+	if not eggReceiver(receiver) then
+		local rendered = workspace:FindFirstChild("Rendered")
+		local reasons = {}
+		if receiver.Mode ~= "3D" then table.insert(reasons, "MODE=" .. tostring(receiver.Mode)) end
+		if receiver._chunkSize ~= 128 then table.insert(reasons, "CHUNK_SIZE=" .. tostring(receiver._chunkSize)) end
+		if receiver.RenderDistance ~= 2 then table.insert(reasons, "RENDER_DISTANCE=" .. tostring(receiver.RenderDistance)) end
+		if type(receiver._chunks) ~= "table" then table.insert(reasons, "CHUNKS_UNAVAILABLE") end
+		if type(receiver._loaded) ~= "table" then table.insert(reasons, "LOADED_UNAVAILABLE") end
+		if not rendered or not receiver._folder or receiver._folder.Parent ~= rendered then table.insert(reasons, "FOLDER_ANCESTRY_UNVERIFIED") end
+		reject(table.concat(reasons, ",")) return
+	end
+	row.StructureMatched = true
+	local definitions = self:Get("Eggs")
+	row.EggDefinitionsReady = type(definitions) == "table"
+	definitions = definitions or {}
+	local coordinates = 0
+	for coord, values in pairs(receiver._chunks) do
+		coordinates += 1
+		if coordinates > 1000 then reject("COORDINATE_LIMIT_EXCEEDED") return end
+		if type(values) ~= "table" then reject("CHUNK_VALUES_NOT_TABLE; coord=" .. tostring(coord)) return end
+		for _, value in pairs(values) do
+			row.Entries += 1
+			local suffix = "; coord=" .. tostring(coord) .. "; loaded=" .. tostring(receiver._loaded[coord])
+			if row.Entries > 1000 then reject("ENTRY_LIMIT_EXCEEDED" .. suffix) return end
+			if typeof(value) ~= "Instance" then reject("ENTRY_NOT_INSTANCE" .. suffix) return end
+			suffix ..= "; instance=" .. self:EggDiagnosticId(value) .. "; name=" .. tostring(value.Name)
+			local shapeOK, root = pcall(eggParts, value)
+			if not shapeOK then reject("ORIGINAL_INTERFACE_READ_FAILED: " .. tostring(root) .. suffix) return end
+			if not root then
+				local missing = {}
+				if not value:IsA("Model") then table.insert(missing, "NOT_MODEL")
+				else
+					for _, name in ipairs({ "Root", "Prompt" }) do
+						local part = value:FindFirstChild(name)
+						if not part then table.insert(missing, name .. "_ABSENT")
+						elseif part.Parent ~= value then table.insert(missing, name .. "_PARENT_MISMATCH")
+						elseif not part:IsA("BasePart") then table.insert(missing, name .. "_NOT_BASEPART")
+						elseif not point(part.Position) then table.insert(missing, name .. "_POSITION_NONFINITE_OR_ABSENT") end
+					end
+					for _, name in ipairs({ "Plate", "Cost" }) do if not value:FindFirstChild(name) then table.insert(missing, name .. "_ABSENT") end end
+				end
+				reject("ORIGINAL_INTERFACE_OR_GEOMETRY_INCOMPLETE: " .. table.concat(missing, ",") .. suffix) return
+			end
+			if not definitions[value.Name] and value.Name ~= "Coming Soon" then reject("NAME_ABSENT_FROM_READY_EGG_CATALOG; catalog ready=" .. tostring(row.EggDefinitionsReady) .. suffix) return end
+			if definitions[value.Name] then row.CatalogOriginals += 1 else row.Sentinels += 1 end
+		end
+	end
+	row.Qualifies = row.CatalogOriginals > 0
+	row.Reason = row.Qualifies and "SOURCE_MATCHING_RECEIVER_OBSERVED" or "NO_CATALOG_BACKED_ORIGINALS; catalog ready=" .. tostring(row.EggDefinitionsReady)
+end
+
+function GameKnowledge:NativeEggRegistrationDiagnostics(selectedModel)
+	-- Detached reporting facts only. This method cannot grant identity/eligibility.
+	local stats = self.EggObserverStats or {}
+	local class = self:Get("Chunker")
+	local report = { ModuleLoaded = class ~= nil, DependencyReady = type(class) == "table" and type(class.Update) == "function", Installed = self.EggObserverInstalled == true,
+		Active = self.ChunkerObserver ~= nil and self.ChunkerClass ~= nil and self.ChunkerClass.Update == self.ChunkerObserver,
+		UpdateCalls = stats.UpdateCalls or 0, CompletedUpdates = stats.CompletedUpdates or 0, CandidateReceivers = stats.ReceiverCount or 0,
+		StructureMatched = 0, RejectedReceivers = 0, QualifyingReceivers = 0, Receivers = {},
+		SelectedFound = false, SelectedLoaded = false, SelectedObservedFound = false, ReceiverChanged = false }
+	for receiver, row in pairs(stats.Receivers or {}) do
+		if row.StructureMatched then report.StructureMatched += 1 end
+		if not row.Qualifies then report.RejectedReceivers += 1 end
+		table.insert(report.Receivers, table.clone(row))
+		if row.Qualifies and not eggReceiver(receiver) then report.ReceiverChanged = true end
+	end
+	table.sort(report.Receivers, function(a, b) return a.Id < b.Id end)
+	local entries, coordinates = 0, 0
+	local selectedRoot, selectedPrompt
+	if selectedModel then selectedRoot, selectedPrompt = eggParts(selectedModel) end
+	report.SelectedGeometryAvailable = selectedRoot ~= nil and selectedPrompt ~= nil
+	local receiverEntries = 0
+	for receiver in pairs(self.NativeEggChunkers or {}) do
+		receiverEntries += 1
+		if receiverEntries > 64 then report.LimitExceeded = true break end
+		if not eggReceiver(receiver) then report.ReceiverChanged = true continue end
+		report.QualifyingReceivers += 1
+		for coord, values in pairs(receiver._chunks) do
+			coordinates += 1
+			if coordinates > 1000 then report.LimitExceeded = true break end
+			if type(values) ~= "table" then report.ReceiverChanged = true continue end
+			for _, value in pairs(values) do
+				entries += 1
+				if entries > 1000 then report.LimitExceeded = true break end
+				if selectedModel and value == selectedModel then
+					report.SelectedFound = true
+					if receiver._loaded[coord] == true and value.Parent == receiver._folder then
+						report.SelectedLoaded = true
+						-- Match the separately approved exact-value membership repair.
+						-- Reporting stays read-only and cannot allocate physical IDs.
+						if report.SelectedGeometryAvailable and selectedModel:IsDescendantOf(workspace) then report.SelectedObservedFound = true end
+					end
+				end
+			end
+			if report.LimitExceeded then break end
+		end
+		if report.LimitExceeded then break end
+	end
+	if selectedModel then
+		report.SelectedDiagnosticId = self:EggDiagnosticId(selectedModel)
+		report.SelectedInstanceId = self.InstanceIds and self.InstanceIds[selectedModel] or report.SelectedDiagnosticId
+		report.SelectedObservationReason = report.SelectedGeometryAvailable and "ORIGINAL_INTERFACE_PRESENT" or "ORIGINAL_INTERFACE_OR_GEOMETRY_INCOMPLETE"
+		local originals, excluded = {}, 0
+		local prompts = self:Get("ProximityPrompt")
+		for modelIndex, model in ipairs(self.NativeEggModels or {}) do
+			if modelIndex > 1000 then report.LimitExceeded = true break end
+			if model.Name ~= selectedModel.Name then continue end
+			local root, prompt = eggParts(model)
+			if not root then excluded += 1 continue end
+			local engine = prompt:FindFirstChildOfClass("ProximityPrompt")
+			local diagnosticId = self:EggDiagnosticId(model)
+			table.insert(originals, { InstanceId = self.InstanceIds and self.InstanceIds[model] or diagnosticId, DiagnosticId = diagnosticId, Selected = model == selectedModel,
+				ParentId = self:EggDiagnosticId(model.Parent), Root = root.Position, Prompt = prompt.Position,
+				PromptCacheMember = engine ~= nil and type(prompts) == "table" and type(prompts._cache) == "table" and prompts._cache[engine] == true,
+				RegisteredReceivers = model == selectedModel and (report.SelectedObservedFound and 1 or 0) or nil })
+		end
+		table.sort(originals, function(a, b) if a.Selected ~= b.Selected then return a.Selected end return a.InstanceId < b.InstanceId end)
+		report.PhysicalOriginals, report.ExcludedRepresentations, report.Originals = #originals, excluded, originals
+	end
+	local reason
+	if self.Destroyed then reason = "OBSERVER_DESTROYED"
+	elseif not report.ModuleLoaded then reason = "CHUNKER_DEPENDENCY_UNAVAILABLE"
+	elseif not report.DependencyReady then reason = "CHUNKER_UPDATE_INTERFACE_UNAVAILABLE"
+	elseif self.EggObserverInstallFailure then reason = "OBSERVER_INSTALL_FAILED"
+	elseif not report.Installed and not self.NativeEggChunkers then reason = "OBSERVER_NOT_INSTALLED"
+	elseif stats.LimitExceeded or report.LimitExceeded then reason = "READ_ONLY_DIAGNOSTIC_LIMIT_EXCEEDED"
+	elseif self.EggObserverDiagnosticError then reason = "READ_ONLY_DIAGNOSTIC_ERROR: " .. self.EggObserverDiagnosticError
+	elseif report.ReceiverChanged then reason = "OBSERVED_RECEIVER_STRUCTURE_CHANGED"
+	elseif report.QualifyingReceivers > 1 then reason = "MULTIPLE_QUALIFYING_EGG_RECEIVERS"
+	elseif report.QualifyingReceivers == 0 then
+		if report.UpdateCalls == 0 then reason = self.EggObservationFinished and "TIMED_OUT_BEFORE_ANY_NATIVE_UPDATE" or "WAITING_FOR_NATIVE_UPDATE"
+		elseif report.CompletedUpdates == 0 then reason = "NATIVE_UPDATE_ENTERED_WITHOUT_COMPLETED_OBSERVATION"
+		else reason = self.EggObservationFinished and "TIMED_OUT_WITHOUT_QUALIFYING_EGG_RECEIVER" or "NATIVE_UPDATES_OBSERVED_NO_QUALIFYING_EGG_RECEIVER" end
+	elseif selectedModel and not selectedModel.Parent then reason = "SELECTED_INSTANCE_UNLOADED"
+	elseif selectedModel and not report.SelectedFound then reason = "SELECTED_EXACT_INSTANCE_ABSENT_FROM_OBSERVED_CHUNKS"
+	elseif selectedModel and not report.SelectedLoaded then reason = "SELECTED_EXACT_INSTANCE_COORDINATE_UNLOADED_OR_ANCESTRY_CHANGED"
+	elseif selectedModel and not report.SelectedGeometryAvailable then reason = "SELECTED_ORIGINAL_GEOMETRY_CHANGED: " .. tostring(report.SelectedObservationReason)
+	else reason = self.EggObservationFinished and "CURRENT_EXACT_REGISTRATION_OBSERVED" or "REGISTRATION_OBSERVED_WINDOW_STILL_OPEN" end
+	report.Stage, report.Reason = reason, reason
+	local rejections = {}
+	for _, row in ipairs(report.Receivers) do if not row.Qualifies then table.insert(rejections, row.Id .. ":" .. tostring(row.Reason)) end end
+	if #rejections > 0 then report.Reason ..= "; rejected={" .. table.concat(rejections, " | ") .. "}" end
+	report.Summary = string.format("registration=%s; dependency=%s; installed=%s; active=%s; native Updates=%d; completed=%d; receivers=%d; 3D structure=%d; rejected=%d; qualifying=%d; exact selected in chunks=%s; selected loaded=%s; protected membership=%s",
+		report.Stage, tostring(report.DependencyReady), tostring(report.Installed), tostring(report.Active), report.UpdateCalls, report.CompletedUpdates, report.CandidateReceivers,
+		report.StructureMatched, report.RejectedReceivers, report.QualifyingReceivers, tostring(report.SelectedFound), tostring(report.SelectedLoaded), tostring(report.SelectedObservedFound))
+	if report.Originals then
+		local rows = {}
+		local function position(v) return string.format("(%.2f,%.2f,%.2f)", v.X, v.Y, v.Z) end
+		for i, original in ipairs(report.Originals) do
+			if i > 4 then break end
+			local label = original.InstanceId .. (original.DiagnosticId ~= original.InstanceId and "[" .. original.DiagnosticId .. "]" or "")
+			table.insert(rows, string.format("%s%s parent=%s Root=%s Prompt=%s cached=%s protected selected membership=%s", label,
+				original.Selected and " SELECTED" or "", original.ParentId, position(original.Root), position(original.Prompt),
+				tostring(original.PromptCacheMember == true), tostring(original.RegisteredReceivers or "not checked")))
+		end
+		report.Summary ..= string.format("; original-shaped=%d; excluded representations=%d | %s", report.PhysicalOriginals, report.ExcludedRepresentations, table.concat(rows, " | "))
+	end
+	return report
 end
 
 function GameKnowledge:PickupChunker()
