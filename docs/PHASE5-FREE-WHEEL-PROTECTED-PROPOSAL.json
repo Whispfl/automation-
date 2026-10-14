@@ -1,0 +1,53 @@
+{
+  "status": "UNAPPLIED_PROPOSAL_REQUIRES_SEPARATE_PROTECTED_METHOD_APPROVAL",
+  "baselineCommit": "701eafb1c2cfaaa73237235d0c255b59b2a3ef52",
+  "patch": "docs/PHASE5-FREE-WHEEL-PROTECTED-PROPOSAL.patch",
+  "patchSha256": "6b08aa9cc1bac60acd12310eb74728dfe1d50b65ee75d69ec31768d8a93cbc2c",
+  "existingFiles": [
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "beforeSha256": "13139134750a53f320af040e8b31adeabff5a5e9d5146d11d3be4f348ef5ee89",
+      "proposedSha256": "ff87c044f61c1077bcbb9d2c086780d298cd9e28fb5afea67da9306283295167",
+      "changedMethods": [
+        {
+          "method": "RewardsManager.new",
+          "beforeSha256": "0e9da053138ab4a6a681c1818e87e2114749202e3d8c438197cbd8ffba12030c",
+          "proposedSha256": "2525160e8f31e8a1882e9d2d182f5814ba6d17ce95bd95867b30de9776072f76"
+        },
+        {
+          "method": "RewardsManager:Observe",
+          "beforeSha256": "f3d1cb62fe52671c1b688776d468027db78b436ef5d22ce73d29486bb27ff78c",
+          "proposedSha256": "82fd8c0c69b483a4afe4f2bcdcfd2802ecc380121017b6648c3289fabf12a9a8"
+        },
+        {
+          "method": "RewardsManager:Select",
+          "beforeSha256": "73036bedc05b2c60a4947603bfd09ec7f391cf1c8e1f3a60939f021d6631c1d2",
+          "proposedSha256": "9872e03bc1da9576c70f88dc58976404ba0f7095f67bb85da1a8ba33bd3a8245"
+        }
+      ],
+      "unchangedMethodCount": 17
+    },
+    {
+      "file": "src/OCFoundation/GameMechanics.luau",
+      "beforeSha256": "de2cd62b5e42e44b13fab5a1502d25e79686e2e14eb8ca0ba16d6b58b5e0378a",
+      "proposedSha256": "9e09dedf9e88ddd51a98bc16b92cbc8ac2c24534c8cd7ea1dcda7bd128065e3c",
+      "changedMethods": [
+        {
+          "method": "GameMechanics:RewardAction",
+          "beforeSha256": "5bac15e998ee6595355bab81d57daf91694aecf5db164301925b4b5fd4192179",
+          "proposedSha256": "ce14b92003f99375badbbc0451a88e66fb050ac7c3a3427442bfe25bf78ccbcb"
+        }
+      ],
+      "unchangedMethodCount": 36
+    }
+  ],
+  "scope": "Exactly four existing methods in two files; append-only helpers/config/receipt tests remain to be implemented after approval.",
+  "verification": {
+    "exactBaseline": true,
+    "gitApplyCheck": "PASS_NO_APPLICATION",
+    "officialLuauSyntax": "PASS_PROPOSED_HOOKS_ONLY",
+    "newReceiptTests": "NOT_IMPLEMENTED_OR_RUN",
+    "candidateBuild": "NOT_BUILT",
+    "liveClaim": "NOT_AUTHORIZED_OR_EXECUTED"
+  }
+}

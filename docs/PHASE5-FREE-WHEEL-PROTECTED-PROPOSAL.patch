@@ -1,0 +1,57 @@
+diff --git a/src/OCFoundation/RewardsManager.luau b/src/OCFoundation/RewardsManager.luau
+index 4187af7..4ec52cb 100644
+--- a/src/OCFoundation/RewardsManager.luau
++++ b/src/OCFoundation/RewardsManager.luau
+@@ -91,7 +91,10 @@ function RewardsManager.new(controller)
+ 		root.Accounts[key] = ledger
+ 	end
+ 	local pending = ledger.Pending
+-	if pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
++	if type(pending) == "table" and pending.Kind == "FREE_WHEEL_TICKET" then
++		local valid, reason = self:ValidateFreeWheelTicketPending(ledger, pending)
++		if not valid then self.Blocker, self.UnknownBarrier = reason, true return self end
++	elseif pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
+ 		or type(pending.Attempted) ~= "boolean" or type(pending.BeforeFacts) ~= "table" or type(pending.BeforeFacts.Available) ~= "table"
+ 		or type(pending.BeforeFacts.Balances) ~= "table" or type(pending.BeforeFacts.Powerups) ~= "table"
+ 		or type(pending.BeforeFacts.Potions) ~= "table" or type(pending.BeforeFacts.Pets) ~= "table"
+@@ -104,6 +107,11 @@ function RewardsManager.new(controller)
+ 		return self
+ 	end
+ 	self.Ledger = ledger
++	local wheelValid, wheelReason = self:InitializeFreeWheelTicketLedger()
++	if not wheelValid then
++		self.Blocker, self.UnknownBarrier, self.Ledger = wheelReason, true, nil
++		return self
++	end
+ 	if pending and pending.Kind == "MYSTERY_BOX" then pending.GiftIdentityCurrent = false end
+ 	return self
+ end
+@@ -168,6 +176,7 @@ function RewardsManager:Observe()
+ 	if self.Destroyed or not self.Ledger then return end
+ 	local pending = self.Ledger.Pending
+ 	if not pending or not pending.Attempted then return end
++	if pending.Kind == "FREE_WHEEL_TICKET" then self:ObserveFreeWheelTicket(pending) return end
+ 	local context, reason = self:_context()
+ 	if context then
+ 		pending.RewardDeltas = deltas(pending.BeforeFacts, facts(context))
+@@ -254,6 +263,8 @@ end
+ 
+ function RewardsManager:Select(plan)
+ 	if self.Destroyed then return false end
++	local wheelOwns, wheelDecision = self:SelectFreeWheelTicket(plan)
++	if wheelOwns ~= nil then return wheelOwns, wheelDecision end
+ 	local enabled = self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
+ 	if not self.Ledger then
+ 		if enabled then self:_blocker(self.Blocker) end
+diff --git a/src/OCFoundation/GameMechanics.luau b/src/OCFoundation/GameMechanics.luau
+index 5102e19..c101be5 100644
+--- a/src/OCFoundation/GameMechanics.luau
++++ b/src/OCFoundation/GameMechanics.luau
+@@ -905,6 +905,7 @@ function GameMechanics:RewardAction(manager, decision, token)
+ 	if not allowed then return false, reason end
+ 	local remote = self.Reader:_dependency("Remote")
+ 	if not remote then return false, "Native Remote unavailable" end
++	if decision.Kind == "FREE_WHEEL_TICKET" then return self:ClaimFreeWheelTicket(manager, decision, token, remote) end
+ 	if decision.Kind ~= "PLAYTIME" and decision.Kind ~= "MYSTERY_BOX" then return false, "Unsupported reward intent" end
+ 	if decision.Kind == "PLAYTIME" and type(remote.InvokeServer) ~= "function"
+ 		or decision.Kind == "MYSTERY_BOX" and type(remote.FireServer) ~= "function" then return false, "Required native transport unavailable before preparation" end

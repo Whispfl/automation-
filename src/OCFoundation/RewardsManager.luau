@@ -91,7 +91,10 @@ function RewardsManager.new(controller)
 		root.Accounts[key] = ledger
 	end
 	local pending = ledger.Pending
-	if pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
+	if type(pending) == "table" and pending.Kind == "FREE_WHEEL_TICKET" then
+		local valid, reason = self:ValidateFreeWheelTicketPending(ledger, pending)
+		if not valid then self.Blocker, self.UnknownBarrier = reason, true return self end
+	elseif pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
 		or type(pending.Attempted) ~= "boolean" or type(pending.BeforeFacts) ~= "table" or type(pending.BeforeFacts.Available) ~= "table"
 		or type(pending.BeforeFacts.Balances) ~= "table" or type(pending.BeforeFacts.Powerups) ~= "table"
 		or type(pending.BeforeFacts.Potions) ~= "table" or type(pending.BeforeFacts.Pets) ~= "table"
@@ -104,6 +107,11 @@ function RewardsManager.new(controller)
 		return self
 	end
 	self.Ledger = ledger
+	local wheelValid, wheelReason = self:InitializeFreeWheelTicketLedger()
+	if not wheelValid then
+		self.Blocker, self.UnknownBarrier, self.Ledger = wheelReason, true, nil
+		return self
+	end
 	if pending and pending.Kind == "MYSTERY_BOX" then pending.GiftIdentityCurrent = false end
 	return self
 end
@@ -168,6 +176,7 @@ function RewardsManager:Observe()
 	if self.Destroyed or not self.Ledger then return end
 	local pending = self.Ledger.Pending
 	if not pending or not pending.Attempted then return end
+	if pending.Kind == "FREE_WHEEL_TICKET" then self:ObserveFreeWheelTicket(pending) return end
 	local context, reason = self:_context()
 	if context then
 		pending.RewardDeltas = deltas(pending.BeforeFacts, facts(context))
@@ -254,6 +263,8 @@ end
 
 function RewardsManager:Select(plan)
 	if self.Destroyed then return false end
+	local wheelOwns, wheelDecision = self:SelectFreeWheelTicket(plan)
+	if wheelOwns ~= nil then return wheelOwns, wheelDecision end
 	local enabled = self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
 	if not self.Ledger then
 		if enabled then self:_blocker(self.Blocker) end
@@ -451,4 +462,324 @@ function RewardsManager:GetStatus()
 		LastResult = self.Ledger and copy(self.Ledger.LastResult) }
 end
 
+-- PHASE5_FREE_WHEEL_TICKET_BEGIN
+-- One fixed free family. Shared Pending and the existing Brain/scheduler own all action authority.
+local WHEEL_KIND, WHEEL_COMMAND = "FREE_WHEEL_TICKET", "ClaimFreeWheelSpin"
+local function wheelId(value)
+	return type(value) == "string" and #value >= 1 and #value <= 80 and value:match("^[%w_.%-]+$") ~= nil
+end
+local function wheelEqual(left, right, seen)
+	if type(left) ~= type(right) then return false end
+	if type(left) ~= "table" then return left == right end
+	seen = seen or {}
+	if seen[left] == right then return true end
+	seen[left] = right
+	for key, value in pairs(left) do if not wheelEqual(value, right[key], seen) then return false end end
+	for key in pairs(right) do if left[key] == nil then return false end end
+	return true
+end
+local function wheelData(value, seen, depth)
+	local kind = type(value)
+	if kind == "number" then return finite(value) end
+	if kind == "string" or kind == "boolean" or kind == "nil" then return true end
+	if kind ~= "table" or (depth or 0) > 20 then return false end
+	seen = seen or {}
+	if seen[value] then return false end
+	seen[value] = true
+	for key, entry in pairs(value) do
+		if type(key) ~= "string" and not count(key) then return false end
+		if not wheelData(entry, seen, (depth or 0) + 1) then return false end
+	end
+	seen[value] = nil
+	return true
+end
+local function wheelInterfaces(value)
+	if type(value) ~= "table" then return false end
+	for _, key in ipairs({ "ItemUtil", "GetOwnedAmount", "Powerups", "SpinTicket", "Time", "TimeNow", "Remote", "FireServer" }) do
+		if type(value[key]) ~= "string" or value[key] == "" then return false end
+	end
+	return wheelData(value)
+end
+
+function RewardsManager:ValidateFreeWheelTicketPending(ledger, pending)
+	local extension = type(ledger) == "table" and ledger.FreeWheelTicket
+	local record = type(extension) == "table" and type(extension.Tests) == "table" and extension.Tests[pending.TestId]
+	local valid = pending.Kind == WHEEL_KIND and pending.Command == WHEEL_COMMAND and pending.UserId == self.UserId
+		and wheelId(pending.TestId) and type(pending.Attempted) == "boolean" and finite(pending.Deadline)
+		and finite(pending.BeforeDeadline) and pending.BeforeDeadline >= 0 and count(pending.BeforeTickets)
+		and finite(pending.BeforeNativeNow) and pending.BeforeNativeNow >= pending.BeforeDeadline
+		and count(pending.Generation) and count(pending.ManagerEpoch) and pending.ManagerEpoch > 0
+		and count(pending.BeforeAttributionEpoch) and count(pending.ExpectedAttributionEpoch)
+		and type(pending.Status) == "string" and type(pending.ReceiptState) == "string"
+		and type(pending.BeforeInterference) == "table" and wheelData(pending.BeforeInterference)
+		and type(pending.TicketDefinition) == "table" and wheelData(pending.TicketDefinition)
+		and wheelInterfaces(pending.NativeInterfaceIds) and wheelData(pending)
+		and type(extension) == "table" and extension.Version == 1 and count(extension.Epoch)
+		and type(record) == "table" and record.UserId == self.UserId and record.TestId == pending.TestId
+		and record.Attempts == (pending.Attempted and 1 or 0)
+	if not valid then return false, "Malformed free-wheel pending operation preserved; no action or retry" end
+	return true
+end
+
+function RewardsManager:InitializeFreeWheelTicketLedger()
+	local settings = self.Config.FREE_WHEEL_TICKET_SETTINGS or {}
+	local ledger = self.Ledger
+	if not ledger then return false, "Account reward ledger unavailable" end
+	local extension = ledger.FreeWheelTicket
+	if extension == nil and settings.ENABLE_FREE_WHEEL_TICKET_CLAIM ~= true then return true end
+	if extension == nil then extension = { Version = 1, Epoch = 0, Tests = {} } ledger.FreeWheelTicket = extension end
+	if type(extension) ~= "table" or extension.Version ~= 1 or not count(extension.Epoch)
+		or extension.Epoch >= 9007199254740990 or type(extension.Tests) ~= "table" then
+		return false, "Unknown free-wheel ledger schema preserved; no action or retry"
+	end
+	for id, record in pairs(extension.Tests) do
+		if not wheelId(id) or type(record) ~= "table" or record.TestId ~= id or record.UserId ~= self.UserId
+			or record.Attempts ~= 0 and record.Attempts ~= 1 or type(record.Outcome) ~= "string" or not wheelData(record) then
+			return false, "Malformed free-wheel test authorization preserved; no action or retry"
+		end
+		if record.Attempts == 1 and record.Outcome ~= "CLAIM_AND_GRANT_OBSERVED"
+			and not (ledger.Pending and ledger.Pending.Kind == WHEEL_KIND and ledger.Pending.TestId == id and ledger.Pending.Attempted) then
+			return false, "Consumed unresolved free-wheel authorization lacks its pending barrier; no action or retry"
+		end
+	end
+	if not self.WheelManagerEpoch then
+		extension.Epoch += 1
+		self.WheelManagerEpoch = extension.Epoch
+	end
+	return true
+end
+
+function RewardsManager:_freeWheelAuthorization()
+	local s = self.Config.FREE_WHEEL_TICKET_SETTINGS or {}
+	if s.ENABLE_FREE_WHEEL_TICKET_CLAIM ~= true then return false, "Free wheel-ticket claim disabled" end
+	if not count(s.AUTHORIZED_ACCOUNT_ID) or s.AUTHORIZED_ACCOUNT_ID == 0 or s.AUTHORIZED_ACCOUNT_ID ~= self.UserId then
+		return false, "Explicit matching owner account authorization required"
+	end
+	if not wheelId(s.AUTHORIZED_TEST_ID) then return false, "Explicit free-wheel test identity required" end
+	if s.OWNER_CONFIRMED_WHEEL_IDLE ~= true then return false, "Owner-confirmed idle wheel conditions required; queue state remains unproven" end
+	if not finite(s.MAXIMUM_ACCOUNT_AGE_SECONDS) or s.MAXIMUM_ACCOUNT_AGE_SECONDS <= 0 or s.MAXIMUM_ACCOUNT_AGE_SECONDS > 10
+		or not finite(s.CONFIRMATION_TIMEOUT_SECONDS) or s.CONFIRMATION_TIMEOUT_SECONDS <= 0 or s.CONFIRMATION_TIMEOUT_SECONDS > 60 then
+		return false, "Invalid bounded free-wheel observation settings"
+	end
+	return true
+end
+
+function RewardsManager:_freeWheelContext()
+	local c, s = self.Controller, self.Config.FREE_WHEEL_TICKET_SETTINGS or {}
+	local reader, knowledge = c.Reader, c.Knowledge
+	if not reader or not knowledge or type(knowledge.FreeWheelTicketContext) ~= "function" then return nil, "Fresh free-wheel knowledge unavailable" end
+	local snapshot = reader:GetSnapshot()
+	local ok, context = pcall(knowledge.FreeWheelTicketContext, knowledge, snapshot, os.clock(), s)
+	if not ok or type(context) ~= "table" or context.Fresh ~= true then return nil, "Free-wheel observations unavailable, changed or stale" end
+	local current = reader:GetSnapshot()
+	if self.Destroyed or reader.Destroyed or not reader.Player or reader.Player.UserId ~= self.UserId
+		or context.AccountId ~= self.UserId or type(current) ~= "table" or current.Ready ~= true
+		or context.Revision ~= reader.Revision or context.Revision ~= current.Revision
+		or not finite(context.ReadAt) or context.ReadAt > os.clock() or os.clock() - context.ReadAt > (s.MAXIMUM_ACCOUNT_AGE_SECONDS or 10)
+		or not finite(context.NativeNow) or context.NativeNow < 0 or not finite(context.NextWheelSpin) or context.NextWheelSpin < 0
+		or not count(context.TicketCount) or type(context.TicketDefinition) ~= "table" or not wheelData(context.TicketDefinition)
+		or not wheelInterfaces(context.NativeInterfaceIds) or type(context.InterferenceFacts) ~= "table" or not wheelData(context.InterferenceFacts) then
+		return nil, "Required coherent free-wheel account, inventory or native interfaces unavailable"
+	end
+	if context.AutoClaimSpin ~= false then return nil, "Native AutoClaimSpin enabled or unknown" end
+	if context.GiftCount ~= 0 then return nil, "Native active gift conflict or unavailable required gift count" end
+	if context.KnownWheelActivity == true then return nil, "Known conflicting wheel activity observed" end
+	return context
+end
+
+function RewardsManager:_freeWheelOwns(token, generation)
+	local c, player = self.Controller, self.Controller.Reader and self.Controller.Reader.Player
+	local active = c.Scheduler and c.Scheduler.Active
+	local root = type(shared) == "table" and shared.__OC_LOCAL_REWARD_LEDGER
+	return not self.Destroyed and c.Rewards == self and c.State == "RUNNING" and c.Generation == generation
+		and player and player.UserId == self.UserId and type(token) == "table" and type(token.CheckCancelled) == "function" and not token:CheckCancelled()
+		and type(self.Ledger) == "table" and type(root) == "table" and root.Version == 1 and type(root.Accounts) == "table"
+		and root.Accounts[tostring(self.UserId)] == self.Ledger and self.Ledger.UserId == self.UserId
+		and active and active.Token == token and type(active.Definition) == "table"
+		and active.Definition.Owner == "REWARDS" and active.Definition.Generation == generation
+end
+
+function RewardsManager:_freeWheelCharged()
+	local extension = self.Ledger and self.Ledger.FreeWheelTicket
+	if type(extension) ~= "table" or type(extension.Tests) ~= "table" then return true end
+	for _, record in pairs(extension.Tests) do if type(record) ~= "table" or record.Attempts ~= 0 then return true end end
+	return false
+end
+
+function RewardsManager:SelectFreeWheelTicket(plan)
+	local s = self.Config.FREE_WHEEL_TICKET_SETTINGS or {}
+	local pending = self.Ledger and self.Ledger.Pending
+	if pending and pending.Kind ~= WHEEL_KIND then return nil end -- Exact legacy pending path keeps ownership.
+	if s.ENABLE_FREE_WHEEL_TICKET_CLAIM ~= true and not pending then return nil end
+	if not self.Ledger or self.UnknownBarrier then return false, { Kind = "WAIT", Reason = self.Blocker or "Reward ledger unavailable" } end
+	if pending then self:ObserveFreeWheelTicket(pending) pending = self.Ledger.Pending end
+	if pending then return true, { Kind = "OBSERVE_REWARD", Pending = pending, Reason = pending.Reason or "Awaiting retained free-wheel receipt" } end
+	local authorized, reason = self:_freeWheelAuthorization()
+	if not authorized then self.WheelBlocker = reason return false, { Kind = "WAIT", Reason = reason } end
+	local valid, ledgerReason = self:InitializeFreeWheelTicketLedger()
+	if not valid then self.WheelBlocker = ledgerReason return false, { Kind = "WAIT", Reason = ledgerReason } end
+	if self.Ledger.UnresolvedAttribution == true then self.WheelBlocker = "Existing unresolved reward attribution blocks a free claim" return false, { Kind = "WAIT", Reason = self.WheelBlocker } end
+	if self:_freeWheelCharged() then self.WheelBlocker = "One-attempt free-wheel authorization already consumed; another test ID cannot rearm this client runtime" return false, { Kind = "WAIT", Reason = self.WheelBlocker } end
+	local context, blocker = self:_freeWheelContext()
+	if not context then self.WheelBlocker = blocker return false, { Kind = "WAIT", Reason = blocker } end
+	if context.NextWheelSpin > context.NativeNow then self.WheelBlocker = "Free-wheel deadline is not due" return false, { Kind = "WAIT", Reason = self.WheelBlocker } end
+	self.WheelBlocker = nil
+	return true, { Kind = WHEEL_KIND, Command = WHEEL_COMMAND, TestId = s.AUTHORIZED_TEST_ID,
+		NextWheelSpin = context.NextWheelSpin, TicketCount = context.TicketCount, Context = context,
+		Reason = "One authorized due free-wheel claim; receipt and external attribution remain separate" }
+end
+
+function RewardsManager:PrepareFreeWheelTicket(decision, token)
+	local authorized, reason = self:_freeWheelAuthorization()
+	local c = self.Controller
+	if not authorized then return nil, reason end
+	if not self.Ledger or self.UnknownBarrier or self.Ledger.Pending or self.Ledger.UnresolvedAttribution == true then return nil, "Existing reward operation or attribution barrier" end
+	if not self:_freeWheelOwns(token, c.Generation) then return nil, "Free-wheel scheduler authorization unavailable" end
+	if type(decision) ~= "table" or decision.Kind ~= WHEEL_KIND or decision.Command ~= WHEEL_COMMAND
+		or decision.TestId ~= self.Config.FREE_WHEEL_TICKET_SETTINGS.AUTHORIZED_TEST_ID or type(decision.Context) ~= "table" then return nil, "Exact free-wheel command and test authorization required" end
+	local valid, ledgerReason = self:InitializeFreeWheelTicketLedger()
+	if not valid then return nil, ledgerReason end
+	local extension, context = self.Ledger.FreeWheelTicket, nil
+	local record = extension.Tests[decision.TestId]
+	if self:_freeWheelCharged() then return nil, "Free-wheel runtime attempt authorization already consumed" end
+	context, reason = self:_freeWheelContext()
+	if not context then return nil, reason end
+	local chosen = decision.Context
+	if context.NextWheelSpin ~= decision.NextWheelSpin or context.TicketCount ~= decision.TicketCount or context.NextWheelSpin > context.NativeNow
+		or not wheelEqual(context.InterferenceFacts, chosen.InterferenceFacts) or not wheelEqual(context.TicketDefinition, chosen.TicketDefinition)
+		or not wheelEqual(context.NativeInterfaceIds, chosen.NativeInterfaceIds) then return nil, "Free-wheel selection facts changed before preparation" end
+	if not self:_freeWheelOwns(token, c.Generation) or self.Ledger.Pending then return nil, "Free-wheel preparation interrupted" end
+	local epoch = c.RewardAttributionEpoch or 0
+	if not count(epoch) or type(c.MarkNonPickupReward) ~= "function" then return nil, "Reward attribution observation unavailable" end
+	if not record then record = { UserId = self.UserId, TestId = decision.TestId, Attempts = 0, Outcome = "PREPARED" } extension.Tests[decision.TestId] = record end
+	local pending = { Kind = WHEEL_KIND, Command = WHEEL_COMMAND, UserId = self.UserId, TestId = decision.TestId,
+		Attempted = false, Status = "PREPARED", ReceiptState = "PREPARED", Generation = c.Generation, ManagerEpoch = self.WheelManagerEpoch,
+		Deadline = os.clock() + self.Config.FREE_WHEEL_TICKET_SETTINGS.CONFIRMATION_TIMEOUT_SECONDS,
+		BeforeDeadline = context.NextWheelSpin, BeforeTickets = context.TicketCount, BeforeNativeNow = context.NativeNow,
+		BeforeAttributionEpoch = epoch, ExpectedAttributionEpoch = epoch, BeforeInterference = copy(context.InterferenceFacts),
+		TicketDefinition = copy(context.TicketDefinition), NativeInterfaceIds = copy(context.NativeInterfaceIds) }
+	self.Ledger.Pending = pending
+	return pending
+end
+
+function RewardsManager:MarkFreeWheelTicketDispatched(pending, token)
+	if not self.Ledger or self.Ledger.Pending ~= pending or pending.Attempted or not self:_freeWheelOwns(token, pending.Generation) then return false, "Free-wheel dispatch reservation unavailable" end
+	local authorized, reason = self:_freeWheelAuthorization()
+	if not authorized or pending.TestId ~= self.Config.FREE_WHEEL_TICKET_SETTINGS.AUTHORIZED_TEST_ID then return false, reason or "Free-wheel test identity changed" end
+	local context, blocker = self:_freeWheelContext()
+	if not context then return false, blocker end
+	if context.NextWheelSpin ~= pending.BeforeDeadline or context.TicketCount ~= pending.BeforeTickets or context.NextWheelSpin > context.NativeNow
+		or not wheelEqual(context.InterferenceFacts, pending.BeforeInterference) or not wheelEqual(context.TicketDefinition, pending.TicketDefinition)
+		or not wheelEqual(context.NativeInterfaceIds, pending.NativeInterfaceIds) or (self.Controller.RewardAttributionEpoch or 0) ~= pending.BeforeAttributionEpoch then
+		return false, "Free-wheel baseline or competing observations changed before dispatch"
+	end
+	if not self:_freeWheelOwns(token, pending.Generation) or self.Ledger.Pending ~= pending or pending.ManagerEpoch ~= self.WheelManagerEpoch then return false, "Free-wheel dispatch interrupted" end
+	local record = self.Ledger.FreeWheelTicket.Tests[pending.TestId]
+	if not record or record.Attempts ~= 0 or self:_freeWheelCharged() then return false, "Free-wheel one-attempt authorization already consumed" end
+	-- No yield between charging the fixed allowance, marking attempted and the adapter's final dispatch checks.
+	record.Attempts, record.Outcome = 1, "AWAITING_RECEIPT"
+	pending.Attempted, pending.Status, pending.ReceiptState = true, "AWAITING_ACKNOWLEDGEMENT", "AWAITING_RECEIPT"
+	pending.Deadline = os.clock() + self.Config.FREE_WHEEL_TICKET_SETTINGS.CONFIRMATION_TIMEOUT_SECONDS
+	self.WheelAttemptToken = token
+	self.Controller:MarkNonPickupReward(pending)
+	pending.ExpectedAttributionEpoch = self.Controller.RewardAttributionEpoch or 0
+	return true
+end
+
+function RewardsManager:UnresolveFreeWheelTicket(pending, state, reason)
+	if not self.Ledger or self.Ledger.Pending ~= pending or not pending.Attempted then return end
+	if not pending.UnresolvedState then pending.UnresolvedState, pending.Reason = state, reason end
+	pending.Status, pending.ReceiptState = "UNCONFIRMED", pending.UnresolvedState
+	local record = self.Ledger.FreeWheelTicket.Tests[pending.TestId]
+	record.Outcome = pending.UnresolvedState
+	self.WheelBlocker = pending.Reason
+end
+
+function RewardsManager:ValidateFreeWheelTicketDispatch(pending, token)
+	local authorized, reason = self:_freeWheelAuthorization()
+	if not authorized or self.Config.FREE_WHEEL_TICKET_SETTINGS.AUTHORIZED_TEST_ID ~= pending.TestId
+		or not self:_freeWheelOwns(token, pending.Generation) or not self.Ledger or self.Ledger.Pending ~= pending then
+		return false, "CANCELLED_AFTER_DISPATCH", reason or "Charged free-wheel authorization or lease changed"
+	end
+	local context, blocker = self:_freeWheelContext()
+	if not context then return false, "AMBIGUOUS", blocker end
+	if context.NextWheelSpin ~= pending.BeforeDeadline or context.TicketCount ~= pending.BeforeTickets or context.NextWheelSpin > context.NativeNow
+		or not wheelEqual(context.InterferenceFacts, pending.BeforeInterference) or not wheelEqual(context.TicketDefinition, pending.TicketDefinition)
+		or not wheelEqual(context.NativeInterfaceIds, pending.NativeInterfaceIds)
+		or (self.Controller.RewardAttributionEpoch or 0) ~= pending.ExpectedAttributionEpoch or os.clock() >= pending.Deadline then
+		return false, "AMBIGUOUS", "Received baseline or attribution changed after charged authorization; no transport or retry"
+	end
+	local finalAuthorized = self:_freeWheelAuthorization()
+	if not finalAuthorized or self.Config.FREE_WHEEL_TICKET_SETTINGS.AUTHORIZED_TEST_ID ~= pending.TestId
+		or not self:_freeWheelOwns(token, pending.Generation) or self.Ledger.Pending ~= pending then
+		return false, "CANCELLED_AFTER_DISPATCH", "Charged free-wheel authorization changed during final observation"
+	end
+	self.WheelDispatchObservation = { Revision = context.Revision, ReadAt = context.ReadAt }
+	return true
+end
+
+function RewardsManager:ObserveFreeWheelTicket(pending)
+	if self.Destroyed or not self.Ledger or self.Ledger.Pending ~= pending or not pending.Attempted then return end
+	local c = self.Controller
+	local authorized = self:_freeWheelAuthorization()
+	if not authorized or self.Config.FREE_WHEEL_TICKET_SETTINGS.AUTHORIZED_TEST_ID ~= pending.TestId
+		or c.State ~= "RUNNING" or c.Generation ~= pending.Generation or self.WheelManagerEpoch ~= pending.ManagerEpoch
+		or self.WheelAttemptToken and self.WheelAttemptToken:CheckCancelled() then
+		self:UnresolveFreeWheelTicket(pending, "CANCELLED_AFTER_DISPATCH", "Free-wheel request interrupted or authorization revoked; no automatic retry")
+	end
+	local context, reason = self:_freeWheelContext()
+	if not context then
+		self:UnresolveFreeWheelTicket(pending, "AMBIGUOUS", reason or "Required free-wheel observations unavailable")
+	else
+		if not wheelEqual(context.InterferenceFacts, pending.BeforeInterference)
+			or not wheelEqual(context.TicketDefinition, pending.TicketDefinition) or not wheelEqual(context.NativeInterfaceIds, pending.NativeInterfaceIds)
+			or (c.RewardAttributionEpoch or 0) ~= pending.ExpectedAttributionEpoch
+			or context.TicketCount < pending.BeforeTickets or context.TicketCount < (pending.LastTickets or pending.BeforeTickets)
+			or context.NextWheelSpin < pending.BeforeDeadline or context.NextWheelSpin < (pending.LastDeadline or pending.BeforeDeadline)
+			or context.NativeNow < (pending.LastNativeNow or pending.BeforeNativeNow) then
+			self:UnresolveFreeWheelTicket(pending, "AMBIGUOUS", "Competing or contradictory received reward observations; attribution unresolved; no automatic retry")
+		end
+		pending.LastTickets, pending.LastDeadline, pending.LastNativeNow = context.TicketCount, context.NextWheelSpin, context.NativeNow
+		pending.DeadlineObserved = context.NextWheelSpin > pending.BeforeDeadline and context.NextWheelSpin > context.NativeNow
+		pending.InventoryObserved = context.TicketCount > pending.BeforeTickets
+		pending.TicketsReceived = pending.InventoryObserved and context.TicketCount - pending.BeforeTickets or nil
+		if pending.DeadlineObserved and pending.InventoryObserved then
+			if not pending.UnresolvedState and os.clock() < pending.Deadline then
+				local record = self.Ledger.FreeWheelTicket.Tests[pending.TestId]
+				record.Outcome, record.TicketsReceived, record.FinishedAt = "CLAIM_AND_GRANT_OBSERVED", pending.TicketsReceived, os.clock()
+				record.Attribution = "EXTERNAL_GAINS_CANNOT_BE_EXCLUDED"
+				self.Ledger.FreeWheelTicket.LastTestId = pending.TestId
+				self.Ledger.Pending, self.WheelAttemptToken, self.WheelBlocker = nil, nil, nil
+				c:MarkNonPickupReward({ Kind = WHEEL_KIND })
+				c:Log("REWARD][FREE_WHEEL", "CLAIM_AND_GRANT_OBSERVED | received tickets=" .. tostring(record.TicketsReceived) .. " | external gains cannot be excluded")
+				return
+			end
+			pending.LateReceiptObserved = true
+		end
+		if not pending.UnresolvedState then pending.ReceiptState = pending.DeadlineObserved and "DEADLINE_ONLY" or pending.InventoryObserved and "INVENTORY_ONLY" or "AWAITING_RECEIPT" end
+	end
+	if os.clock() >= pending.Deadline then self:UnresolveFreeWheelTicket(pending, "UNCONFIRMED_TIMEOUT", "Free-wheel paired receipt timed out or arrived late; no automatic retry") end
+end
+
+function RewardsManager:GetFreeWheelTicketStatus()
+	local s = self.Config.FREE_WHEEL_TICKET_SETTINGS or {}
+	local extension = self.Ledger and self.Ledger.FreeWheelTicket
+	local pending = self.Ledger and self.Ledger.Pending
+	if pending and pending.Kind ~= WHEEL_KIND then pending = nil end
+	local id = pending and pending.TestId or type(extension) == "table" and extension.LastTestId or s.AUTHORIZED_TEST_ID
+	local record = type(extension) == "table" and extension.Tests[id]
+	local attempted = false
+	if type(extension) == "table" then for _, entry in pairs(extension.Tests) do if entry.Attempts == 1 then attempted = true end end end
+	local authorized = self:_freeWheelAuthorization()
+	return { Enabled = s.ENABLE_FREE_WHEEL_TICKET_CLAIM == true, Authorized = authorized == true,
+		Attempted = attempted, Pending = pending ~= nil,
+		ReceiptState = pending and (pending.LateReceiptObserved and pending.UnresolvedState == "CANCELLED_AFTER_DISPATCH" and "OBSERVED_AFTER_INTERRUPTION" or pending.ReceiptState)
+			or record and record.Outcome or "DISABLED_OR_NOT_ATTEMPTED",
+		BarrierState = pending and pending.UnresolvedState, DeadlineObserved = pending and pending.DeadlineObserved,
+		InventoryObserved = pending and pending.InventoryObserved, TicketsReceived = not pending and record and record.TicketsReceived or nil,
+		ObservedTicketIncrease = pending and pending.TicketsReceived,
+		Attribution = "EXTERNAL_GAINS_CANNOT_BE_EXCLUDED", QueueState = "UNKNOWN", Persistence = "SAME_CLIENT_RUNTIME_ONLY",
+		Blocker = pending and pending.Reason or self.WheelBlocker or self.Blocker }
+end
+-- PHASE5_FREE_WHEEL_TICKET_END
 return RewardsManager

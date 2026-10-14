@@ -15,7 +15,7 @@ const environment = (await readFile(path.join(root, 'tests/foundation.luau'), 'u
 const fixture = await readFile(path.join(root, 'tests/phase5-rewards.luau'), 'utf8');
 const loaderPath = path.join(root, 'examples/Phase5RewardsReadOnly.luau');
 const loader = await readFile(loaderPath, 'utf8');
-const expectedURL = `https://raw.githubusercontent.com/Whispfl/automation-/phase5-rewards-${generated.buildId}/dist/OC.lua`;
+const expectedURL = 'https://raw.githubusercontent.com/Whispfl/automation-/phase5-rewards-7d374c2879a3/dist/OC.lua';
 assert.equal((loader.match(/game:HttpGet\(/g) || []).length, 1, 'Read-only reward loader performs one public bundle fetch');
 assert(loader.includes(`game:HttpGet("${expectedURL}")`), 'Reward loader has the exact immutable reward build pin');
 assert(!/\b(?:GitHubToken|Authorization|FireServer|InvokeServer)\b/.test(loader), 'Reward loader has no tokens or transport');

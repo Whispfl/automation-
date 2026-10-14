@@ -40,6 +40,16 @@ return {
 		MAXIMUM_REPORT_ROWS = 200, --// Bound reported reward entries; omitted coverage stays explicit and cannot imply completion.
 	},
 	-- PHASE5_READ_ONLY_REWARDS_END
+	-- PHASE5_FREE_WHEEL_TICKET_BEGIN
+	FREE_WHEEL_TICKET_SETTINGS = {
+		ENABLE_FREE_WHEEL_TICKET_CLAIM = false, --// Disabled candidate; later live claiming requires separate owner approval.
+		AUTHORIZED_ACCOUNT_ID = 0, --// Private per-run owner account; zero authorizes nobody.
+		AUTHORIZED_TEST_ID = "", --// Explicit test identity; one charged attempt, retained only in this client runtime.
+		OWNER_CONFIRMED_WHEEL_IDLE = false, --// Later owner-confirmed trial condition; native queue idleness remains unproven.
+		MAXIMUM_ACCOUNT_AGE_SECONDS = 10, --// Require coherent fresh received account facts.
+		CONFIRMATION_TIMEOUT_SECONDS = 15, --// Incomplete receipt retains its barrier; timeout never authorizes a retry.
+	},
+	-- PHASE5_FREE_WHEEL_TICKET_END
 	BRAIN_SETTINGS = {
 		ENABLE_EARNING_RECOMMENDATIONS = true, --// Recommend equipping existing pets and useful gum or flavor upgrades.
 		ENABLE_WORLD_RECOMMENDATIONS = true, --// Recommend verified island discovery and world gate prerequisites.

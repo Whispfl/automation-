@@ -905,6 +905,7 @@ function GameMechanics:RewardAction(manager, decision, token)
 	if not allowed then return false, reason end
 	local remote = self.Reader:_dependency("Remote")
 	if not remote then return false, "Native Remote unavailable" end
+	if decision.Kind == "FREE_WHEEL_TICKET" then return self:ClaimFreeWheelTicket(manager, decision, token, remote) end
 	if decision.Kind ~= "PLAYTIME" and decision.Kind ~= "MYSTERY_BOX" then return false, "Unsupported reward intent" end
 	if decision.Kind == "PLAYTIME" and type(remote.InvokeServer) ~= "function"
 		or decision.Kind == "MYSTERY_BOX" and type(remote.FireServer) ~= "function" then return false, "Required native transport unavailable before preparation" end
@@ -1178,4 +1179,69 @@ function GameMechanics:ExecuteOwnerDirectEggTeleportTest(manager, record, token)
 		tostring(nativeVerified == true), tostring(nativeReason), maxDisplacement))
 end
 
+-- PHASE5_FREE_WHEEL_TICKET_BEGIN
+-- Exact fixed command; the existing scheduler and interaction guards remain authoritative.
+function GameMechanics:ClaimFreeWheelTicket(manager, decision, token, remote)
+	local c = self.LocalFeatureController
+	local function owns()
+		local active = c and c.Scheduler and c.Scheduler.Active
+		return c and manager == c.Rewards and c.State == "RUNNING" and not manager.Destroyed
+			and c.Reader and self.Reader == c.Reader and self.Player and self.Player == c.Reader.Player and self.Player.UserId == manager.UserId
+			and type(token) == "table" and type(token.CheckCancelled) == "function" and not token:CheckCancelled() and active and active.Token == token
+			and type(active.Definition) == "table" and active.Definition.Owner == "REWARDS" and active.Definition.Generation == c.Generation
+	end
+	if type(decision) ~= "table" or decision.Kind ~= "FREE_WHEEL_TICKET" or decision.Command ~= "ClaimFreeWheelSpin" then return false, "Exact documented free-wheel command required" end
+	if not owns() then return false, "Free-wheel task lacks its exact scheduler, token or account" end
+	if remote ~= self.Reader:_dependency("Remote") or type(remote) ~= "table" or type(remote.FireServer) ~= "function" then return false, "Verified free-wheel native transport unavailable" end
+	local transport = remote.FireServer
+	local authorized, reason = manager:_freeWheelAuthorization()
+	if not authorized then return false, reason end
+	local allowed, blocker = self:LocalFeatureGuard()
+	if not allowed or not owns() then return false, blocker or "Free-wheel interaction interrupted" end
+	local pending, preparationReason = manager:PrepareFreeWheelTicket(decision, token)
+	if not pending then return false, preparationReason end
+	local finalAllowed, finalReason = self:LocalFeatureGuard()
+	if not finalAllowed or not owns() or remote ~= self.Reader:_dependency("Remote") or remote.FireServer ~= transport then
+		manager:AbortPreparation(pending, finalReason or "Free-wheel lease or transport changed before attempt")
+		return false, finalReason or "Free-wheel lease or transport changed before attempt"
+	end
+	local charged, chargeReason = manager:MarkFreeWheelTicketDispatched(pending, token)
+	if not charged then manager:AbortPreparation(pending, chargeReason) return false, chargeReason end
+	local dispatchValid, dispatchState, dispatchReason = manager:ValidateFreeWheelTicketDispatch(pending, token)
+	if not dispatchValid then
+		manager:UnresolveFreeWheelTicket(pending, dispatchState, dispatchReason)
+		return false, dispatchReason
+	end
+	local dispatchAllowed, dispatchBlocker = self:LocalFeatureGuard()
+	if not dispatchAllowed then
+		manager:UnresolveFreeWheelTicket(pending, "AMBIGUOUS", dispatchBlocker or "Native interaction changed after charged observation")
+		return false, dispatchBlocker
+	end
+	local finalAuthorized = manager:_freeWheelAuthorization()
+	if not finalAuthorized then
+		manager:UnresolveFreeWheelTicket(pending, "CANCELLED_AFTER_DISPATCH", "Charged free-wheel authorization revoked after final guard")
+		return false, "Free-wheel authorization revoked before transport"
+	end
+	local observed = manager.WheelDispatchObservation
+	local finalSnapshot = self.Reader:GetSnapshot()
+	if not observed or type(finalSnapshot) ~= "table" or finalSnapshot.Ready ~= true
+		or finalSnapshot.Revision ~= observed.Revision or self.Reader.Revision ~= observed.Revision
+		or os.clock() < observed.ReadAt or os.clock() - observed.ReadAt > manager.Config.FREE_WHEEL_TICKET_SETTINGS.MAXIMUM_ACCOUNT_AGE_SECONDS then
+		manager:UnresolveFreeWheelTicket(pending, "AMBIGUOUS", "Received snapshot changed after final interaction guard; no transport or retry")
+		return false, "Received snapshot changed before free-wheel transport"
+	end
+	if not owns() or manager.Ledger.Pending ~= pending or pending.Command ~= "ClaimFreeWheelSpin"
+		or not finalAuthorized or manager.Config.FREE_WHEEL_TICKET_SETTINGS.AUTHORIZED_TEST_ID ~= pending.TestId
+		or remote ~= self.Reader:_dependency("Remote") or remote.FireServer ~= transport then
+		manager:UnresolveFreeWheelTicket(pending, "CANCELLED_AFTER_DISPATCH", "Charged free-wheel attempt interrupted before transport; no automatic retry")
+		return false, "Charged free-wheel attempt interrupted"
+	end
+	pending.TransportStarted = true
+	local ok = pcall(function() remote:FireServer("ClaimFreeWheelSpin") end)
+	pending.InvocationOk = ok
+	if not ok then manager:UnresolveFreeWheelTicket(pending, "AMBIGUOUS", "Free-wheel transport raised after charged attempt; delivery unresolved; no automatic retry") end
+	manager:ObserveFreeWheelTicket(pending)
+	return true, "One free-wheel attempt recorded; paired received state required"
+end
+-- PHASE5_FREE_WHEEL_TICKET_END
 return GameMechanics

@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { sources, bundle } from './bundle.mjs';
+import { stripFreeWheelTicketDelta } from './verify-phase5-free-wheel-ticket.mjs';
 import '../tests/phase4-approved-owner-direct.mjs';
 import '../tests/phase4-approved-final-standing.mjs';
 import './verify-test-a-preservation.mjs';
@@ -24,7 +25,17 @@ assert.equal(generated.output, bundle(source).output, 'Build must be determinist
 assert(!/\bscript\./.test(generated.output), 'Bundle must not require a Script instance');
 assert(!/Instance\.new\(["'](?:Script|LocalScript|ModuleScript)["']/.test(generated.output), 'Bundle must not install scripts');
 for (const module of source.modules) {
-  if (module.name !== 'GameMechanics') assert(!/\b(?:FireServer|InvokeServer)\b/.test(module.source), 'Only the verified native mechanics adapter may invoke gameplay commands');
+  const file = `src/OCFoundation/${module.name}.luau`;
+  const legacySource = Buffer.from(stripFreeWheelTicketDelta(file, await readFile(path.join(root, file)))).toString('utf8');
+  // Preserve the original token ban on the exact approved projection. New pinned
+  // helpers may inspect transport identity, but cannot invoke or alias actions;
+  // the actual Knowledge fixture also throws on every native transport call.
+  if (module.name !== 'GameMechanics') {
+    assert(!/\b(?:FireServer|InvokeServer)\b/.test(legacySource), 'Only the verified native mechanics adapter may invoke gameplay commands');
+    const transportCall = /(?:[.:]\s*(?:FireServer|InvokeServer)|\[\s*["'](?:FireServer|InvokeServer)["']\s*\])\s*\(/;
+    const protectedTransportCall = /\b(?:pcall|xpcall)\s*\(\s*[^,\n]*?(?:[.:]\s*(?:FireServer|InvokeServer)|\[\s*["'](?:FireServer|InvokeServer)["']\s*\])/;
+    assert(!transportCall.test(module.source) && !protectedTransportCall.test(module.source), 'Actual non-adapter source must never invoke native gameplay transport');
+  }
   if (module.name !== 'GameMechanics' && module.name !== 'GameKnowledge') assert(!/\bfiretouchinterest\b/.test(module.source), 'Runtime contact belongs only to the mechanics adapter; knowledge may describe the contract');
 }
 const mechanics = source.modules.find(m => m.name === 'GameMechanics').source;
@@ -114,6 +125,8 @@ assert.equal(run.status, 0, 'Foundation behavior tests failed');
 await import('./test-phase5-mastery.mjs');
 // Reward intelligence has an independent synthetic counter after all historical/Mastery cases.
 await import('./test-phase5-rewards.mjs');
+// The separately authorized ticket contract retains its own offline counter.
+await import('./test-phase5-free-wheel-ticket.mjs');
 
 for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');

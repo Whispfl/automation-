@@ -8,7 +8,28 @@ import { bundle, sources } from './bundle.mjs';
 const root = path.resolve(import.meta.dirname, '..');
 const source = await sources(root);
 const mechanics = source.modules.find(module => module.name === 'GameMechanics').source;
-const isolated = mechanics.slice(mechanics.indexOf('function GameMechanics:ExecuteOwnerDirectEggTeleportTest('));
+function isolateOwnerDirectMethod(text) {
+  const signature = 'function GameMechanics:ExecuteOwnerDirectEggTeleportTest(';
+  const declarations = [...text.matchAll(/^function GameMechanics:ExecuteOwnerDirectEggTeleportTest\(/gm)];
+  assert.equal(declarations.length, 1, 'Exactly one top-level isolated adapter declaration');
+  const start = declarations[0].index;
+  const bodyStart = start + signature.length;
+  const boundary = text.slice(bodyStart).search(/^(?:function\s+[A-Za-z_][\w.:]*\s*\(|return\s+GameMechanics\b)/m);
+  assert(boundary >= 0, 'Isolated adapter ends before the next top-level method or module return');
+  const bounded = text.slice(start, bodyStart + boundary);
+  const endings = [...bounded.matchAll(/^end[\t ]*\r?$/gm)];
+  assert(endings.length > 0, 'Complete isolated adapter closing end is present');
+  const last = endings.at(-1);
+  assert(/^(?:\s|--[^\r\n]*(?:\r?\n|$))*$/.test(bounded.slice(last.index + last[0].length)),
+    'Only whitespace/comments may follow the isolated adapter closing end');
+  return bounded.slice(0, last.index + last[0].length);
+}
+const isolated = isolateOwnerDirectMethod(mechanics);
+const appended = `${isolated}\n\nfunction GameMechanics:UnrelatedAuditFixture()\n  remote:FireServer("UnrelatedFixture")\n  remote:InvokeServer("UnrelatedFixture")\n  ResolveStanding() PositionSelectedEgg() Raycast() GetPartBoundsInBox()\n  HatchEgg() Equip() BuyWorld() BuyGum() Collect()\nend\nreturn GameMechanics\n`;
+assert.equal(isolateOwnerDirectMethod(appended), isolated, 'Unrelated appended methods cannot contaminate the teleport audit');
+assert.equal(isolateOwnerDirectMethod(`${isolated}\nreturn GameMechanics\n`), isolated, 'Module return also bounds the complete teleport method');
+assert.throws(() => isolateOwnerDirectMethod('return GameMechanics\n'), /Exactly one/, 'Missing methods cannot pass a vacuous audit');
+console.log('[OC OWNER DIRECT] Method boundary regression PASS; unrelated appended transport/actions excluded from audit scope.');
 assert(isolated.startsWith('function GameMechanics:ExecuteOwnerDirectEggTeleportTest('), 'Isolated adapter is present');
 assert.equal((isolated.match(/fresh\.CharacterRoot\.CFrame = directFrame/g) || []).length, 1, 'Exactly one isolated assignment site');
 assert(!/\b(?:FireServer|InvokeServer|ResolveStanding|PositionSelectedEgg|Raycast|GetPartBoundsInBox)\b/.test(isolated), 'Isolated direct path contains no transport, ordinary standing adapter or geometry search');

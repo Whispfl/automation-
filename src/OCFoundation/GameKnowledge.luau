@@ -1614,4 +1614,197 @@ function GameKnowledge:RewardContext(snapshot, now, settings)
 	return context
 end
 -- PHASE5_READ_ONLY_REWARDS_END
+-- PHASE5_FREE_WHEEL_TICKET_BEGIN
+-- One-family received observation. No wheel frame/queue is required or inferred,
+-- and no remote/action is invoked. The existing reader owns every dependency load.
+local function freeWheelCopy(value, seen)
+	if type(value) ~= "table" then return value end
+	seen = seen or {}
+	if seen[value] then return seen[value] end
+	local result = {} seen[value] = result
+	for key, entry in pairs(value) do result[key] = freeWheelCopy(entry, seen) end
+	return result
+end
+
+local function freeWheelEqual(left, right, seen)
+	if type(left) ~= type(right) then return false end
+	if type(left) ~= "table" then return left == right end
+	seen = seen or {}
+	if seen[left] == right then return true end
+	seen[left] = right
+	for key, value in pairs(left) do if not freeWheelEqual(value, right[key], seen) then return false end end
+	for key in pairs(right) do if left[key] == nil then return false end end
+	return true
+end
+
+local function freeWheelNumber(value)
+	return type(value) == "number" and value == value and value >= 0 and value < math.huge
+end
+
+local function freeWheelCount(value) return freeWheelNumber(value) and value % 1 == 0 end
+
+function GameKnowledge:FreeWheelTicketContext(snapshot, now, settings)
+	settings = settings or {}
+	local startedAt = os.clock()
+	local context = { Fresh = false, AutoClaimSpin = "UNKNOWN", QueueState = "UNKNOWN", ObservedAt = now,
+		InterferenceFacts = { Balances = {}, Powerups = {}, OtherRewards = {}, Available = {} },
+		NativeInterfaceIds = {}, Evidence = "WheelSpin:373,400-412,595; ItemUtil:466; native queue/proximity and grant attribution remain unverified" }
+	local function block(reason) context.Fresh, context.Blocker = false, reason return context end
+	if settings.ENABLE_FREE_WHEEL_TICKET_CLAIM ~= true then return block("Free wheel ticket claim observation is disabled") end
+	local reader = self.Reader
+	if self.Destroyed or not reader or reader.Destroyed then return block("Free wheel ticket reader is unavailable") end
+	local guards = { Remote = "Shared.Framework.Network.Remote", HatchPresentation = "Client.Effects.HatchEgg",
+		GuiFrame = "Client.Gui.GuiFrame", PhysicalItem = "Client.Effects.PhysicalItem",
+		FishingPlayerRods = "Client.Gui.Frames.Fishing.FishingPlayerRods" }
+	for name, path in pairs(guards) do
+		if self:Get(name) == nil and type(reader.Dependencies) == "table" and reader.Dependencies[name] == nil
+			and type(reader._load) == "function" then reader:_load(name, path, "table") end
+	end
+	-- Reuse received snapshot/coherence checks and the completed reward catalog cache.
+	local received = self:RewardContext(snapshot, now, settings)
+	if type(received) ~= "table" or received.Fresh ~= true then
+		return block(type(received) == "table" and received.Blocker or "Fresh received reward context unavailable")
+	end
+	context.AccountId, context.Revision, context.ReadAt = received.AccountId, snapshot.Revision, snapshot.ReadAt
+	local player, raw = reader.Player, reader:GetLiveProfile()
+	local account = freeWheelCopy(received.Account)
+	if type(raw) ~= "table" or type(account) ~= "table" or not freeWheelEqual(account, raw) then
+		return block("Received free wheel facts changed after reward observation")
+	end
+	local inventory, upgrades = snapshot.Inventory, snapshot.Upgrades
+	if type(inventory) ~= "table" or type(inventory.Powerups) ~= "table" or type(account.Powerups) ~= "table"
+		or not freeWheelEqual(inventory.Powerups, account.Powerups) then
+		return block("Complete received Powerups inventory baseline is unavailable or inconsistent")
+	end
+	for name, amount in pairs(account.Powerups) do
+		if type(name) ~= "string" or name == "" or not freeWheelCount(amount) then
+			return block("Received Powerups map contains an invalid name or count")
+		end
+	end
+	if type(upgrades) ~= "table" or type(upgrades.MasteryUpgrades) ~= "table" or type(account.MasteryUpgrades) ~= "table"
+		or not freeWheelEqual(upgrades.MasteryUpgrades, account.MasteryUpgrades) then
+		return block("Explicit received MasteryUpgrades evidence is unavailable or inconsistent")
+	end
+	local autoClaim = false
+	for key, upgrade in pairs(account.MasteryUpgrades) do
+		if not (type(key) == "string" and key ~= "" or freeWheelCount(key) and key >= 1)
+			or type(upgrade) ~= "table" or type(upgrade.Type) ~= "string" or upgrade.Type == "" then
+			return block("Received MasteryUpgrades map is malformed; AutoClaimSpin stays UNKNOWN")
+		end
+		if upgrade.Type == "AutoClaimSpin" then autoClaim = true end
+	end
+	context.AutoClaimSpin = autoClaim
+	if autoClaim then return block("Native AutoClaimSpin is active") end
+	local modules = {}
+	for name in pairs(guards) do
+		local value = self:Get(name)
+		if type(value) ~= "table" then return block("Required free wheel guard/transport dependency unavailable: " .. name) end
+		modules[name] = value
+	end
+	if type(modules.Remote.FireServer) ~= "function" or type(modules.HatchPresentation.IsHatching) ~= "function"
+		or type(modules.GuiFrame.IsAnyOpen) ~= "function" or type(modules.PhysicalItem.GetActiveObjects) ~= "function"
+		or type(modules.FishingPlayerRods.GetRodComponent) ~= "function" then
+		return block("Required reviewed free wheel guard/transport interfaces unavailable")
+	end
+	local guardMethods = { Remote = "FireServer", HatchPresentation = "IsHatching", GuiFrame = "IsAnyOpen",
+		PhysicalItem = "GetActiveObjects", FishingPlayerRods = "GetRodComponent" }
+	local guardGetters = {}
+	for name, method in pairs(guardMethods) do guardGetters[name] = modules[name][method] end
+	local giftGetter = guardGetters.PhysicalItem
+	local giftOK, giftCount = pcall(giftGetter, modules.PhysicalItem, "Gift")
+	if not giftOK or not freeWheelCount(giftCount) then return block("Native active gift count is unavailable or invalid") end
+	context.GiftCount = giftCount
+	if giftCount > 0 then return block("Known active gifts conflict with free wheel receipt attribution") end
+	local itemUtil, powerups, time = self:Get("ItemUtil"), self:Get("Powerups"), self:Get("Time")
+	local ticket = type(powerups) == "table" and powerups["Spin Ticket"]
+	if type(itemUtil) ~= "table" or type(itemUtil.GetOwnedAmount) ~= "function" or type(ticket) ~= "table"
+		or type(received.Catalogs) ~= "table" or type(received.Catalogs.Powerups) ~= "table"
+		or not freeWheelEqual(received.Catalogs.Powerups, powerups) then
+		return block("Canonical native Spin Ticket definition/getter is unavailable or changed")
+	end
+	if type(time) ~= "table" or type(time.now) ~= "function" or not freeWheelNumber(received.NativeNow) then
+		return block("Native free wheel deadline time is unavailable")
+	end
+	if not freeWheelNumber(account.NextWheelSpin) then return block("Explicit received NextWheelSpin deadline is unavailable") end
+	local getter, clockGetter, ticketBefore = itemUtil.GetOwnedAmount, time.now, freeWheelCopy(ticket)
+	local powerupsBefore, itemBefore = freeWheelCopy(powerups), freeWheelCopy(itemUtil)
+	local timeOK, nativeBefore = pcall(clockGetter)
+	if not timeOK or not freeWheelNumber(nativeBefore) or nativeBefore < received.NativeNow then
+		return block("Native free wheel time is unavailable or moved backwards")
+	end
+	local observedOK, amount = pcall(getter, itemUtil, freeWheelCopy(account), { Type = "Powerup", Name = "Spin Ticket" })
+	local expected = account.Powerups["Spin Ticket"]
+	-- Native ItemUtil maps an absent item key to zero; only this already validated,
+	-- complete received map permits absence. A missing whole inventory never does.
+	if expected == nil then expected = 0 end
+	if not observedOK or not freeWheelCount(amount) or amount ~= expected then
+		return block("Native ItemUtil and complete received canonical Spin Ticket count disagree")
+	end
+	local finalGiftOK, finalGiftCount = pcall(giftGetter, modules.PhysicalItem, "Gift")
+	if not finalGiftOK or not freeWheelCount(finalGiftCount) then
+		return block("Native active gift count became unavailable or invalid during item observation")
+	end
+	context.GiftCount = finalGiftCount
+	if finalGiftCount > 0 then return block("Known active gifts appeared during free wheel item observation") end
+	local finalTimeOK, nativeAfter = pcall(clockGetter)
+	if not finalTimeOK or not freeWheelNumber(nativeAfter) or nativeAfter < nativeBefore then
+		return block("Native free wheel time became unavailable or moved backwards during item observation")
+	end
+	local final, finalSnapshot = reader:GetLiveProfile(), reader:GetSnapshot()
+	if self.Destroyed or self.Reader ~= reader or reader.Destroyed or reader.Player ~= player
+		or not player or player.UserId ~= context.AccountId or reader.Revision ~= context.Revision
+		or type(finalSnapshot) ~= "table" or finalSnapshot.Ready ~= true or finalSnapshot.Revision ~= context.Revision
+		or not freeWheelEqual(snapshot, finalSnapshot) or final ~= raw or not freeWheelEqual(account, final) then
+		return block("Free wheel account identity, snapshot or received facts changed during native item observation")
+	end
+	if self:Get("ItemUtil") ~= itemUtil or itemUtil.GetOwnedAmount ~= getter or not freeWheelEqual(itemBefore, itemUtil)
+		or self:Get("Powerups") ~= powerups or powerups["Spin Ticket"] ~= ticket
+		or not freeWheelEqual(powerupsBefore, powerups) or not freeWheelEqual(ticketBefore, ticket)
+		or self:Get("Time") ~= time or time.now ~= clockGetter then
+		return block("Native free wheel definition/getter/time identity changed during observation")
+	end
+	for name, value in pairs(modules) do
+		if self:Get(name) ~= value or value[guardMethods[name]] ~= guardGetters[name] then
+			return block("Required native free wheel guard/transport identity changed: " .. name)
+		end
+	end
+	local completedAt = now + math.max(0, os.clock() - startedAt)
+	local maximumAge = settings.MAXIMUM_ACCOUNT_AGE_SECONDS or 10
+	if not freeWheelNumber(maximumAge) or not freeWheelNumber(snapshot.ReadAt) or completedAt - snapshot.ReadAt > maximumAge then
+		return block("Free wheel received snapshot became stale during native observation")
+	end
+	context.NextWheelSpin, context.NativeNow, context.TicketCount = account.NextWheelSpin, nativeAfter, amount
+	context.Due, context.TicketDefinition, context.CompletedAt = account.NextWheelSpin <= nativeAfter, freeWheelCopy(ticket), completedAt
+	local interference = context.InterferenceFacts
+	interference.Balances = freeWheelCopy(received.Balances)
+	interference.Available.Balances, interference.Available.Powerups = true, true
+	for name, value in pairs(account.Powerups) do if name ~= "Spin Ticket" then interference.Powerups[name] = value end end
+	for _, field in ipairs({ "Potions", "Pets" }) do
+		interference.Available[field] = type(account[field]) == "table"
+		if not interference.Available[field] then return block("Required received interference inventory unavailable: " .. field) end
+		interference[field] = freeWheelCopy(account[field])
+	end
+	-- Preserve availability explicitly. These are received comparison facts, not an
+	-- invented queue schema or permission to run any of the other reward families.
+	for _, field in ipairs({ "PlaytimeRewards", "DailyRewards", "WorldRewards", "Quests", "QuestsCompleted", "ClaimedPrizes", "ChallengePass", "Season", "Cooldowns" }) do
+		interference.Available[field] = account[field] ~= nil
+		if account[field] ~= nil then interference.OtherRewards[field] = freeWheelCopy(account[field]) end
+	end
+	for field, value in pairs(account) do
+		if type(field) == "string" and string.sub(field, 1, 4) == "Next" and field ~= "NextWheelSpin" then
+			interference.Available[field], interference.OtherRewards[field] = true, freeWheelCopy(value)
+		end
+	end
+	for name, value in pairs({ ItemUtil = itemUtil, GetOwnedAmount = getter, Powerups = powerups, SpinTicket = ticket,
+		Time = time, TimeNow = clockGetter, Remote = modules.Remote, FireServer = modules.Remote.FireServer }) do
+		context.NativeInterfaceIds[name] = self:InstanceId(value)
+	end
+	for name, value in pairs(modules) do
+		context.NativeInterfaceIds[name] = self:InstanceId(value)
+		context.NativeInterfaceIds[name .. "." .. guardMethods[name]] = self:InstanceId(guardGetters[name])
+	end
+	context.Fresh = true
+	return context
+end
+-- PHASE5_FREE_WHEEL_TICKET_END
 return GameKnowledge
