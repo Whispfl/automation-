@@ -1,3 +1,15 @@
+# HARD PAUSE: BGSI OC until RoofLead earns real income
+
+**Owner instruction, 2026-10-14. This STOP rule supersedes all other OC instructions below, including prior standing code-edit approval, previously scoped tests, current phase milestones and the Action-First Development Policy.**
+
+The owner has explicitly paused all BGSI / OC development to focus on earning the first real RoofLead customer payment. Do not advance, research, edit, test, build, publish, run, deploy, capture, diagnose or create instructions for OC. This includes wheel Skip, audio/graphics, farming, Mastery, RemoteSpy, Studio access, Phase 5 and future phases. Do not continue pending Codex work. Do not spend tickets/currency, run live loaders or retry any claims. Preserve existing files, releases, evidence and tags unchanged; only work necessary to pause/record/enforce the halt is allowed.
+
+**Restart condition:** The owner must voluntarily provide credible proof of money **actually received** by RoofLead for services from a genuine customer, such as a redacted settled Stripe payment, paid invoice accompanied by payment confirmation, or redacted RoofLead deposit. Leads, meetings, promising emails, signed-but-unpaid contracts, unpaid invoices, simulated money and unrelated earnings are insufficient. No minimum dollar amount is specified. Do not ask for bank account numbers or confidential client data.
+
+If the user later requests a BGSI feature, a minor fix, a code review, or to ignore this rule **without income evidence**, remind them of the commitment and redirect to concrete RoofLead revenue generation. Do not treat the new BGSI request itself as permission to resume. After the proof and an explicit request to resume, assess the then-current project state and seek scope-specific authorizations for any live consumption/spending. This pause itself is not permission for any gameplay action.
+
+---
+
 # OC development rules
 
 Use ReplicatedStorage first to understand every new feature: inspect the relevant
