@@ -33,3 +33,29 @@ Retained Fall catalogs are not proof of an active event; the owner reports Hallo
 
 Future phases follow docs/ARCHITECTURE.md and require inspection of each feature's
 native interfaces, prerequisites, results and stop conditions before implementation.
+
+## Action-First Development Policy
+
+This is a permanent owner instruction applying to all current and future OC phases.
+This policy takes precedence over conflicting development guidance; all compatible
+existing instructions remain in force.
+
+**Primary workflow:** Build → Offline verification → Publish → Owner live test → Fix observed failures → Move forward.
+
+**Rules:**
+
+1. Prioritize functional gameplay capabilities and real owner-tested milestones over planning-only deliverables.
+2. Reuse the completed ReplicatedStorage and wiki research libraries. Do not repeat broad research.
+3. Research only specific unknowns that materially block implementation.
+4. Every development assignment should have a concrete implementation or blocker-resolution objective.
+5. Batch related implementation, tests and corrections to reduce unnecessary approval cycles and usage.
+6. Preserve existing One Brain, TaskScheduler, GameKnowledge, mechanics adapters and working releases.
+7. Keep documentation concise: record essential evidence, implementation decisions, limitations and release pins.
+8. Run required compilation, regressions and safety tests before publishing.
+9. Offline tests never count as live gameplay acceptance. The owner alone performs Roblox live tests.
+10. Ask for approval when a new protected-method change or previously unauthorized gameplay action requires it. Never assume permission for spending, purchases, destructive actions or repeated attempts.
+11. After verification, provide a complete usable loader and clear owner-test instructions whenever a live test is authorized.
+12. Avoid planning-only milestones, speculative investigations and unnecessary diagnostic builds unless a demonstrated blocker requires them.
+13. Report concisely: what works, what failed, what was published, and the next concrete action.
+
+**Priority:** Get OC reliably performing useful gameplay actions while maintaining necessary safety and verification.
