@@ -11,18 +11,22 @@ const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8'
 const gitBytes = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { cwd: root, timeout: 30000, maxBuffer: 16 * 1024 * 1024 });
 const repository = 'Whispfl/automation-';
 const raw = `https://raw.githubusercontent.com/${repository}`;
-const commit = git('rev-parse', 'HEAD'), branch = git('branch', '--show-current');
+const verificationCommit = git('rev-parse', 'HEAD'), branch = git('branch', '--show-current');
 assert(branch, 'Publication verification requires the intended current branch');
 const metadata = verifyFreeWheelTicketWorkspace();
 const bundle = await readFile(path.join(root, 'dist/OC.lua'));
 const match = bundle.toString('utf8').match(/-- Build: ([a-f0-9]{12})/);
 assert(match, 'Candidate bundle must identify its build');
 const buildId = match[1], tag = `phase5-free-wheel-ticket-${buildId}`;
+const commit = git('rev-parse', `${tag}^{commit}`);
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const privateCommit = '34342b60c6cb82012aa531b09861c554beb8b265';
 const ancestry = spawnSync('git', ['merge-base', '--is-ancestor', privateCommit, commit], { cwd: root, timeout: 30000 });
 assert.equal(ancestry.status, 1, 'Private raw-log commit must remain outside published ancestry');
-assert.equal(git('rev-parse', `${tag}^{commit}`), commit, 'Candidate local tag must pin current HEAD');
+assert.equal(spawnSync('git', ['merge-base', '--is-ancestor', commit, verificationCommit], { cwd: root, timeout: 30000 }).status, 0,
+  'Immutable candidate must remain in the current publication branch history');
+assert.equal(spawnSync('git', ['merge-base', '--is-ancestor', privateCommit, verificationCommit], { cwd: root, timeout: 30000 }).status, 1,
+  'Private raw-log commit must also remain outside the verification branch ancestry');
 
 const overallDeadline = Date.now() + 10 * 60 * 1000;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -73,13 +77,14 @@ async function batch(items, callback, width = 4) {
   }
   return values;
 }
-const [branchRef, tagRef, tree] = await batch([
-  `/git/ref/heads/${encodedPath(branch)}`, `/git/ref/tags/${tag}`, `/git/trees/${commit}?recursive=1`,
+const [branchRef, tagRef, tree, verificationTree] = await batch([
+  `/git/ref/heads/${encodedPath(branch)}`, `/git/ref/tags/${tag}`, `/git/trees/${commit}?recursive=1`, `/git/trees/${verificationCommit}?recursive=1`,
 ], api);
-assert.equal(branchRef.object.sha, commit, 'Public candidate branch differs from current HEAD');
+assert.equal(branchRef.object.sha, verificationCommit, 'Public verification branch differs from current HEAD');
 assert.equal(tagRef.object.type, 'commit', 'Candidate must use a lightweight immutable tag');
-assert.equal(tagRef.object.sha, commit, 'Public candidate tag differs from current HEAD');
+assert.equal(tagRef.object.sha, commit, 'Public candidate tag changed its immutable commit');
 const localBlobs = compareTree(tree, commit);
+const verificationBlobs = compareTree(verificationTree, verificationCommit);
 const baselineBlobs = blobMap(metadata.baselineCommit);
 for (const entry of metadata.frozenFiles) {
   assert.equal(localBlobs.get(entry.file), baselineBlobs.get(entry.file), `Published historical evidence/loader/fixture changed: ${entry.file}`);
@@ -113,16 +118,32 @@ const files = [
 ];
 const checks = await batch(files.flatMap(file => [branch, commit, tag].map(ref => ({ file, ref }))), async ({ file, ref }) => {
   assert(localBlobs.has(file), `Candidate verification artifact is uncommitted: ${file}`);
-  const expected = gitBytes(commit, file), disk = await readFile(path.join(root, file));
-  assert(disk.equals(expected), `Candidate working bytes differ from HEAD: ${file}`);
+  const expected = gitBytes(ref === branch ? verificationCommit : commit, file), disk = await readFile(path.join(root, file));
+  assert(disk.equals(gitBytes(verificationCommit, file)), `Candidate working bytes differ from HEAD: ${file}`);
+  if (file !== 'scripts/verify-public-phase5-free-wheel-ticket.mjs') {
+    assert.equal(verificationBlobs.get(file), localBlobs.get(file), `Verification follow-up changed a candidate artifact: ${file}`);
+  }
   const actual = await get(`${raw}/${encodedPath(ref)}/${encodedPath(file)}`);
   assert(actual.equals(expected), `Anonymous candidate raw bytes differ: ${ref}:${file}`);
   return { file, ref, bytes: actual.length, sha256: sha(actual), result: 'PASS' };
 }, 6);
 
-const histories = await batch(metadata.releasePins, async pin => {
+// Offline preservation covers all local pins, including unpublished/held candidates.
+// Every previously published milestone remains mandatory; other local-only pins
+// must not be mislabeled as a public release or published merely to satisfy a check.
+const publicReferences = await api('/git/matching-refs/tags/');
+assert(Array.isArray(publicReferences), 'Published tag inventory must be explicit');
+const publicTags = new Map(publicReferences.map(reference => [reference.ref.replace(/^refs\/tags\//, ''), reference]));
+const priorPublished = JSON.parse(await readFile(path.join(root, 'docs/PHASE5-REWARDS-SOURCE-PRESERVATION.json'), 'utf8')).releasePins;
+const requiredPublished = [...priorPublished, { tag: 'phase5-rewards-7d374c2879a3', commit: metadata.baselineCommit }];
+for (const pin of requiredPublished) {
+  assert(publicTags.has(pin.tag), `Previously published mandatory milestone is missing: ${pin.tag}`);
+  assert.equal(git('rev-parse', `${pin.tag}^{commit}`), pin.commit, `Mandatory historical local pin changed: ${pin.tag}`);
+}
+const localOnlyPins = metadata.releasePins.filter(pin => !publicTags.has(pin.tag));
+const histories = await batch(metadata.releasePins.filter(pin => publicTags.has(pin.tag)), async pin => {
   assert.equal(git('rev-parse', `${pin.tag}^{commit}`), pin.commit, `Historical local pin changed: ${pin.tag}`);
-  const reference = await api(`/git/ref/tags/${encodedPath(pin.tag)}`);
+  const reference = publicTags.get(pin.tag);
   assert.equal(reference.object.sha, git('rev-parse', pin.tag), `Historical public tag object changed: ${pin.tag}`);
   let object = reference.object;
   for (let depth = 0; object.type === 'tag' && depth < 5; depth++) object = (await api(`/git/tags/${object.sha}`)).object;
@@ -137,10 +158,11 @@ const histories = await batch(metadata.releasePins, async pin => {
     bytes: actual.length, sha256: sha(actual), result: 'PASS' };
 });
 checks.push(...histories);
-const report = { dateUTC: new Date().toISOString(), repository, commit, branch, tag, buildId,
+const report = { dateUTC: new Date().toISOString(), repository, commit, verificationCommit, branch, tag, buildId,
   bundleSHA256: sha(bundle), bundleBytes: bundle.length, publicGitBlobs: localBlobs.size,
   anonymousAccess: true, authorizationDefaultsOff: true, privateRawEvidencePublished: false,
   privateAncestorExcluded: privateCommit, historicalReleaseCount: histories.length,
+  localOnlyHistoricalPins: localOnlyPins.map(pin => ({ ...pin, status: 'PRESERVED_LOCAL_UNPUBLISHED' })),
   checks, result: 'PASS', scope: 'Disabled candidate publication integrity only; no Roblox claim, spending or live acceptance executed' };
 await mkdir(path.join(root, '.test-output'), { recursive: true });
 await writeFile(path.join(root, '.test-output/phase5-free-wheel-ticket-public-verification.json'), JSON.stringify(report, null, 2) + '\n');
