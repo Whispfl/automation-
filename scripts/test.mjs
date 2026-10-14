@@ -127,6 +127,8 @@ await import('./test-phase5-mastery.mjs');
 await import('./test-phase5-rewards.mjs');
 // The separately authorized ticket contract retains its own offline counter.
 await import('./test-phase5-free-wheel-ticket.mjs');
+// Execute the claim-disabled owner preflight without changing the gameplay candidate.
+await import('./test-phase5-wheel-preflight.mjs');
 
 for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');
