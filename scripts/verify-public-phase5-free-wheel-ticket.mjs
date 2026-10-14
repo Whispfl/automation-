@@ -123,7 +123,11 @@ const checks = await batch(files.flatMap(file => [branch, commit, tag].map(ref =
   if (file !== 'scripts/verify-public-phase5-free-wheel-ticket.mjs') {
     assert.equal(verificationBlobs.get(file), localBlobs.get(file), `Verification follow-up changed a candidate artifact: ${file}`);
   }
-  const actual = await get(`${raw}/${encodedPath(ref)}/${encodedPath(file)}`);
+  const url = `${raw}/${encodedPath(ref)}/${encodedPath(file)}`;
+  // Mutable branch URLs may retain an older CDN entry immediately after push.
+  // A public, non-secret commit query selects a fresh cache entry; byte equality
+  // remains mandatory. User loaders keep their ordinary immutable raw tag URL.
+  const actual = await get(ref === branch ? `${url}?oc_verify_commit=${verificationCommit}` : url);
   assert(actual.equals(expected), `Anonymous candidate raw bytes differ: ${ref}:${file}`);
   return { file, ref, bytes: actual.length, sha256: sha(actual), result: 'PASS' };
 }, 6);
