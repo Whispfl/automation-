@@ -1,0 +1,64 @@
+diff --git a/src/OCFoundation/GameKnowledge.luau b/src/OCFoundation/GameKnowledge.luau
+index 21da9ce..966412a 100644
+--- a/src/OCFoundation/GameKnowledge.luau
++++ b/src/OCFoundation/GameKnowledge.luau
+@@ -1811,6 +1811,7 @@ end
+ -- Current LocalData and public native GUI/getters only. This method performs no input or transport.
+ function GameKnowledge:WheelSpinContext(snapshot, now, settings, allowNativeBusy)
+ 	settings = settings or {}
++	local remoteTest = settings.ALLOW_REMOTE_WHEEL_TEST == true
+ 	local context = { Fresh = false, QueueState = "UNKNOWN", ActionsEnabled = false,
+ 		Evidence = "WheelSpin:48,235-288,736; ClickableButton:224-297; Activation:348-363; ItemUtil:466-474" }
+ 	local function block(reason) context.Blocker = reason return context end
+@@ -1889,8 +1890,14 @@ function GameKnowledge:WheelSpinContext(snapshot, now, settings, allowNativeBusy
+ 		if not screen or gui:FindFirstChild("Intro") or gui:FindFirstChild("TransitionGui") then return "Native ScreenGui unavailable or transition active" end
+ 		local trading = screen:FindFirstChild("Trading")
+ 		if trading and trading.Visible or screen:FindFirstChild("Prompt") then return "Trading or prompt owns interaction" end
+-		if modules.GuiFrame:GetCurrentlyOpen() ~= "WheelSpin" or modules.GuiFrame:IsOpen("WheelSpin") ~= true
+-			or modules.GuiFrame:IsOpen("WorldMap") ~= false or modules.GuiFrame:IsAnyOpen() ~= true then return "Owner must open only the ordinary native WheelSpin interface" end
++		local currentFrame, wheelOpen, anyOpen = modules.GuiFrame:GetCurrentlyOpen(), modules.GuiFrame:IsOpen("WheelSpin"), modules.GuiFrame:IsAnyOpen()
++		if modules.GuiFrame:IsOpen("WorldMap") ~= false then
++			return remoteTest and "WorldMap owns interaction" or "Owner must open only the ordinary native WheelSpin interface"
++		end
++		if remoteTest then
++			if not (currentFrame == nil and wheelOpen == false and anyOpen == false
++				or currentFrame == "WheelSpin" and wheelOpen == true and anyOpen == true) then return "Another frame owns interaction; remote wheel test blocked" end
++		elseif currentFrame ~= "WheelSpin" or wheelOpen ~= true or anyOpen ~= true then return "Owner must open only the ordinary native WheelSpin interface" end
+ 		local wheel = screen:FindFirstChild("WheelSpin")
+ 		local frame = wheel and wheel:FindFirstChild("Frame")
+ 		local main = frame and frame:FindFirstChild("Main")
+@@ -1902,7 +1909,7 @@ function GameKnowledge:WheelSpinContext(snapshot, now, settings, allowNativeBusy
+ 		-- argument; Active belongs to the direct or contained native GuiButton.
+ 		local control = button and ((button:IsA("ImageButton") or button:IsA("TextButton")) and button
+ 			or button:FindFirstChild("Activation") or button:FindFirstChildOfClass("ImageButton") or button:FindFirstChildOfClass("TextButton"))
+-		if not wheel or not wheel.Visible or not spin or not skip or not button or not skipButton or not control
++		if not wheel or not remoteTest and not wheel.Visible or not spin or not skip or not button or not skipButton or not control
+ 			or not (control:IsA("ImageButton") or control:IsA("TextButton")) then return "Exact native ordinary Spin/Skip interface unavailable" end
+ 		context.GUI = { Screen = screen, Wheel = wheel, Frame = frame, Main = main, Spin = spin, Skip = skip,
+ 			SpinButton = button, SpinControl = control, SkipButton = skipButton }
+@@ -1926,8 +1933,11 @@ function GameKnowledge:WheelSpinContext(snapshot, now, settings, allowNativeBusy
+ 		if not activationRoot or not activationRoot:IsA("BasePart") then return "Exact loaded native ordinary wheel activation unavailable" end
+ 		local delta = root.Position - activationRoot.Position
+ 		local radius = activationRoot.Size.Y / 2
+-		if not freeWheelNumber(radius) or radius <= 0 or Vector3.new(delta.X, 0, delta.Z).Magnitude > radius
+-			or math.abs(delta.Y) > 10 then return "Character outside the observed native ordinary wheel activation range" end
++		if not remoteTest and (not freeWheelNumber(radius) or radius <= 0 or Vector3.new(delta.X, 0, delta.Z).Magnitude > radius
++			or math.abs(delta.Y) > 10) then return "Character outside the observed native ordinary wheel activation range" end
++		context.RemoteTest, context.WheelUIOpen, context.WheelDistance = remoteTest, wheelOpen, delta.Magnitude
++		context.RangeEvidence = remoteTest and "No position argument or range check in native playSpin; remote server acceptance UNKNOWN"
++			or "Native Activation:348-363 local horizontal/vertical geometry observed"
+ 		context.WheelObject, context.ActivationRoot, context.CharacterRoot = object, activationRoot, root
+ 		local count = modules.ItemUtil:GetOwnedAmount(freeWheelCopy(account), { Type = "Powerup", Name = "Spin Ticket" })
+ 		if not freeWheelCount(count) or count ~= (account.Powerups["Spin Ticket"] or 0) then return "Canonical ticket getter disagrees with current complete received inventory" end
+diff --git a/src/OCFoundation/OCConfig.luau b/src/OCFoundation/OCConfig.luau
+index e2043b8..44005e2 100644
+--- a/src/OCFoundation/OCConfig.luau
++++ b/src/OCFoundation/OCConfig.luau
+@@ -53,6 +53,7 @@ return {
+ 	-- PHASE5_ONE_WHEEL_SPIN_BEGIN
+ 	WHEEL_SPIN_SETTINGS = {
+ 		AUTO_SPIN_WHEEL = false, --// Disabled one-spin candidate; ordinary automatic continuation is not implemented.
++		ALLOW_REMOTE_WHEEL_TEST = false, --// Separate bounded owner trial: an initialized native wheel may spin with its frame closed and without approaching it; server acceptance is unverified.
+ 		OWNER_ONE_SPIN_ALLOWANCE = false, --// Separate explicit permission for one ticket-consuming native spin, never a purchase.
+ 		AUTHORIZED_ACCOUNT_ID = 0, --// Private approved account; zero permits nobody and is never inferred from the current player.
+ 		AUTHORIZED_TEST_ID = "", --// One charged attempt across same-client reloads; another ID cannot reset an unresolved spin.

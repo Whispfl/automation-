@@ -53,6 +53,7 @@ return {
 	-- PHASE5_ONE_WHEEL_SPIN_BEGIN
 	WHEEL_SPIN_SETTINGS = {
 		AUTO_SPIN_WHEEL = false, --// Disabled one-spin candidate; ordinary automatic continuation is not implemented.
+		ALLOW_REMOTE_WHEEL_TEST = false, --// Separate bounded owner trial: an initialized native wheel may spin with its frame closed and without approaching it; server acceptance is unverified.
 		OWNER_ONE_SPIN_ALLOWANCE = false, --// Separate explicit permission for one ticket-consuming native spin, never a purchase.
 		AUTHORIZED_ACCOUNT_ID = 0, --// Private approved account; zero permits nobody and is never inferred from the current player.
 		AUTHORIZED_TEST_ID = "", --// One charged attempt across same-client reloads; another ID cannot reset an unresolved spin.

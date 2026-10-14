@@ -132,6 +132,9 @@ await import('./test-phase5-wheel-preflight.mjs');
 // The disabled native one-spin candidate has separate actual-source synthetic gates.
 const { verifyWheelSpinCandidate } = await import('./test-phase5-wheel-spin-candidate.mjs');
 await verifyWheelSpinCandidate();
+// Separate false-default remote test; never rewrites the prior wheel milestone.
+const { verifyRemoteWheelCandidate } = await import('./test-phase5-wheel-spin-remote-candidate.mjs');
+await verifyRemoteWheelCandidate();
 
 for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');

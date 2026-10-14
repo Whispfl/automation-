@@ -1,5 +1,7 @@
 # BGSI OC — disabled Phase 5 native wheel-spin candidate
 
+[Remote wheel trial](docs/PHASE5-WHEEL-SPIN-REMOTE.md), build **c43d84fc5121**, permits an initialized native spin with its UI closed and without approaching the wheel. No UI opening or teleport is added. All previous releases remain pinned; server acceptance from afar awaits the owner's one authorized ticket trial. The [complete remote preflight](examples/Phase5WheelSpinRemoteDisabled.luau) remains read-only with spin permission OFF. Future concurrent farming must preserve honest currency-reward attribution.
+
 Current repository: **[Whispfl/automation-](https://github.com/Whispfl/automation-)**, development branch **codex/phase4-test-b**. The trailing hyphen is part of the repository name.
 
 Development follows the permanent [Action-First Development Policy](AGENTS.md#action-first-development-policy) for all current and future OC phases: Build → Offline verification → Publish → Owner live test → Fix observed failures → Move forward. Existing authorization and owner-test gates remain in force.

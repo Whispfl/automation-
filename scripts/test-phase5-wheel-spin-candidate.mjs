@@ -30,9 +30,9 @@ export async function verifyWheelSpinCandidate() {
   const executable=process.env.LUAU_BIN||path.join(root,'.tools/luau',process.platform==='win32'?'luau.exe':'luau');
   const loaderPath=path.join(root,'examples/Phase5WheelSpinDisabled.luau');
   const loader=await readFile(loaderPath,'utf8');
-  const expectedURL=`https://raw.githubusercontent.com/Whispfl/automation-/phase5-wheel-spin-${generated.buildId}/dist/OC.lua`;
+  const expectedURL='https://raw.githubusercontent.com/Whispfl/automation-/phase5-wheel-spin-646b0df72fed/dist/OC.lua';
   assert.equal((loader.match(/game:HttpGet\(/g)||[]).length,1,'Disabled WheelSpin loader fetches once');
-  assert(loader.includes(`game:HttpGet("${expectedURL}")`),'Disabled loader must pin this exact candidate');
+  assert(loader.includes(`game:HttpGet("${expectedURL}")`),'Historical disabled loader must preserve the 646 candidate pin');
   assert(!/\b(?:GitHubToken|FireServer|InvokeServer)\b|["']Authorization["']\s*[:=]|OC:Start\s*\(/.test(loader),'Disabled loader has no credentials, transport or Start');
   run(compiler,['--null',...source.modules.map(module=>path.join(root,'src/OCFoundation',module.name+'.luau')),
     path.join(root,'src/OC.luau'),path.join(root,'dist/OC.lua'),loaderPath],'Official actual-source compilation');

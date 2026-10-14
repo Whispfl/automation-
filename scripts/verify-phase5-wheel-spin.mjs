@@ -5,6 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync, readdirSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {stripRemoteWheelDelta} from './verify-phase5-wheel-spin-remote.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 export const WHEEL_SPIN_BASELINE = '918f8a58096c59f592fe94fd0d71fe5487f423d8';
@@ -96,6 +97,7 @@ function checkRecord(record) {
 }
 
 export function stripWheelSpinDelta(file,bytes) {
+  bytes=stripRemoteWheelDelta(file,bytes);
   const data=Buffer.from(bytes);
   // Older baseline consumers keep their original behavior and need no new record.
   if(!data.includes(Buffer.from(beginMarker)))return bytes;

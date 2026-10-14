@@ -1,0 +1,15 @@
+# Remote wheel trial
+
+Build `c43d84fc5121` adds a false-default `ALLOW_REMOTE_WHEEL_TEST` option. It permits the initialized native Spin callback with the wheel frame closed and without approaching its activation circle. OC opens no UI and performs no movement. The original `646b0df72fed` candidate, free-ticket implementation, all prior releases and their evidence remain immutable.
+
+Current native evidence supports this client behavior: `WheelSpin:235–288` checks owned tickets and calls `WheelSpin` with no position argument; its six-second animation then calls native finish/queue settlement. `ClickableButton:239–297` checks its public control's Active/condition rather than ancestor visibility or distance. `WheelSpin:790–803` closing effects do not cancel the spin. Reuse the completed [native reward library](research/replicatedstorage/REWARDS_QUESTS_AND_EVENTS.md), [action contracts](research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md), [wiki gaps](research/wiki/KNOWLEDGE_GAPS.md) and [original implementation evidence](PHASE5-WHEEL-SPIN.md).
+
+Server acceptance from elsewhere is UNKNOWN until the owner test. Exact initialized button identity, account/world/access, ticket stock, UI conflict, gift/auto-hatch/AutoClaimSpin, cancellation, scheduler ownership, native finish timing, one-request ledger and actual received reward verification remain required. Uninitialized controls or unavailable native assets block; there is no forced UI opening, teleport, replacement renderer or retry.
+
+The current owner authorization covers exactly one ticket-consuming trial. The activated account-bound loader stays local. Public defaults and the [remote preflight](../examples/Phase5WheelSpinRemoteDisabled.luau) have no spin permission, no account authorization and all unrelated actions/budgets OFF/zero. The owner can close the wheel and manually return to an Overworld grind location before running the test; OC will not bring the character back.
+
+This one-shot trial still ends its controller after the bounded attempt. Combining spins with continuous farming is a separate integration requirement: simultaneous currency income can prevent attributing a Coins wheel reward. No concurrent-grinding success or exact grant attribution is claimed. Future coordination must use the same scheduler, preserve pending receipts and avoid travel or invented reward credit.
+
+Official compilation and the complete suite passed: 684 baseline, 90 Mastery, 102 reward, 100 free-ticket, 49 earlier preflight and all 247 prior wheel cases/preservation gates. New remote checks passed 16 knowledge, 2 hidden-button bridge, 28 complete read-only loader and 9 exact-delta/tampering cases. [Separate preservation](PHASE5-WHEEL-SPIN-REMOTE-SOURCE-PRESERVATION.json) records the two-file implementation difference without changing historical hashes: 256 prior files and 20 immutable tags retained. Offline tests are not live acceptance.
+
+Pinned bundle: [phase5-wheel-spin-remote-c43d84fc5121](https://raw.githubusercontent.com/Whispfl/automation-/phase5-wheel-spin-remote-c43d84fc5121/dist/OC.lua). SHA-256 `d1e12969d048eced17ab3528a85260093ab05ae8d17661383b8432a1616609bf`.
