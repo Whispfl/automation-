@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {stripFreeWheelTicketDelta} from './verify-phase5-free-wheel-ticket.mjs';
+import {stripFreeWheelTicketDelta,stripFreeWheelTicketFiles} from './verify-phase5-free-wheel-ticket.mjs';
 
 const root=path.resolve(import.meta.dirname,'..');
 export const REWARD_BASELINE='7e833f94a1d2ff4011be3bdc74fcea0d10e30efc';
@@ -33,7 +33,7 @@ export function stripRewardDelta(file,bytes){
 }
 export function stripRewardFiles(files){
  const result=new Map();
- for(const [file,original] of files){
+ for(const [file,original] of stripFreeWheelTicketFiles(files)){
   const bytes=stripFreeWheelTicketDelta(file,original);
   if(file===addition){assert.equal(sha(bytes),record().addition.sha256,'Unrecorded pure RewardPolicy source');continue;}
   result.set(file,stripRewardDelta(file,bytes));

@@ -91,7 +91,10 @@ function RewardsManager.new(controller)
 		root.Accounts[key] = ledger
 	end
 	local pending = ledger.Pending
-	if type(pending) == "table" and pending.Kind == "FREE_WHEEL_TICKET" then
+	if type(pending) == "table" and pending.Kind == "WHEEL_SPIN" then
+		local valid, reason = self:ValidateWheelSpinPending(ledger, pending)
+		if not valid then self.Blocker, self.UnknownBarrier = reason, true return self end
+	elseif type(pending) == "table" and pending.Kind == "FREE_WHEEL_TICKET" then
 		local valid, reason = self:ValidateFreeWheelTicketPending(ledger, pending)
 		if not valid then self.Blocker, self.UnknownBarrier = reason, true return self end
 	elseif pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
@@ -110,6 +113,11 @@ function RewardsManager.new(controller)
 	local wheelValid, wheelReason = self:InitializeFreeWheelTicketLedger()
 	if not wheelValid then
 		self.Blocker, self.UnknownBarrier, self.Ledger = wheelReason, true, nil
+		return self
+	end
+	local spinValid, spinReason = self:InitializeWheelSpin()
+	if not spinValid then
+		self.Blocker, self.UnknownBarrier, self.Ledger = spinReason, true, nil
 		return self
 	end
 	if pending and pending.Kind == "MYSTERY_BOX" then pending.GiftIdentityCurrent = false end
@@ -176,6 +184,7 @@ function RewardsManager:Observe()
 	if self.Destroyed or not self.Ledger then return end
 	local pending = self.Ledger.Pending
 	if not pending or not pending.Attempted then return end
+	if pending.Kind == "WHEEL_SPIN" then self:ObserveWheelSpin(pending) return end
 	if pending.Kind == "FREE_WHEEL_TICKET" then self:ObserveFreeWheelTicket(pending) return end
 	local context, reason = self:_context()
 	if context then
@@ -263,6 +272,8 @@ end
 
 function RewardsManager:Select(plan)
 	if self.Destroyed then return false end
+	local spinOwns, spinDecision = self:SelectWheelSpin(plan)
+	if spinOwns ~= nil then return spinOwns, spinDecision end
 	local wheelOwns, wheelDecision = self:SelectFreeWheelTicket(plan)
 	if wheelOwns ~= nil then return wheelOwns, wheelDecision end
 	local enabled = self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
@@ -368,6 +379,10 @@ function RewardsManager:DispatchReturned(pending, invocationOk, result)
 end
 
 function RewardsManager:Definition(decision, generation)
+	if decision.Kind == "WHEEL_SPIN" or decision.Kind == "OBSERVE_REWARD"
+		and type(decision.Pending) == "table" and decision.Pending.Kind == "WHEEL_SPIN" then
+		return self:WheelSpinDefinition(decision, generation)
+	end
 	if decision.Kind == "OBSERVE_REWARD" and decision.Pending and decision.Pending.Status == "UNCONFIRMED" then
 		return nil -- Retain the barrier; existing received-state/five-second reader updates reconcile without a hot task cycle.
 	end
@@ -782,4 +797,278 @@ function RewardsManager:GetFreeWheelTicketStatus()
 		Blocker = pending and pending.Reason or self.WheelBlocker or self.Blocker }
 end
 -- PHASE5_FREE_WHEEL_TICKET_END
+-- PHASE5_ONE_WHEEL_SPIN_BEGIN
+local WheelSpinPolicy = require(script.Parent.WheelSpinPolicy)
+local SPIN_KIND = "WHEEL_SPIN"
+
+local function spinNormalize(context)
+	return WheelSpinPolicy.Normalize({ Fresh = context.Fresh, UserId = context.UserId, Raw = context.Raw,
+		Balances = context.Balances, Revision = context.ReceiptRevision, ReadAt = context.ReadAt })
+end
+
+function RewardsManager:ValidateWheelSpinPending(ledger, pending)
+	if type(pending) ~= "table" or type(pending.BeforeFacts) ~= "table" or not count(pending.BeforeFacts.Tickets) then
+		return false, "Malformed wheel spin pending baseline retained; no retry"
+	end
+	local extension = type(ledger) == "table" and ledger.WheelSpin
+	local record = type(extension) == "table" and type(extension.Tests) == "table" and extension.Tests[pending.TestId]
+	if pending.Kind ~= SPIN_KIND or pending.Version ~= 1 or pending.UserId ~= self.UserId or pending.Count ~= 1
+		or not wheelId(pending.TestId) or not count(pending.Generation) or not count(pending.ManagerEpoch)
+		or pending.ManagerEpoch < 1 or not finite(pending.StartedAt) or not finite(pending.Deadline) or pending.Deadline < pending.StartedAt
+		or type(pending.Attempted) ~= "boolean" or type(pending.BeforeFacts) ~= "table" or pending.BeforeFacts.Status ~= "READY"
+		or pending.BeforeFacts.UserId ~= self.UserId or pending.BeforeFacts.Tickets < 1 or not wheelData(pending)
+		or type(extension) ~= "table" or extension.Version ~= 1 or not count(extension.Epoch)
+		or type(record) ~= "table" or record.UserId ~= self.UserId or record.TestId ~= pending.TestId
+		or record.Attempts ~= (pending.Attempted and 1 or 0) then return false, "Malformed wheel spin pending record preserved; no retry" end
+	return true
+end
+
+function RewardsManager:InitializeWheelSpin()
+	local ledger, settings = self.Ledger, self.Config.WHEEL_SPIN_SETTINGS or {}
+	if not ledger then return false, "Account reward ledger unavailable" end
+	local extension = ledger.WheelSpin
+	if extension == nil and settings.AUTO_SPIN_WHEEL ~= true then return true end
+	if extension == nil then extension = { Version = 1, Epoch = 0, Tests = {} } ledger.WheelSpin = extension end
+	if type(extension) ~= "table" or extension.Version ~= 1 or not count(extension.Epoch)
+		or extension.Epoch >= 9007199254740990 or type(extension.Tests) ~= "table" then return false, "Unknown wheel spin ledger schema retained" end
+	for id, record in pairs(extension.Tests) do
+		if not wheelId(id) or type(record) ~= "table" or record.TestId ~= id or record.UserId ~= self.UserId
+			or record.Attempts ~= 0 and record.Attempts ~= 1 or type(record.Outcome) ~= "string" or not wheelData(record) then return false, "Malformed wheel spin allowance retained" end
+		if record.Attempts == 1 and record.Outcome ~= "TICKET_DEBIT_AND_GRANT_OBSERVED"
+			and not (ledger.Pending and ledger.Pending.Kind == SPIN_KIND and ledger.Pending.TestId == id and ledger.Pending.Attempted) then
+			return false, "Unresolved consumed spin lacks its retained pending barrier"
+		end
+	end
+	if not self.SpinManagerEpoch then extension.Epoch += 1 self.SpinManagerEpoch = extension.Epoch end
+	return true
+end
+
+function RewardsManager:WheelSpinAuthorization()
+	local s = self.Config.WHEEL_SPIN_SETTINGS or {}
+	if s.AUTO_SPIN_WHEEL ~= true or s.OWNER_ONE_SPIN_ALLOWANCE ~= true then return false, "One wheel spin permission is OFF" end
+	if not count(s.AUTHORIZED_ACCOUNT_ID) or s.AUTHORIZED_ACCOUNT_ID < 1 or s.AUTHORIZED_ACCOUNT_ID ~= self.UserId then return false, "Explicit matching owner account required" end
+	if not wheelId(s.AUTHORIZED_TEST_ID) or s.OWNER_CONFIRMED_WHEEL_IDLE ~= true then return false, "Explicit one-spin test ID and owner-confirmed idle wheel required" end
+	if not finite(s.CONFIRMATION_TIMEOUT_SECONDS) or s.CONFIRMATION_TIMEOUT_SECONDS < 8 or s.CONFIRMATION_TIMEOUT_SECONDS > 30
+		or not finite(s.MAXIMUM_ACCOUNT_AGE_SECONDS) or s.MAXIMUM_ACCOUNT_AGE_SECONDS <= 0 or s.MAXIMUM_ACCOUNT_AGE_SECONDS > 10 then return false, "Invalid bounded wheel observation settings" end
+	local off = { FREE_WHEEL_TICKET_SETTINGS = { "ENABLE_FREE_WHEEL_TICKET_CLAIM" },
+		PET_SETTINGS = { "AUTO_HATCH", "AUTO_EQUIP", "EQUIP_OWNED_TEAM_ONCE", "AUTO_DELETE_PETS", "AUTO_CRAFT_SHINY", "AUTO_FUSE_PETS" },
+		HATCH_SETTINGS = { "HATCH_ONE_EGG_ONCE", "ENABLE_BACKGROUND_PICKUPS" },
+		OWNER_ONE_HATCH_TEST_SETTINGS = { "OWNER_ONE_HATCH_TEST_ALLOWANCE", "OWNER_ONE_COMMON_EGG_FUNCTIONAL_TEST" },
+		EGG_TRAVEL_SETTINGS = { "ENABLE_SELECTED_EGG_TRAVEL", "ENABLE_DIRECT_POSITIONING", "ENABLE_NATIVE_ISLAND_TRAVEL", "OWNER_DIRECT_EGG_TELEPORT_TEST" },
+		WORLD_SETTINGS = { "ENABLE_WORLD_PROGRESSION", "AUTO_DISCOVER_ISLANDS", "AUTO_UNLOCK_WORLDS", "AUTO_TRAVEL_FOR_PROGRESSION", "AUTO_FARM_UNLOCK_REQUIREMENTS" },
+		ISLAND_SETTINGS = { "AUTO_TRAVEL_BEST_ISLAND", "AUTO_EXPLORE_UNLOCKED_ISLANDS" },
+		FARMING_SETTINGS = { "AUTO_RESOURCE_FARM", "AUTO_FARM_FALLBACK" },
+		PICKUP_SETTINGS = { "BULK_COLLECT_PICKUPS", "ENABLE_CONTINUOUS_SCANNING", "STATIONARY_ISOLATED_TEST" },
+		BUBBLE_SETTINGS = { "AUTO_BLOW_BUBBLES", "AUTO_SELL_BUBBLES", "AUTO_BUY_GUM", "AUTO_BUY_FLAVORS", "ENABLE_SIMULTANEOUS_BLOWING" },
+		UPGRADE_SETTINGS = { "ENABLE_SMART_UPGRADES", "ENABLE_CAPACITY_UPGRADES", "ENABLE_FLAVOR_UPGRADES", "AUTO_EQUIP_OWNED_UPGRADES" },
+		PLAYTIME_SETTINGS = { "AUTO_CLAIM_PLAYTIME" }, MYSTERY_BOX_SETTINGS = { "AUTO_OPEN_MYSTERY_BOXES", "ENABLE_AUTOMATIC_CONTINUATION" },
+		ANTIAFK_SETTINGS = { "ENABLE_ANTI_AFK" }, FALL_EVENT_SETTINGS = { "ENABLE_FALL_EVENT", "AUTO_REBIRTH", "AUTO_BUY_REBIRTH_UPGRADES", "AUTO_USE_FALL_ELIXIRS", "AUTO_BUY_AUTUMN_SHOP_ITEMS" } }
+	for category, keys in pairs(off) do
+		for _, key in ipairs(keys) do if type(self.Config[category]) ~= "table" or self.Config[category][key] ~= false then return false, "Isolated spin requires " .. category .. "." .. key .. " OFF" end end
+	end
+	for _, pair in ipairs({ { "HATCH_SETTINGS", "MAXIMUM_EGG_COST" }, { "HATCH_SETTINGS", "MAXIMUM_SESSION_COST" },
+		{ "OWNER_ONE_HATCH_TEST_SETTINGS", "MAXIMUM_COIN_ALLOWANCE" }, { "OWNER_ONE_HATCH_TEST_SETTINGS", "MAXIMUM_EGG_COST" },
+		{ "WORLD_SETTINGS", "MAXIMUM_WORLD_UNLOCK_COST" }, { "UPGRADE_SETTINGS", "MAXIMUM_PURCHASE_COST" } }) do
+		if self.Config[pair[1]][pair[2]] ~= 0 then return false, "All unrelated spending budgets must be zero" end
+	end
+	return true
+end
+
+function RewardsManager:GetWheelSpinContext(allowNativeBusy)
+	local c, s = self.Controller, self.Config.WHEEL_SPIN_SETTINGS or {}
+	if not c.Reader or not c.Knowledge or type(c.Knowledge.WheelSpinContext) ~= "function" then return nil, "Wheel knowledge unavailable" end
+	local ok, context = pcall(c.Knowledge.WheelSpinContext, c.Knowledge, c.Reader:GetSnapshot(), os.clock(), s, allowNativeBusy)
+	if not ok then return nil, "Native wheel context raised: " .. tostring(context) end
+	if type(context) ~= "table" or context.Fresh ~= true then return nil, type(context) == "table" and context.Blocker or "Native wheel context unavailable" end
+	if context.UserId ~= self.UserId or context.AccountId ~= self.UserId then return nil, "Wheel received account identity mismatch" end
+	if c.Pets and (c.Pets.PendingEquip or c.Pets.Hatch and c.Pets.Hatch.Pending) then return nil, "Pending pet operation conflicts with wheel" end
+	local baseline = spinNormalize(context)
+	if baseline.Status ~= "READY" then return nil, baseline.Reason end
+	if baseline.Tickets > 0 and allowNativeBusy ~= true then
+		for _, row in ipairs(context.Pool) do
+			local expected = WheelSpinPolicy.Begin(baseline, row.Item)
+			if expected.ReceiptState == "UNKNOWN" then return nil, expected.Reason end
+		end
+	end
+	return context
+end
+
+function RewardsManager:SelectWheelSpin(plan)
+	local s, pending = self.Config.WHEEL_SPIN_SETTINGS or {}, self.Ledger and self.Ledger.Pending
+	if pending and pending.Kind ~= SPIN_KIND then return nil end
+	if s.AUTO_SPIN_WHEEL ~= true and not pending then return nil end
+	if not self.Ledger or self.UnknownBarrier then return false, { Kind = "WAIT", Reason = self.Blocker or "Wheel account ledger unavailable" } end
+	if pending then
+		self:ObserveWheelSpin(pending)
+		if self.Ledger.Pending then return true, { Kind = "OBSERVE_REWARD", Pending = pending, Reason = pending.Reason } end
+	end
+	local authorized, reason = self:WheelSpinAuthorization()
+	if not authorized then self.SpinBlocker = reason return false, { Kind = "WAIT", Reason = reason } end
+	local valid, blocker = self:InitializeWheelSpin()
+	if not valid then self.SpinBlocker = blocker return false, { Kind = "WAIT", Reason = blocker } end
+	if self.Ledger.UnresolvedAttribution == true then return false, { Kind = "WAIT", Reason = "Unresolved prior reward attribution blocks spin" } end
+	for _, record in pairs(self.Ledger.WheelSpin.Tests) do
+		if record.Attempts ~= 0 then return false, { Kind = "WAIT", Reason = "One-spin allowance already consumed; no continuation or retry" } end
+	end
+	local context, contextReason = self:GetWheelSpinContext(false)
+	if not context then self.SpinBlocker = contextReason return false, { Kind = "WAIT", Reason = contextReason } end
+	local baseline = spinNormalize(context)
+	if baseline.Status ~= "READY" or baseline.Tickets < 1 then return false, { Kind = "WAIT", Reason = baseline.Reason or "No received owned Spin Ticket; no purchase fallback" } end
+	for _, row in ipairs(context.Pool) do
+		local receipt = WheelSpinPolicy.Begin(baseline, row.Item)
+		if receipt.ReceiptState == "UNKNOWN" then return false, { Kind = "WAIT", Reason = receipt.Reason } end
+	end
+	return true, { Kind = SPIN_KIND, TestId = s.AUTHORIZED_TEST_ID, Count = 1,
+		Reason = "One owned-ticket spin using native animation; no purchases or unrelated actions" }
+end
+
+function RewardsManager:PrepareWheelSpin(decision, token)
+	if self.Destroyed or not self.Ledger or self.Ledger.Pending or not self:_freeWheelOwns(token, self.Controller.Generation) then return nil, "Wheel lease or retained reward barrier blocks preparation" end
+	local owns, fresh = self:SelectWheelSpin()
+	if owns ~= true or not fresh or fresh.Kind ~= SPIN_KIND or fresh.TestId ~= decision.TestId or decision.Count ~= 1 then return nil, fresh and fresh.Reason or "Fresh spin eligibility changed" end
+	local context, reason = self:GetWheelSpinContext(false)
+	if not context then return nil, reason end
+	local baseline = spinNormalize(context)
+	if baseline.Status ~= "READY" or baseline.Tickets < 1 then return nil, baseline.Reason or "Spin ticket baseline unavailable" end
+	local pending = { Kind = SPIN_KIND, Version = 1, UserId = self.UserId, Count = 1, TestId = decision.TestId,
+		Generation = self.Controller.Generation, ManagerEpoch = self.SpinManagerEpoch, BeforeFacts = baseline,
+		Pool = copy(context.Pool), StartedAt = os.clock(), Deadline = os.clock() + self.Config.WHEEL_SPIN_SETTINGS.CONFIRMATION_TIMEOUT_SECONDS,
+		Attempted = false, Status = "PREPARED", ReceiptState = "PENDING", TransportCount = 0, SettlementCount = 0 }
+	self.Ledger.WheelSpin.Tests[pending.TestId] = { UserId = self.UserId, TestId = pending.TestId, Attempts = 0, Outcome = "PREPARED" }
+	self.Ledger.Pending, self.SpinPreparationContext = pending, context
+	return pending
+end
+
+function RewardsManager:MarkWheelSpinDispatched(pending, token)
+	local authorized, reason = self:WheelSpinAuthorization()
+	if not authorized or not self:_freeWheelOwns(token, pending.Generation) or self.Ledger.Pending ~= pending or pending.Attempted
+		or pending.ManagerEpoch ~= self.SpinManagerEpoch then return false, reason or "Spin lease changed before charged attempt" end
+	local record = self.Ledger.WheelSpin.Tests[pending.TestId]
+	if not record or record.Attempts ~= 0 then return false, "Spin allowance already charged" end
+	for id, other in pairs(self.Ledger.WheelSpin.Tests) do if id ~= pending.TestId and other.Attempts ~= 0 then return false, "Another spin allowance already charged" end end
+	pending.Attempted, pending.Status, record.Attempts, record.Outcome = true, "PENDING", 1, "PENDING"
+	self.Controller:MarkNonPickupReward(pending)
+	pending.AttributionEpoch = self.Controller.RewardAttributionEpoch
+	return true
+end
+
+function RewardsManager:WheelSpinDispatchValid(pending, token, stage)
+	local authorized, reason = self:WheelSpinAuthorization()
+	if not authorized or not self:_freeWheelOwns(token, pending.Generation) or self.Ledger.Pending ~= pending
+		or pending.ManagerEpoch ~= self.SpinManagerEpoch or not pending.Attempted or pending.Cancelled
+		or self.Config.WHEEL_SPIN_SETTINGS.AUTHORIZED_TEST_ID ~= pending.TestId or os.clock() >= pending.Deadline
+		or self.Controller.RewardAttributionEpoch ~= pending.AttributionEpoch then return false, reason or "Spin authorization, account, lease or attribution changed" end
+	local runtime = self.SpinNativeBridge
+	local context, blocker = self:GetWheelSpinContext(pending.ButtonActivationStarted == true)
+	if not context then return false, blocker end
+	if not wheelEqual(context.Pool, pending.Pool) then return false, "Native wheel pool changed after preparation" end
+	if runtime then
+		if runtime.Remote ~= context.NativeRefs.Remote or runtime.SpinButton ~= context.GUI.SpinButton then return false, "Exact native wheel/transport instance changed" end
+	end
+	if stage == "SETTLE" then
+		if not pending.InvokeReturned or not pending.ReturnedIndex or not finite(pending.NativeAnimationStartedAt)
+			or os.clock() - pending.NativeAnimationStartedAt < context.WheelAnimationSeconds then return false, "Native animation finish is early or unverified; no guessed queue settlement" end
+		self:ObserveWheelSpin(pending)
+		if pending.Cancelled or not pending.Receipt or pending.Receipt.TicketDebitObserved ~= true then return false, "Distinct ticket debit not observed before native settlement" end
+	elseif stage == "START" then
+		if context.TicketCount ~= pending.BeforeFacts.Tickets or context.TicketCount < 1 then return false, "Ticket stock changed before one spin; no purchase fallback" end
+	else return false, "Unsupported wheel lifecycle stage" end
+	return true, nil, context
+end
+
+function RewardsManager:AcceptWheelSpinReturn(pending, index, context)
+	if not self.Ledger or self.Ledger.Pending ~= pending or pending.Cancelled or not count(index) or index < 1
+		or type(pending.Pool[index]) ~= "table" or type(context) ~= "table" or not wheelEqual(context.Pool, pending.Pool) then
+		return false, "Native wheel returned no valid current pool index; reward and queue remain unknown"
+	end
+	local receipt = WheelSpinPolicy.Begin(pending.BeforeFacts, pending.Pool[index].Item)
+	if receipt.ReceiptState == "UNKNOWN" then return false, receipt.Reason end
+	pending.ReturnedIndex, pending.ExpectedItem, pending.Receipt = index, copy(pending.Pool[index].Item), receipt
+	return true
+end
+
+function RewardsManager:UnresolveWheelSpin(pending, state, reason)
+	if not self.Ledger or self.Ledger.Pending ~= pending then return end
+	pending.Status, pending.ReceiptState, pending.Reason = "PENDING", state or "PENDING", reason or "Spin receipt unresolved; no retry"
+	-- Cancellation, transport uncertainty and contradictory evidence are sticky.
+	pending.Cancelled = true
+	local record = self.Ledger.WheelSpin.Tests[pending.TestId]
+	if record then record.Outcome = "PENDING" end
+	self:ReportWheelSpin(pending)
+end
+
+function RewardsManager:ObserveWheelSpin(pending)
+	if self.Destroyed or not self.Ledger or self.Ledger.Pending ~= pending or not pending.Attempted then return end
+	if pending.Cancelled then self:ReportWheelSpin(pending) return end
+	if self.Controller.State ~= "RUNNING" or self.Controller.Generation ~= pending.Generation or self.SpinManagerEpoch ~= pending.ManagerEpoch
+		or self:WheelSpinAuthorization() ~= true then self:UnresolveWheelSpin(pending, "CANCELLED", "Spin interrupted or permission revoked; pending retained without retry") return end
+	if not pending.Receipt then return end
+	local context, reason = self:GetWheelSpinContext(true)
+	if context then
+		pending.Receipt = WheelSpinPolicy.Observe(pending.Receipt, spinNormalize(context), { SettlementCompleted = pending.NativeSettlementCompleted == true })
+		pending.ReceiptState, pending.Reason = pending.Receipt.ReceiptState, pending.Receipt.Reason
+		if pending.ReceiptState == "AMBIGUOUS" then self:UnresolveWheelSpin(pending, "AMBIGUOUS", pending.Reason) return end
+		if pending.ReceiptState == "TICKET_DEBIT_AND_GRANT_OBSERVED" then
+			pending.Status, pending.FinishedAt = "SPIN_CONFIRMED", os.clock()
+			pending.Attribution = "Actual matching received gain observed; external same-item grants cannot be excluded; invocation/presentation alone is not receipt"
+			self.Ledger.WheelSpin.Tests[pending.TestId].Outcome = pending.ReceiptState
+			self.Ledger.LastResult, self.Ledger.WheelSpin.LastResult = copy(pending), copy(pending)
+			self.Ledger.Pending = nil
+			self:ReportWheelSpin(pending)
+			return
+		end
+	else pending.Reason = reason or "Current wheel receipt observations unavailable" end
+	if os.clock() >= pending.Deadline then self:UnresolveWheelSpin(pending, "PENDING_TIMEOUT", pending.Reason or "One-spin receipt timed out; no retry") end
+	self:ReportWheelSpin(pending)
+end
+
+function RewardsManager:ReportWheelSpin(pending)
+	local item, receipt = pending.ExpectedItem or {}, pending.Receipt or {}
+	local text = string.format("%s | attempts=%d; native spin requests=%d; native queue calls=%d; ticket debit=%s; reward=%s; observed amount=%s | %s | no retry",
+		pending.Status or "PENDING", pending.Attempted and 1 or 0, pending.TransportCount or 0, pending.SettlementCount or 0,
+		tostring(receipt.TicketDebitObserved == true), tostring(item.Name or item.Currency or "UNKNOWN"), tostring(receipt.ObservedGrantAmount or "UNKNOWN"), tostring(pending.Reason or "Awaiting native lifecycle and receipt"))
+	if text ~= self.LastSpinReport then self.LastSpinReport = text self.Controller:Log("WHEEL_SPIN", text) end
+end
+
+function RewardsManager:WheelSpinDefinition(decision, generation)
+	if decision.Kind == "OBSERVE_REWARD" then return nil end -- Retained pending never rearms input or a hot retry task.
+	return { Id = "OC_GAMEPLAY", Owner = "REWARDS", Generation = generation, Priority = 100,
+		TimeoutSeconds = (self.Config.WHEEL_SPIN_SETTINGS.CONFIRMATION_TIMEOUT_SECONDS or 20) + 2,
+		CanRun = function() return not self.Destroyed and self.Controller.State == "RUNNING" and self.Controller.Generation == generation end,
+		Execute = function(token)
+			local mechanics = self.Controller.Farming and self.Controller.Farming.Mechanics
+			if token:CheckCancelled() or not mechanics or type(mechanics.RewardAction) ~= "function" then return { Reason = "Cancelled or wheel mechanics unavailable" } end
+			local ok, reason = mechanics:RewardAction(self, decision, token)
+			local pending = self.Ledger and self.Ledger.Pending
+			while pending and pending.Attempted and not token:CheckCancelled() and os.clock() < pending.Deadline do
+				self:ObserveWheelSpin(pending)
+				local quiet = type(mechanics.ReleaseWheelSpinBridge) == "function" and mechanics:ReleaseWheelSpinBridge(self, pending, token)
+				if (pending.Cancelled or pending.Status == "SPIN_CONFIRMED") and quiet then break end
+				task.wait(0.1)
+			end
+			if pending and pending.Attempted and self.Ledger.Pending == pending and not pending.Cancelled then
+				self:UnresolveWheelSpin(pending, token:CheckCancelled() and "CANCELLED" or "PENDING_TIMEOUT", token:CheckCancelled() and "Wheel task cancelled; uncertain operation retained" or pending.Reason)
+			end
+			if pending and type(mechanics.ReleaseWheelSpinBridge) == "function" then mechanics:ReleaseWheelSpinBridge(self, pending, token) end
+			-- This isolated allowance ends the existing controller after its one
+			-- bounded attempt. A retained pending record never becomes a retry.
+			if self.Controller.State == "RUNNING" and self.Controller.Generation == generation
+				and type(self.Controller.Stop) == "function" then self.Controller:Stop() end
+			return { Pending = self.Ledger and self.Ledger.Pending ~= nil, Reason = reason, Started = ok == true }
+		end,
+		IsComplete = function(result) return type(result) == "table" end }
+end
+
+function RewardsManager:GetWheelSpinStatus()
+	local ledger = self.Ledger
+	local pending = ledger and ledger.Pending
+	local extension = ledger and ledger.WheelSpin
+	local charged = 0
+	for _, record in pairs(extension and extension.Tests or {}) do charged += record.Attempts or 0 end
+	return { Enabled = (self.Config.WHEEL_SPIN_SETTINGS or {}).AUTO_SPIN_WHEEL == true, ChargedAttempts = charged,
+		Pending = pending and pending.Kind == SPIN_KIND and copy(pending) or nil,
+		LastResult = extension and copy(extension.LastResult), Blocker = self.SpinBlocker or self.Blocker,
+		LedgerScope = "Same-client VM only; rejoin can lose history and never creates a new human authorization" }
+end
+-- PHASE5_ONE_WHEEL_SPIN_END
 return RewardsManager

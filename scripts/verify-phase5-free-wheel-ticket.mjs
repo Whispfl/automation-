@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripWheelSpinDelta, stripWheelSpinFiles } from './verify-phase5-wheel-spin.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 export const FREE_WHEEL_BASELINE = '701eafb1c2cfaaa73237235d0c255b59b2a3ef52';
@@ -81,6 +82,7 @@ function checkRecord(record) {
 }
 
 export function stripFreeWheelTicketDelta(file, bytes) {
+  bytes = stripWheelSpinDelta(file, bytes);
   const data = Buffer.from(bytes);
   // Baseline consumers retain their exact prior behavior, including no new record dependency.
   if (!data.includes(Buffer.from(beginMarker))) return bytes;
@@ -99,7 +101,7 @@ export function stripFreeWheelTicketDelta(file, bytes) {
 }
 
 export function stripFreeWheelTicketFiles(files) {
-  return new Map([...files].map(([file, bytes]) => [file, stripFreeWheelTicketDelta(file, bytes)]));
+  return new Map([...stripWheelSpinFiles(files)].map(([file, bytes]) => [file, stripFreeWheelTicketDelta(file, bytes)]));
 }
 
 const historicalNames = () => [...new Set([
@@ -159,7 +161,7 @@ export function recordFreeWheelTicketWorkspace() {
 export function verifyFreeWheelTicketWorkspace() {
   const record = metadata(); checkRecord(record);
   const expected = gitNames('src').filter(file => file.endsWith('.luau'));
-  const current = new Map(diskNames('src').map(file => [file, readFileSync(path.join(root, file))]));
+  const current = stripWheelSpinFiles(new Map(diskNames('src').map(file => [file, readFileSync(path.join(root, file))])));
   assert.deepEqual([...current.keys()].sort(), [...expected].sort(), 'Free-wheel scope adds no production module or entry point');
   for (const file of FREE_WHEEL_FILES) assert(current.get(file)?.includes(Buffer.from(beginMarker)), `Free-wheel addition missing: ${file}`);
   const projected = stripFreeWheelTicketFiles(current);

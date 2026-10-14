@@ -901,6 +901,7 @@ function GameMechanics:RewardAction(manager, decision, token)
 	local c = self.LocalFeatureController
 	if not c or manager ~= c.Rewards or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "REWARDS" then return false, "Reward task does not own the scheduler" end
 	if token:CheckCancelled() or manager.Controller.State ~= "RUNNING" then return false, "Cancelled" end
+	if type(decision) == "table" and decision.Kind == "WHEEL_SPIN" then return self:SpinWheelOnce(manager, decision, token) end
 	local allowed, reason = self:LocalFeatureGuard()
 	if not allowed then return false, reason end
 	local remote = self.Reader:_dependency("Remote")
@@ -1244,4 +1245,225 @@ function GameMechanics:ClaimFreeWheelTicket(manager, decision, token, remote)
 	return true, "One free-wheel attempt recorded; paired received state required"
 end
 -- PHASE5_FREE_WHEEL_TICKET_END
+-- PHASE5_ONE_WHEEL_SPIN_BEGIN
+-- This bridge releases one reviewed native button callback. It never directly
+-- originates a spin or queue request, and a transport result is not a receipt.
+function GameMechanics:ReleaseWheelSpinBridge(manager, pending, token)
+	local bridge = manager and manager.SpinNativeBridge
+	if not bridge then return true end
+	if bridge.Mechanics ~= self or bridge.Pending ~= pending then return false end
+	if bridge.InvokeInFlight or bridge.SettlementInFlight then return false end
+	local gui = bridge.GUI
+	local observed, idle = pcall(function()
+		return gui and gui.Spin and gui.Skip and gui.SpinButton and gui.SpinButton.Parent
+			and gui.Spin.Visible == true and gui.Skip.Visible == false
+			and gui.SpinButton:GetAttribute("Pressed") == false
+			and gui.SpinButton:GetAttribute("ButtonActivated") == false
+	end)
+	if not observed or not idle then return false end
+	if not bridge.CallbackEnded and not bridge.NoCallbackDrained then return false end
+	-- Restore only our still-installed wrappers. A replacement belongs to its
+	-- new owner and is never overwritten during cancellation or cleanup.
+	if bridge.Remote.InvokeServer == bridge.InvokeWrapper then bridge.Remote.InvokeServer = bridge.OriginalInvoke end
+	if bridge.Remote.FireServer == bridge.FireWrapper then bridge.Remote.FireServer = bridge.OriginalFire end
+	for _, connection in ipairs(bridge.Connections or {}) do pcall(connection.Disconnect, connection) end
+	bridge.Active, bridge.Restored = false, true
+	if manager.SpinNativeBridge == bridge then manager.SpinNativeBridge = nil end
+	return true
+end
+
+function GameMechanics:SpinWheelOnce(manager, decision, token)
+	local controller = self.LocalFeatureController
+	local active = controller and controller.Scheduler and controller.Scheduler.Active
+	local function owns()
+		return controller and manager == controller.Rewards and controller.State == "RUNNING" and not manager.Destroyed
+			and controller.Scheduler.Active == active and active and active.Definition.Owner == "REWARDS"
+			and active.Definition.Generation == controller.Generation and active.Token == token
+			and token and type(token.CheckCancelled) == "function" and not token:CheckCancelled()
+	end
+	if not owns() then return false, "One-wheel task does not own the existing scheduler lease" end
+	if type(decision) ~= "table" or decision.Kind ~= "WHEEL_SPIN" then return false, "Exact one-wheel intent required" end
+	if manager.SpinNativeBridge ~= nil then return false, "A previous native spin callback remains unresolved; no retry" end
+	if type(manager.PrepareWheelSpin) ~= "function" or type(manager.MarkWheelSpinDispatched) ~= "function"
+		or type(manager.WheelSpinDispatchValid) ~= "function" or type(manager.AcceptWheelSpinReturn) ~= "function"
+		or type(manager.UnresolveWheelSpin) ~= "function" or type(manager.WheelSpinAuthorization) ~= "function" then return false, "Reviewed one-wheel manager interfaces unavailable" end
+	local pending, reason = manager:PrepareWheelSpin(decision, token)
+	if not pending then return false, reason end
+	local context = manager.SpinPreparationContext
+	local function abort(message)
+		if type(manager.AbortPreparation) == "function" then manager:AbortPreparation(pending, message) end
+		return false, message
+	end
+	local gui, refs = type(context) == "table" and context.GUI, type(context) == "table" and context.NativeRefs
+	local remote = refs and refs.Remote
+	if not context or context.Fresh ~= true or context.Access ~= true or context.IsTradingPlaza ~= false
+		or type(context.TicketCount) ~= "number" or context.TicketCount < 1 or context.TicketCount % 1 ~= 0
+		or context.UIIdle ~= true or not gui or not gui.SpinButton or not remote
+		or remote ~= self.Reader:_dependency("Remote") or type(remote.InvokeServer) ~= "function" or type(remote.FireServer) ~= "function" then
+		return abort("Fresh positive owned ticket, exact native idle button, access or transport unavailable")
+	end
+	if not owns() or self.Player ~= self.Reader.Player or context.AccountId ~= self.Player.UserId then return abort("Account or lease changed before one-wheel reservation") end
+	local charged, chargeReason = manager:MarkWheelSpinDispatched(pending, token)
+	if not charged then return abort(chargeReason or "One-wheel reservation rejected") end
+	local bridge = { Mechanics = self, Manager = manager, Pending = pending, Token = token, Active = true,
+		Remote = remote, OriginalInvoke = remote.InvokeServer, OriginalFire = remote.FireServer,
+		GUI = gui, SpinButton = gui.SpinButton, NativeRefs = refs, Connections = {}, TransportCount = 0, SettlementCount = 0 }
+	manager.SpinNativeBridge = bridge
+	local function unresolved(state, message)
+		manager:UnresolveWheelSpin(pending, state, message)
+	end
+	local function sameInterface()
+		return manager.SpinNativeBridge == bridge and remote == self.Reader:_dependency("Remote")
+			and remote.InvokeServer == bridge.InvokeWrapper and remote.FireServer == bridge.FireWrapper
+	end
+	local function permitted(stage)
+		if not owns() or not bridge.Active or not sameInterface() or manager.Ledger.Pending ~= pending then
+			return false, "One-wheel cancellation, ownership or public transport identity changed"
+		end
+		if type(pending.Deadline) ~= "number" or os.clock() >= pending.Deadline then return false, "One-wheel bounded deadline elapsed" end
+		local allowed, blocker, fresh = manager:WheelSpinDispatchValid(pending, token, stage)
+		if not allowed or not owns() or not bridge.Active or not sameInterface() or manager.Ledger.Pending ~= pending or pending.Cancelled
+			or manager:WheelSpinAuthorization() ~= true then return false, blocker or "One-wheel native guard or authorization changed" end
+		if type(fresh) ~= "table" or fresh.Fresh ~= true or fresh.AccountId ~= self.Player.UserId
+			or fresh.GUI == nil or fresh.GUI.SpinButton ~= gui.SpinButton or fresh.GUI.Spin ~= gui.Spin
+			or fresh.GUI.Skip ~= gui.Skip or fresh.GUI.SpinControl ~= gui.SpinControl
+			or fresh.NativeRefs == nil or fresh.NativeRefs.Remote ~= remote then
+			return false, "Exact one-wheel account, native button or transport observation changed"
+		end
+		return true, nil, fresh
+	end
+	local function cleanupButton()
+		-- An armed public press is never released on cancellation. Deferred
+		-- native handlers make a synthetic reset/release unsafe; retain the
+		-- press and barrier rather than invoke another callback or purchase UI.
+		if pending.ButtonActivationStarted and not pending.NativeButtonReleased then
+			bridge.PressRetained = true
+			pending.InputCleanupState = "ARMED_PRESS_RETAINED_NO_RELEASE"
+		end
+	end
+	local function drain()
+		task.defer(function()
+			if manager.SpinNativeBridge ~= bridge then return end
+			if not pending.InvokeStarted then bridge.NoCallbackDrained = true end
+			self:ReleaseWheelSpinBridge(manager, pending, token)
+		end)
+	end
+	bridge.InvokeWrapper = function(receiver, command, ...)
+		if command ~= "WheelSpin" then
+			if command == "ClaimWheelSpinQueue" then unresolved("AMBIGUOUS", "Native queue used an undocumented transport route; no fallback") return nil end
+			return bridge.OriginalInvoke(receiver, command, ...)
+		end
+		if receiver ~= remote or select("#", ...) ~= 0 or bridge.TransportCount ~= 0 or not pending.ButtonActivationStarted then
+			unresolved("AMBIGUOUS", "Duplicate or malformed spin callback blocked; no retry") return nil
+		end
+		local allowed, blocker, fresh = permitted("START")
+		if not allowed then
+			unresolved("CANCELLED_OR_UNVERIFIED", blocker)
+			bridge.CallbackEnded = true cleanupButton() drain() return nil
+		end
+		bridge.TransportCount, pending.TransportCount, pending.InvokeStarted, pending.TransportStarted = 1, 1, true, true
+		bridge.InvokeInFlight = true
+		pending.NativeRPCStartedAt = os.clock()
+		local output = table.pack(pcall(bridge.OriginalInvoke, remote, "WheelSpin"))
+		bridge.InvokeInFlight = false
+		pending.InvokeReturned, pending.InvocationOk = true, output[1]
+		local index = output[2]
+		if not output[1] or not owns() or not bridge.Active or not sameInterface() or os.clock() >= pending.Deadline then
+			unresolved("UNCONFIRMED", "Native spin response failed, was late or arrived after cancellation; no animation or queue authority")
+			bridge.CallbackEnded = true drain() return nil
+		end
+		local accepted, acceptReason = manager:AcceptWheelSpinReturn(pending, index, fresh)
+		if not accepted then
+			unresolved("AMBIGUOUS", acceptReason or "Native spin pool index is invalid; no invented result")
+			bridge.CallbackEnded = true drain() return nil
+		end
+		pending.ReturnedIndex, pending.NativeAnimationStartedAt = index, os.clock()
+		pending.NativeResultAccepted = true
+		-- The exact valid original index continues to the game's own six-second
+		-- animation. No OC animation, granted item or direct queue call is added.
+		return table.unpack(output, 2, output.n)
+	end
+	bridge.FireWrapper = function(receiver, command, ...)
+		if command ~= "ClaimWheelSpinQueue" then
+			if command == "WheelSpin" then unresolved("AMBIGUOUS", "Spin used an undocumented transport route; no fallback") return nil end
+			return bridge.OriginalFire(receiver, command, ...)
+		end
+		local animationAge = pending.NativeAnimationStartedAt and os.clock() - pending.NativeAnimationStartedAt
+		if receiver ~= remote or select("#", ...) ~= 0 or bridge.SettlementCount ~= 0 or bridge.TransportCount ~= 1
+			or pending.InvokeReturned ~= true or pending.NativeResultAccepted ~= true or type(animationAge) ~= "number" or animationAge < 6 then
+			unresolved("AMBIGUOUS", "Duplicate, early or uncorrelated native queue callback blocked; no alternate settlement")
+			bridge.CallbackEnded, pending.NativeSettlementSuppressed = true, true
+			drain() return nil
+		end
+		local allowed, blocker = permitted("SETTLE")
+		if not allowed then
+			unresolved("CANCELLED_OR_UNVERIFIED", blocker)
+			bridge.CallbackEnded, pending.NativeSettlementSuppressed = true, true
+			drain() return nil
+		end
+		bridge.SettlementCount, pending.SettlementCount, pending.NativeSettlementStarted = 1, 1, true
+		bridge.SettlementInFlight = true
+		local output = table.pack(pcall(bridge.OriginalFire, remote, "ClaimWheelSpinQueue"))
+		bridge.SettlementInFlight = false
+		pending.NativeSettlementCompleted, pending.NativeSettlementInvocationOk = true, output[1]
+		bridge.CallbackEnded = true
+		if not output[1] then unresolved("UNCONFIRMED", "Native queue transport raised; emitted request is not receipt and will not be repeated") end
+		drain()
+		if output[1] then return table.unpack(output, 2, output.n) end
+		return nil
+	end
+	local installed = pcall(function() remote.InvokeServer = bridge.InvokeWrapper remote.FireServer = bridge.FireWrapper end)
+	if not installed or not sameInterface() then
+		unresolved("AMBIGUOUS", "Public native transport could not be observed safely; charged attempt remains consumed")
+		bridge.CallbackEnded, bridge.NoCallbackDrained = true, true cleanupButton()
+		self:ReleaseWheelSpinBridge(manager, pending, token)
+		return false, "Native observation wrapper installation failed"
+	end
+	for _, object in ipairs({ gui.Spin, gui.Skip }) do
+		if type(object.GetPropertyChangedSignal) == "function" then
+			local connected, connection = pcall(function()
+				return object:GetPropertyChangedSignal("Visible"):Connect(function()
+					self:ReleaseWheelSpinBridge(manager, pending, token)
+				end)
+			end)
+			if connected and connection then table.insert(bridge.Connections, connection) end
+		end
+	end
+	local allowed, blocker, final = permitted("START")
+	if not allowed or final.UIIdle ~= true or final.TicketCount < 1 then
+		unresolved("CANCELLED_OR_UNVERIFIED", blocker or "Positive owned ticket or exact native idle presentation changed before button release")
+		bridge.Active, bridge.NoCallbackDrained = false, true cleanupButton()
+		self:ReleaseWheelSpinBridge(manager, pending, token)
+		return false, blocker
+	end
+	pending.ButtonActivationStarted = true
+	local pressed, pressReason = pcall(function() gui.SpinButton:SetAttribute("Pressed", true) end)
+	if not pressed or not owns() or not sameInterface() or os.clock() >= pending.Deadline then
+		unresolved("CANCELLED_OR_UNVERIFIED", pressReason or "Cancelled while arming the native button; no release or retry")
+		bridge.Active = false cleanupButton() drain()
+		return false, pressReason
+	end
+	-- One bounded yield lets deferred ClickableButton press handlers arm
+	-- before release. It adds no request, second release or retry.
+	task.wait()
+	local releaseAllowed, releaseBlocker, releaseContext = permitted("START")
+	local releaseReady = releaseAllowed and releaseContext.TicketCount >= 1
+		and releaseContext.GUI.Spin.Visible == true and releaseContext.GUI.Skip.Visible == false
+		and gui.SpinButton:GetAttribute("Pressed") == true and gui.SpinButton:GetAttribute("ButtonActivated") == false
+	if not releaseReady then
+		unresolved("CANCELLED_OR_UNVERIFIED", releaseBlocker or "Fresh owned stock or exact armed native button changed after the bounded yield")
+		bridge.Active = false cleanupButton() drain()
+		return false, releaseBlocker
+	end
+	pending.NativeButtonReleaseAttempted = true
+	local released, releaseReason = pcall(function() gui.SpinButton:SetAttribute("Pressed", false) end)
+	if not released then
+		unresolved("UNCONFIRMED", releaseReason or "Native button release failed; no second release or retry")
+		bridge.Active = false cleanupButton() drain()
+		return false, releaseReason
+	end
+	pending.NativeButtonReleased = true
+	return true, "One native button release recorded; native response, guarded animation/settlement and received inventory must still verify"
+end
+-- PHASE5_ONE_WHEEL_SPIN_END
 return GameMechanics

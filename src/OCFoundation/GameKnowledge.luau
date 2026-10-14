@@ -1807,4 +1807,164 @@ function GameKnowledge:FreeWheelTicketContext(snapshot, now, settings)
 	return context
 end
 -- PHASE5_FREE_WHEEL_TICKET_END
+-- PHASE5_ONE_WHEEL_SPIN_BEGIN
+-- Current LocalData and public native GUI/getters only. This method performs no input or transport.
+function GameKnowledge:WheelSpinContext(snapshot, now, settings, allowNativeBusy)
+	settings = settings or {}
+	local context = { Fresh = false, QueueState = "UNKNOWN", ActionsEnabled = false,
+		Evidence = "WheelSpin:48,235-288,736; ClickableButton:224-297; Activation:348-363; ItemUtil:466-474" }
+	local function block(reason) context.Blocker = reason return context end
+	local reader, player = self.Reader, self.Reader and self.Reader.Player
+	if self.Destroyed or not reader or reader.Destroyed or not player or type(snapshot) ~= "table" or snapshot.Ready ~= true
+		or not freeWheelCount(snapshot.Revision) or snapshot.Revision ~= reader.Revision
+		or not snapshot.Identity or snapshot.Identity.UserId ~= player.UserId or not freeWheelCount(player.UserId) or player.UserId < 1 then
+		return block("Ready current wheel account identity unavailable or changed")
+	end
+	local maximumAge = settings.MAXIMUM_ACCOUNT_AGE_SECONDS or 10
+	if not freeWheelNumber(now) or not freeWheelNumber(snapshot.ReadAt) or not freeWheelNumber(maximumAge)
+		or maximumAge <= 0 or maximumAge > 10 or now < snapshot.ReadAt or now - snapshot.ReadAt > maximumAge then
+		return block("Wheel reader identity snapshot is stale or future dated")
+	end
+	local paths = { Remote = "Shared.Framework.Network.Remote", ItemUtil = "Shared.Utils.Stats.ItemUtil",
+		Powerups = "Shared.Data.Powerups", WheelSpin = "Shared.Data.WheelSpin", GuiFrame = "Client.Gui.GuiFrame",
+		HatchPresentation = "Client.Effects.HatchEgg", PhysicalItem = "Client.Effects.PhysicalItem",
+		FishingPlayerRods = "Client.Gui.Frames.Fishing.FishingPlayerRods", IsTradingPlaza = "Shared.Utils.IsTradingPlaza",
+		WorldUtil = "Shared.Utils.WorldUtil" }
+	local modules = {}
+	for name, path in pairs(paths) do
+		local value = self:Get(name)
+		if value == nil and reader.Dependencies[name] == nil then reader:_load(name, path, name == "IsTradingPlaza" and "function" or "table") end
+		modules[name] = value
+		if name == "IsTradingPlaza" and type(value) ~= "function" or name ~= "IsTradingPlaza" and type(value) ~= "table" then
+			return block("Required native wheel dependency unavailable: " .. name)
+		end
+	end
+	local methods = { { "Remote", "InvokeServer" }, { "Remote", "FireServer" }, { "ItemUtil", "GetOwnedAmount" },
+		{ "GuiFrame", "IsOpen" }, { "GuiFrame", "GetCurrentlyOpen" }, { "GuiFrame", "IsAnyOpen" },
+		{ "HatchPresentation", "IsHatching" }, { "PhysicalItem", "GetActiveObjects" },
+		{ "FishingPlayerRods", "GetRodComponent" }, { "WorldUtil", "GetPlayerWorld" } }
+	local identities = {}
+	for _, pair in ipairs(methods) do
+		local value = modules[pair[1]][pair[2]]
+		if type(value) ~= "function" then return block("Required public native wheel interface unavailable: " .. table.concat(pair, ".")) end
+		identities[table.concat(pair, ".")] = value
+	end
+	local raw = reader:GetLiveProfile()
+	if type(raw) ~= "table" then return block("Current received LocalData unavailable") end
+	local account = freeWheelCopy(raw)
+	if type(account.Powerups) ~= "table" or type(account.MasteryUpgrades) ~= "table" or type(account.AreasUnlocked) ~= "table"
+		or type(account.WorldsUnlocked) ~= "table" or account.AreasUnlocked["Floating Island"] == nil
+		or account.WorldsUnlocked["The Overworld"] == nil then return block("Explicit received Floating Island/world access and wheel inventory prerequisites required") end
+	for name, value in pairs(account.Powerups) do
+		if type(name) ~= "string" or name == "" or not freeWheelCount(value) then return block("Canonical received Powerups map is malformed") end
+	end
+	for key, upgrade in pairs(account.MasteryUpgrades) do
+		if not (type(key) == "string" and key ~= "" or freeWheelCount(key) and key >= 1)
+			or type(upgrade) ~= "table" or type(upgrade.Type) ~= "string" or upgrade.Type == "" then return block("AutoClaimSpin prerequisite is unknown") end
+		if upgrade.Type == "AutoClaimSpin" then return block("Native AutoClaimSpin conflicts with isolated wheel receipt") end
+	end
+	local ticket = modules.Powerups["Spin Ticket"]
+	if type(ticket) ~= "table" then return block("Canonical native Spin Ticket definition unavailable") end
+	local pool, entries = freeWheelCopy(modules.WheelSpin), 0
+	for key, row in pairs(pool) do
+		entries += 1
+		if not freeWheelCount(key) or key < 1 or type(row) ~= "table" or not freeWheelNumber(row.Chance)
+			or type(row.Item) ~= "table" then return block("Current native wheel pool is incomplete or malformed") end
+	end
+	if entries < 1 then return block("Native wheel reward pool is empty") end
+	for index = 1, entries do if pool[index] == nil then return block("Native wheel reward pool is sparse") end end
+	local ok, reason = pcall(function()
+		if modules.IsTradingPlaza() ~= false then return "Trading plaza active or unavailable" end
+		if modules.WorldUtil:GetPlayerWorld(player) ~= "The Overworld" then return "Current native player world is not The Overworld" end
+		if player:GetAttribute("InRace") then return "Race owns interaction" end
+		if modules.FishingPlayerRods:GetRodComponent(player) ~= nil then return "Fishing owns interaction" end
+		if modules.HatchPresentation:IsHatching() ~= false then return "Native hatch presentation active or unavailable" end
+		if game:GetService("UserInputService"):GetFocusedTextBox() ~= nil then return "Typing owns input" end
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not root or not root:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then return "Character is not alive" end
+		local gui = player:FindFirstChild("PlayerGui")
+		local screen = gui and gui:FindFirstChild("ScreenGui")
+		if not screen or gui:FindFirstChild("Intro") or gui:FindFirstChild("TransitionGui") then return "Native ScreenGui unavailable or transition active" end
+		local trading = screen:FindFirstChild("Trading")
+		if trading and trading.Visible or screen:FindFirstChild("Prompt") then return "Trading or prompt owns interaction" end
+		if modules.GuiFrame:GetCurrentlyOpen() ~= "WheelSpin" or modules.GuiFrame:IsOpen("WheelSpin") ~= true
+			or modules.GuiFrame:IsOpen("WorldMap") ~= false or modules.GuiFrame:IsAnyOpen() ~= true then return "Owner must open only the ordinary native WheelSpin interface" end
+		local wheel = screen:FindFirstChild("WheelSpin")
+		local frame = wheel and wheel:FindFirstChild("Frame")
+		local main = frame and frame:FindFirstChild("Main")
+		local spin = main and main:FindFirstChild("Spin")
+		local skip = main and main:FindFirstChild("Skip")
+		local button = spin and spin:FindFirstChild("Button")
+		local skipButton = skip and skip:FindFirstChild("Button")
+		-- Mirror ClickableButton:GetButton (14-23). Pressed belongs to its exact
+		-- argument; Active belongs to the direct or contained native GuiButton.
+		local control = button and ((button:IsA("ImageButton") or button:IsA("TextButton")) and button
+			or button:FindFirstChild("Activation") or button:FindFirstChildOfClass("ImageButton") or button:FindFirstChildOfClass("TextButton"))
+		if not wheel or not wheel.Visible or not spin or not skip or not button or not skipButton or not control
+			or not (control:IsA("ImageButton") or control:IsA("TextButton")) then return "Exact native ordinary Spin/Skip interface unavailable" end
+		context.GUI = { Screen = screen, Wheel = wheel, Frame = frame, Main = main, Spin = spin, Skip = skip,
+			SpinButton = button, SpinControl = control, SkipButton = skipButton }
+		context.UIIdle = spin.Visible == true and skip.Visible == false and control.Active == true
+			and button:GetAttribute("Pressed") == false and button:GetAttribute("ButtonActivated") == false
+		if allowNativeBusy ~= true and not context.UIIdle then return "Wheel is already processing, pressed, disabled or its idle state is unknown" end
+		local scripts = player:FindFirstChild("PlayerScripts")
+		local client = scripts and scripts:FindFirstChild("ClientScript")
+		local auto = client and client:FindFirstChild("GetAutoHatchStatus")
+		if not auto or not auto:IsA("BindableFunction") or auto:Invoke() ~= nil then return "Native auto-hatch active or unavailable" end
+		local giftCount = modules.PhysicalItem:GetActiveObjects("Gift")
+		if giftCount ~= 0 then return "Active gift interaction conflicts with wheel receipt, or registry count is unknown" end
+		local worlds = workspace:FindFirstChild("Worlds")
+		local world = worlds and worlds:FindFirstChild("The Overworld")
+		local islands = world and world:FindFirstChild("Islands")
+		local island = islands and islands:FindFirstChild("Floating Island")
+		local map = island and island:FindFirstChild("Island")
+		local object = map and map:FindFirstChild("WheelSpin")
+		local activation = object and object:FindFirstChild("Activation")
+		local activationRoot = activation and activation:FindFirstChild("Root")
+		if not activationRoot or not activationRoot:IsA("BasePart") then return "Exact loaded native ordinary wheel activation unavailable" end
+		local delta = root.Position - activationRoot.Position
+		local radius = activationRoot.Size.Y / 2
+		if not freeWheelNumber(radius) or radius <= 0 or Vector3.new(delta.X, 0, delta.Z).Magnitude > radius
+			or math.abs(delta.Y) > 10 then return "Character outside the observed native ordinary wheel activation range" end
+		context.WheelObject, context.ActivationRoot, context.CharacterRoot = object, activationRoot, root
+		local count = modules.ItemUtil:GetOwnedAmount(freeWheelCopy(account), { Type = "Powerup", Name = "Spin Ticket" })
+		if not freeWheelCount(count) or count ~= (account.Powerups["Spin Ticket"] or 0) then return "Canonical ticket getter disagrees with current complete received inventory" end
+		context.TicketCount = count
+		return nil
+	end)
+	if not ok then return block("Native wheel observation failed: " .. tostring(reason)) end
+	if reason then return block(reason) end
+	local final = reader:GetLiveProfile()
+	local current = reader:GetSnapshot()
+	if self.Destroyed or reader.Destroyed or self.Reader ~= reader or reader.Player ~= player or player.UserId ~= snapshot.Identity.UserId
+		or final ~= raw or not freeWheelEqual(account, final) or type(current) ~= "table" or current.Ready ~= true
+		or current.Revision ~= snapshot.Revision or reader.Revision ~= snapshot.Revision then return block("Received wheel facts changed during native observation") end
+	for name, value in pairs(modules) do if self:Get(name) ~= value then return block("Native wheel dependency identity changed: " .. name) end end
+	for _, pair in ipairs(methods) do if modules[pair[1]][pair[2]] ~= identities[table.concat(pair, ".")] then return block("Native wheel public method identity changed during observation") end end
+	if not freeWheelEqual(pool, modules.WheelSpin) or modules.Powerups["Spin Ticket"] ~= ticket then return block("Native reward pool or canonical ticket definition changed") end
+	context.Raw, context.Account, context.UserId, context.AccountId = account, account, player.UserId, player.UserId
+	context.ReadAt, context.Revision = os.clock(), snapshot.Revision
+	if context.ReadAt - snapshot.ReadAt > maximumAge then return block("Wheel reader identity became stale during observation") end
+	-- The existing reader coalesces received updates. This independent observation
+	-- sequence orders fresh coherent reads without pretending its snapshot changed.
+	self.WheelSpinObservationRevision = (self.WheelSpinObservationRevision or 0) + 1
+	context.ReceiptRevision = self.WheelSpinObservationRevision
+	context.Balances = {}
+	for _, currency in ipairs(reader.Config.ACCOUNT_SETTINGS.SELECTED_CURRENCIES) do
+		context.Balances = context.Balances or {}
+		if freeWheelNumber(account[currency]) then context.Balances[currency] = account[currency] end
+	end
+	for _, row in ipairs(pool) do
+		if row.Item.Type == "Currency" and type(row.Item.Currency) == "string" and freeWheelNumber(account[row.Item.Currency]) then
+			context.Balances[row.Item.Currency] = account[row.Item.Currency]
+		end
+	end
+	context.Fresh, context.Access, context.AutoClaimSpin, context.GiftCount, context.IsTradingPlaza = true, true, false, 0, false
+	context.Pool, context.NativeRefs, context.NativeInterfaceIds, context.WheelAnimationSeconds = pool, modules, identities, 6
+	context.Freshness = "Coherent current received LocalData observed through the existing reader; server update age is unavailable"
+	return context
+end
+-- PHASE5_ONE_WHEEL_SPIN_END
 return GameKnowledge

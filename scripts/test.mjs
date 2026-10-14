@@ -129,6 +129,9 @@ await import('./test-phase5-rewards.mjs');
 await import('./test-phase5-free-wheel-ticket.mjs');
 // Execute the claim-disabled owner preflight without changing the gameplay candidate.
 await import('./test-phase5-wheel-preflight.mjs');
+// The disabled native one-spin candidate has separate actual-source synthetic gates.
+const { verifyWheelSpinCandidate } = await import('./test-phase5-wheel-spin-candidate.mjs');
+await verifyWheelSpinCandidate();
 
 for (const [filename, enabled] of [['StationaryOnly.luau', false], ['CombinedFarming.luau', false], ['UpgradeTest.luau', true], ['Progression.luau', false], ['Pets.luau', false], ['PetEquipTest.luau', false], ['EggAnalysis.luau', false], ['HatchOnceTest.luau', false]]) {
   const contents = await readFile(path.join(root, 'examples', filename), 'utf8');

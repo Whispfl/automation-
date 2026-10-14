@@ -1,0 +1,66 @@
+diff --git a/src/OCFoundation/RewardsManager.luau b/src/OCFoundation/RewardsManager.luau
+--- a/src/OCFoundation/RewardsManager.luau
++++ b/src/OCFoundation/RewardsManager.luau
+@@ -91,7 +91,10 @@ function RewardsManager.new(controller)
+ 		root.Accounts[key] = ledger
+ 	end
+ 	local pending = ledger.Pending
+-	if type(pending) == "table" and pending.Kind == "FREE_WHEEL_TICKET" then
++	if type(pending) == "table" and pending.Kind == "WHEEL_SPIN" then
++		local valid, reason = self:ValidateWheelSpinPending(ledger, pending)
++		if not valid then self.Blocker, self.UnknownBarrier = reason, true return self end
++	elseif type(pending) == "table" and pending.Kind == "FREE_WHEEL_TICKET" then
+ 		local valid, reason = self:ValidateFreeWheelTicketPending(ledger, pending)
+ 		if not valid then self.Blocker, self.UnknownBarrier = reason, true return self end
+ 	elseif pending ~= nil and (type(pending) ~= "table" or pending.UserId ~= self.UserId or not finite(pending.Deadline)
+@@ -112,6 +115,11 @@ function RewardsManager.new(controller)
+ 		self.Blocker, self.UnknownBarrier, self.Ledger = wheelReason, true, nil
+ 		return self
+ 	end
++	local spinValid, spinReason = self:InitializeWheelSpin()
++	if not spinValid then
++		self.Blocker, self.UnknownBarrier, self.Ledger = spinReason, true, nil
++		return self
++	end
+ 	if pending and pending.Kind == "MYSTERY_BOX" then pending.GiftIdentityCurrent = false end
+ 	return self
+ end
+@@ -176,6 +184,7 @@ function RewardsManager:Observe()
+ 	if self.Destroyed or not self.Ledger then return end
+ 	local pending = self.Ledger.Pending
+ 	if not pending or not pending.Attempted then return end
++	if pending.Kind == "WHEEL_SPIN" then self:ObserveWheelSpin(pending) return end
+ 	if pending.Kind == "FREE_WHEEL_TICKET" then self:ObserveFreeWheelTicket(pending) return end
+ 	local context, reason = self:_context()
+ 	if context then
+@@ -263,6 +272,8 @@ end
+ 
+ function RewardsManager:Select(plan)
+ 	if self.Destroyed then return false end
++	local spinOwns, spinDecision = self:SelectWheelSpin(plan)
++	if spinOwns ~= nil then return spinOwns, spinDecision end
+ 	local wheelOwns, wheelDecision = self:SelectFreeWheelTicket(plan)
+ 	if wheelOwns ~= nil then return wheelOwns, wheelDecision end
+ 	local enabled = self.Config.PLAYTIME_SETTINGS.AUTO_CLAIM_PLAYTIME or self.Config.MYSTERY_BOX_SETTINGS.AUTO_OPEN_MYSTERY_BOXES
+@@ -368,6 +379,10 @@ function RewardsManager:DispatchReturned(pending, invocationOk, result)
+ end
+ 
+ function RewardsManager:Definition(decision, generation)
++	if decision.Kind == "WHEEL_SPIN" or decision.Kind == "OBSERVE_REWARD"
++		and type(decision.Pending) == "table" and decision.Pending.Kind == "WHEEL_SPIN" then
++		return self:WheelSpinDefinition(decision, generation)
++	end
+ 	if decision.Kind == "OBSERVE_REWARD" and decision.Pending and decision.Pending.Status == "UNCONFIRMED" then
+ 		return nil -- Retain the barrier; existing received-state/five-second reader updates reconcile without a hot task cycle.
+ 	end
+diff --git a/src/OCFoundation/GameMechanics.luau b/src/OCFoundation/GameMechanics.luau
+--- a/src/OCFoundation/GameMechanics.luau
++++ b/src/OCFoundation/GameMechanics.luau
+@@ -901,6 +901,7 @@ function GameMechanics:RewardAction(manager, decision, token)
+ 	local c = self.LocalFeatureController
+ 	if not c or manager ~= c.Rewards or not c.Scheduler.Active or c.Scheduler.Active.Definition.Owner ~= "REWARDS" then return false, "Reward task does not own the scheduler" end
+ 	if token:CheckCancelled() or manager.Controller.State ~= "RUNNING" then return false, "Cancelled" end
++	if type(decision) == "table" and decision.Kind == "WHEEL_SPIN" then return self:SpinWheelOnce(manager, decision, token) end
+ 	local allowed, reason = self:LocalFeatureGuard()
+ 	if not allowed then return false, reason end
+ 	local remote = self.Reader:_dependency("Remote")

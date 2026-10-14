@@ -14,7 +14,7 @@ const environment = (await readFile(path.join(root, 'tests/foundation.luau'), 'u
 const fixture = await readFile(path.join(root, 'tests/phase5-free-wheel-ticket.luau'), 'utf8');
 const loaderPath = path.join(root, 'examples/Phase5FreeWheelTicketDisabled.luau');
 const loader = await readFile(loaderPath, 'utf8');
-const expectedURL = `https://raw.githubusercontent.com/Whispfl/automation-/phase5-free-wheel-ticket-${generated.buildId}/dist/OC.lua`;
+const expectedURL = 'https://raw.githubusercontent.com/Whispfl/automation-/phase5-free-wheel-ticket-668d0af6f157/dist/OC.lua';
 assert.equal((loader.match(/game:HttpGet\(/g) || []).length, 1, 'Disabled candidate performs one public bundle fetch');
 assert(loader.includes(`game:HttpGet("${expectedURL}")`), 'Disabled candidate uses the exact immutable public build pin');
 assert(!/\b(?:GitHubToken|Authorization|FireServer|InvokeServer)\b/.test(loader), 'Disabled loader has no credentials or native action transport');

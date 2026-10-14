@@ -1,0 +1,1135 @@
+{
+  "status": "FINALIZED_FOR_OFFLINE_VERIFICATION",
+  "baselineCommit": "918f8a58096c59f592fe94fd0d71fe5487f423d8",
+  "scope": "Exactly five owner-approved integration hooks plus four appended WheelSpin blocks and one pure receipt policy; disabled native one-spin candidate. No live ticket consumption authorization.",
+  "approvedPatch": "docs/PHASE5-WHEEL-SPIN-PROTECTED-PROPOSED.patch",
+  "approvedPatchSha256": "06382c6dbbe8191aea636bba4c8a80a73785f9caf4b640443e5646f51448b3d1",
+  "changed": [
+    {
+      "file": "src/OCFoundation/GameKnowledge.luau",
+      "beforeSha256": "7db3393167e2bc49dbe3ed77ca3f3f012a9e9eece5fb580a63010054185badb0",
+      "approvedHooksSha256": "7db3393167e2bc49dbe3ed77ca3f3f012a9e9eece5fb580a63010054185badb0",
+      "afterSha256": "26f2aa0cbfc0fde5e4865ecbe0c84353c747a2f5857d0a53677efb3f0be8bd2a",
+      "additionSha256": "8018aa6248909ac4f9359cba928f8adafd3e167eb05b007c239ad469ec6cf1ee"
+    },
+    {
+      "file": "src/OCFoundation/GameMechanics.luau",
+      "beforeSha256": "6505179be127fe2b0d8e7431df884eaa16cab0e9ee1d7620c050a35b0ec588c8",
+      "approvedHooksSha256": "5b8b386e3f61dc57abdf67c9a2f6088a610e61d4cd915c50a11fb00ad092cb5d",
+      "afterSha256": "2cf74e4ab454f558c6c79e8924927719607129ecbd89b7b8294e02508cd1e9f5",
+      "additionSha256": "8c0bebaa9f0f9cc146455d6628a6856f1008cb465b45734583242ee7149aa2d3"
+    },
+    {
+      "file": "src/OCFoundation/OCConfig.luau",
+      "beforeSha256": "495f7794e807c5b506d7f2faa6d0136e21d98af0cb607662aab446200e761c93",
+      "approvedHooksSha256": "495f7794e807c5b506d7f2faa6d0136e21d98af0cb607662aab446200e761c93",
+      "afterSha256": "29e9b3a1290cefa8d240ae106a2345e60d2409fe90d2c3710c41879326b0e968",
+      "additionSha256": "5fdfde35a5892c4f404a7a3e414339db094c36c12f6a388e828a2837c2908ae3"
+    },
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "beforeSha256": "1caddfb1006c8be879176fc3ef092befdea41fd0dbbd8765bfd9c25d64537e6a",
+      "approvedHooksSha256": "5820166d3fd2dcf1594f548f06eb5a703b0995b0c8b31571048528948282915d",
+      "afterSha256": "6db3df8c463638426e8b9bb9dc6b49930def448fee30b9e8eb3c801540e723dc",
+      "additionSha256": "f85c4fc1e04a029b7c55031973259a389d0b584e76033db481b5bbd78d0b5d63"
+    }
+  ],
+  "addition": {
+    "file": "src/OCFoundation/WheelSpinPolicy.luau",
+    "sha256": "3b30b241354da0f993ec6201b72168b382c5da044868388825019a5903726742"
+  },
+  "existingMethods": [
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "method": "RewardsManager.new",
+      "beforeSha256": "2525160e8f31e8a1882e9d2d182f5814ba6d17ce95bd95867b30de9776072f76",
+      "proposedSha256": "d01c7ced27d10e9fc3666586c29df6966a9f01c390db2f86e44563de8e61ce81"
+    },
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "method": "RewardsManager:Observe",
+      "beforeSha256": "82fd8c0c69b483a4afe4f2bcdcfd2802ecc380121017b6648c3289fabf12a9a8",
+      "proposedSha256": "2a644d84d60addca0151d9ceb66334dc04146f2d0673ee7616928badf3370735"
+    },
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "method": "RewardsManager:Select",
+      "beforeSha256": "9872e03bc1da9576c70f88dc58976404ba0f7095f67bb85da1a8ba33bd3a8245",
+      "proposedSha256": "192b2fb0b1f4ac4c74ac193ea0365174aaf3b808066ca77c3d92ab0be843d0f4"
+    },
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "method": "RewardsManager:Definition",
+      "beforeSha256": "a9b9c35841fbc81475a62d502b43199d5a09e0f76e54f796e423f81a4c9984dc",
+      "proposedSha256": "279afc32b5931e90632992b536aea9f403a7b4b9fc450c8481f6d7ced10e7db3"
+    },
+    {
+      "file": "src/OCFoundation/GameMechanics.luau",
+      "method": "GameMechanics:RewardAction",
+      "beforeSha256": "ce14b92003f99375badbbc0451a88e66fb050ac7c3a3427442bfe25bf78ccbcb",
+      "proposedSha256": "8416ccd63b07ee40c6b18a9a1a1a31b4f530a2ddd74da0060c4620f96e5e47eb"
+    }
+  ],
+  "projection": "Verify exact current file/block/module hashes, remove only four unique ONE_WHEEL_SPIN blocks and the new pure policy, reverse only the immutable approved five-hook patch, reproduce every 918f8a production byte, then run the untouched historical projections.",
+  "frozenFiles": [
+    {
+      "file": "docs/LOCAL_FEATURES.md",
+      "sha256": "2f3b3f303346e1e1009a5c59ecce06a8d2941f35b1a4646d989cc73af1815d6b"
+    },
+    {
+      "file": "docs/LOCAL_FEATURES_DELIVERY.json",
+      "sha256": "72fb67843e25a8ea890fec297dc6bd1f8a6bda1b1d2983db0eee90a3db54786c"
+    },
+    {
+      "file": "docs/LOCAL_FEATURES_STUDIO_RECHECK.md",
+      "sha256": "35e36f259110e658d5d4202c46ac000cea397306464dccd7b0e1aac2deb20927"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-CLASSIFICATION-CORRECTION.json",
+      "sha256": "97a7c2d150f8c0610a4da359f0cf135c505117be130f7a2f0ace229775243fe5"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-FINAL-STANDING-RECHECK.json",
+      "sha256": "5cdd5c5459384e7afd1104f0999a66bd6de5163b1772640ccbf85ab2dd882f8e"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-FUNCTIONAL-EXCEPTION.json",
+      "sha256": "bef23ddbe1e4e5ce94057a7f443a081f643340a40e9535635f9850979e262076"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-MEMBERSHIP-CORRECTION.json",
+      "sha256": "65b762851dfd2a046713640193ddf6ab06a4028cd73afaa70a3abba88bffec95"
+    },
+    {
+      "file": "docs/PHASE4-APPROVED-STANDING-SUPPORT.json",
+      "sha256": "3d98edb6fd20664477639866a3b63e4af8ae61392f1a846c7e5199dfd36c0dc0"
+    },
+    {
+      "file": "docs/PHASE4-BLOCKER-FIXES.md",
+      "sha256": "81b7e520603ca74ae9ac26897c58b9c0d11d85ae18a6bb6740991945969040eb"
+    },
+    {
+      "file": "docs/PHASE4-EGG-IDENTITY-EVIDENCE.md",
+      "sha256": "cb75a70c4d9a759b7fc8ebb083ab1ed98dd2305fc3a58c630deed4206c451619"
+    },
+    {
+      "file": "docs/PHASE4-EGG-LOCATION-EVIDENCE.md",
+      "sha256": "18904ed53e4359bcdc93a791f372ccd50c062ea11ed29d611ad4304448fe8b27"
+    },
+    {
+      "file": "docs/PHASE4-FINAL-MOVEMENT-VALIDATION-DECISION.md",
+      "sha256": "023f80f68a89dff69f23cc028d4d2bc02769bf07ef3dc504dd571d2e669d175b"
+    },
+    {
+      "file": "docs/PHASE4-FINAL-STANDING-RECHECK-PROPOSED.json",
+      "sha256": "3db37e03101ce77f777bee75f60f219bfdfe91fa377d21c1e034f68c08a9b219"
+    },
+    {
+      "file": "docs/PHASE4-FINAL-STANDING-RECHECK-PROPOSED.patch",
+      "sha256": "1d5259f1d8e9593f616546eb345c5c6efd8c7064f025530b2682fbec156eec4d"
+    },
+    {
+      "file": "docs/PHASE4-FIRST-HATCH-PREPARATION.md",
+      "sha256": "2becfa8ea51dd7be2dc5141378a64d3076da1cd01a4da4ea72960381d566ff8e"
+    },
+    {
+      "file": "docs/PHASE4-FIRST-LIVE-HATCH-MILESTONE.md",
+      "sha256": "1144dd3e1eed2089f87262e6f3e76efbc5693c04a6065dff98c2324779b9a87e"
+    },
+    {
+      "file": "docs/PHASE4-FUNCTIONAL-EXCEPTION-DELIVERY.md",
+      "sha256": "dc51ed4e8d8eba24265f1a3627e5f194d570226f1ba5668ea1cfb1182f592ee3"
+    },
+    {
+      "file": "docs/PHASE4-FUNCTIONAL-HATCH-EXCEPTION-PROPOSED-HASHES.json",
+      "sha256": "574a4a656c697cf9f3b2a3221161fa056fe4360d2d0ff656de621430c0016bef"
+    },
+    {
+      "file": "docs/PHASE4-FUNCTIONAL-HATCH-EXCEPTION-PROPOSED.patch",
+      "sha256": "4dc7fc10a1532a2c6be2d7ef5c5e5f9fffc97fd699185098f985bc4da6d65e9d"
+    },
+    {
+      "file": "docs/PHASE4-INTEGRATION.md",
+      "sha256": "5885f93b096591fd09c97860546de2354d3ce565b70f4a3e1c945e123a3b6cfa"
+    },
+    {
+      "file": "docs/PHASE4-MOVEMENT-CANDIDATE-DELIVERY.md",
+      "sha256": "70cb9faa2d0c1b561847bcf1c55b1dd26754b72e01f0eae638bc5d570ce1d614"
+    },
+    {
+      "file": "docs/PHASE4-NATIVE-AUTODELETE-RESOLUTION.md",
+      "sha256": "72e9ea7cee52254eb9ca8e6c74204c24d0ea7bc0d51c831ae37aec17adc5e43e"
+    },
+    {
+      "file": "docs/PHASE4-OWNER-DIRECT-EGG-TELEPORT-APPROVAL.json",
+      "sha256": "33722b9f1048917f0c4627b5bb92e166c5de92fe176954e381ad0688f08fe426"
+    },
+    {
+      "file": "docs/PHASE4-OWNER-DIRECT-EGG-TELEPORT-APPROVED.patch",
+      "sha256": "129a893e4cf0c23d0740004bb15d4160101b6dd6ade5323984c37e5d7a6df2c2"
+    },
+    {
+      "file": "docs/PHASE4-OWNER-DIRECT-EGG-TELEPORT-DELIVERY.md",
+      "sha256": "b72d42f289a27fae3af8a6b72d0b38f312d46e644ea5d2531ab6b2ccab43e1d3"
+    },
+    {
+      "file": "docs/PHASE4-OWNER-LIVE-DIRECT-MILESTONE.md",
+      "sha256": "5a3bf9ad3e954b9df2e2aadfa742645ce5c08c89709e9ba22b0437c8fc008db6"
+    },
+    {
+      "file": "docs/PHASE4-PROTECTED-MEMBERSHIP-PROPOSAL.md",
+      "sha256": "9c8841217b4c0b03f1e63ada0e14f6eb519a3f1baa450eb908adc59329c6c624"
+    },
+    {
+      "file": "docs/PHASE4-RECEIVER-CLASSIFICATION-DELIVERY.md",
+      "sha256": "5146b4a08f012f8ef69a23917d5f73bee2f8f98e05dfa379e172b0df85385587"
+    },
+    {
+      "file": "docs/PHASE4-RECEIVER-CLASSIFICATION-PROPOSAL.md",
+      "sha256": "581e310d5ccbbcc0ca5197e6212d15cc3f3b8922b13ccc0bafdd88cc8c543531"
+    },
+    {
+      "file": "docs/PHASE4-RECEIVER-CLASSIFICATION-PROPOSED.patch",
+      "sha256": "f46399a7079e6de22062a932ed8f08590724199ce7ea085073d97034e730eadf"
+    },
+    {
+      "file": "docs/PHASE4-REGISTRATION-OBSERVATION-EVIDENCE.md",
+      "sha256": "e5db04ff7bed577bc6b94b9b7b60db18afaab2a11c2e90dab8d9bbb8ea826319"
+    },
+    {
+      "file": "docs/PHASE4-REGISTRATION-PREFLIGHT-DELIVERY.md",
+      "sha256": "9eb46bfbefde14100b28c8f1803911c4141fda0d45b9e0244d3b35d53b7aa653"
+    },
+    {
+      "file": "docs/PHASE4-STANDING-DIAGONAL-APPROVAL.json",
+      "sha256": "5ad8bacc386fb25d17f28071b9ab78c6399a0b1028f881ee9ba33298dc166bda"
+    },
+    {
+      "file": "docs/PHASE4-STANDING-SEARCH-SAFETY-STOP.md",
+      "sha256": "31eb0e4ef3a555ab4d8ccb3909d6765c54343db8b65f2429955af514810aef50"
+    },
+    {
+      "file": "docs/PHASE4-STANDING-SUPPORT-VALIDATION.md",
+      "sha256": "52f6c77a2adc0f2568704f1ede021476d1fece1dd336527954132057ce856a64"
+    },
+    {
+      "file": "docs/PHASE4-TEST-A-PRESERVATION.json",
+      "sha256": "22b156775d41f1528e3c1441cec407192cebef8a972d3429a403e4474747075a"
+    },
+    {
+      "file": "docs/PHASE4-TEST-B-DELIVERY.md",
+      "sha256": "fd9aa2bce116ec97f58d7ba6a20f01f961525b01707479c0ebfa95942aa2a8aa"
+    },
+    {
+      "file": "docs/PHASE4-TEST-B-NATIVE-EVIDENCE.md",
+      "sha256": "0e332e86c5a4f6a67a2357fafb0111d45b46d63bf361a38dd214797ba4d644d1"
+    },
+    {
+      "file": "docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.json",
+      "sha256": "72c5fe58d72c86a195e414c90f11686f26cc644791e9b84c508bc791ebb2c664"
+    },
+    {
+      "file": "docs/PHASE4-UNIVERSAL-MOVEMENT-FOOTPRINT-PROPOSED.patch",
+      "sha256": "e812a4acdad9a75877dbaaa175db9fb4b5be948f8369c570366e20b6768d1c36"
+    },
+    {
+      "file": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.json",
+      "sha256": "e76d02c07ae3b17bf544f17e229b089c6e2e878ce70a1d46df8216d4bbd765f7"
+    },
+    {
+      "file": "docs/PHASE4-UNIVERSAL-MOVEMENT-STANDING-PROPOSED.patch",
+      "sha256": "b1131059a5b151fb699b04bbf1ae50365cbeddc9a6d2faa222d28edd42d3207f"
+    },
+    {
+      "file": "docs/PHASE4-ZERO-RECEIVER-DELIVERY.md",
+      "sha256": "b349094e4c877cf392db6945fc33e6e6693e6cae65c5cbd93f3302b2d062938f"
+    },
+    {
+      "file": "docs/PHASE4-ZERO-RECEIVER-EVIDENCE.md",
+      "sha256": "258e0b2254ac527ca40ab4e4f77395e39fe6858db4f694955a0fbd46f28a5be7"
+    },
+    {
+      "file": "docs/PHASE4.md",
+      "sha256": "617003befe67c6f725e238dc7f5d6b67189104b0f15cdd80bf27b1cbd69a1ab9"
+    },
+    {
+      "file": "docs/PHASE5-ENTRY-PLAN.md",
+      "sha256": "d391394f6429c4265b86ff542f5de39d9a9b188d301d01cd9f0edf69eca8eb7b"
+    },
+    {
+      "file": "docs/PHASE5-FREE-WHEEL-PROTECTED-PROPOSAL.json",
+      "sha256": "33bcc17da73fa0465b4b13541187951b6d58649e96d3c1268bfd81875727f350"
+    },
+    {
+      "file": "docs/PHASE5-FREE-WHEEL-PROTECTED-PROPOSAL.md",
+      "sha256": "880ba5c423827e72789de79554901b3a7913666b4cd6e4b60e3e457d22f5b43c"
+    },
+    {
+      "file": "docs/PHASE5-FREE-WHEEL-PROTECTED-PROPOSAL.patch",
+      "sha256": "6b08aa9cc1bac60acd12310eb74728dfe1d50b65ee75d69ec31768d8a93cbc2c"
+    },
+    {
+      "file": "docs/PHASE5-FREE-WHEEL-SOURCE-PRESERVATION.json",
+      "sha256": "6780d3d85acd50ef0ae962ef9f987530b484e7849dda3eb6eb95a4690f8c510c"
+    },
+    {
+      "file": "docs/PHASE5-FREE-WHEEL-TICKET.md",
+      "sha256": "6ff22c4ade4fec0060bcf0d41193f9aeed9f4a743932656947a97e105743c43b"
+    },
+    {
+      "file": "docs/PHASE5-MASTERY-READ-ONLY.md",
+      "sha256": "bf3d15f87176d5c0fb210adb822af4d7e0b213b6babee701e9cda2134c11471b"
+    },
+    {
+      "file": "docs/PHASE5-OWNER-REMOTE-EVIDENCE-2026-10-14.md",
+      "sha256": "1b4959f5f6bfbcdbaf382ad25ac37fcd27353792f78c162913b534175b2bcac7"
+    },
+    {
+      "file": "docs/PHASE5-OWNER-WHEEL-COLLECTION-2026-10-14.md",
+      "sha256": "8905f2e77902d5d834782edf5176502cf24493a0e4b0f39ac838763945bb6f6c"
+    },
+    {
+      "file": "docs/PHASE5-READ-ONLY-ADDITIONS.patch",
+      "sha256": "d9973963ea60ad7339ab08c4f361a83cf890b9dcfb38813a4846b58c23f2fc0d"
+    },
+    {
+      "file": "docs/PHASE5-READ-ONLY-SOURCE-PRESERVATION.json",
+      "sha256": "a7cd50ac97c037f130731ae51ed00f1977982f29bdc0f77a42e942c4072b7b48"
+    },
+    {
+      "file": "docs/PHASE5-REWARD-NATIVE-GAP-ADDENDUM.md",
+      "sha256": "98d2d1ed9ea23eb823d01c2983ab2c6d98cc71112197bff0570f87e119521f87"
+    },
+    {
+      "file": "docs/PHASE5-REWARDS-READ-ONLY-ADDITIONS.patch",
+      "sha256": "cd516c0e380b594cd8e292fcbe3a904953bec409743b7d870fd8c72c7b696be8"
+    },
+    {
+      "file": "docs/PHASE5-REWARDS-READ-ONLY.md",
+      "sha256": "394bdc048e5f979967aa453a64fb9e112903e519cf589faecab535937819ba43"
+    },
+    {
+      "file": "docs/PHASE5-REWARDS-SOURCE-PRESERVATION.json",
+      "sha256": "865ce1f6222b41a19c26e7810b77487207f5d10d0436624bdcd5c1930ac0703d"
+    },
+    {
+      "file": "docs/PHASE5-WHEEL-OWNER-TEST.md",
+      "sha256": "e0ed28efa8c9857d44875cd7ad5c07f121dc6650f3eb2c1159c27aca1e959539"
+    },
+    {
+      "file": "docs/local-feature-studio-evidence/AntiAFK_KEY_SEARCH.source.txt",
+      "sha256": "da9a002db908b7d0d997dad2b7c91fc85dfbf33ee3315cfba1c8a616a9408c38"
+    },
+    {
+      "file": "docs/local-feature-studio-evidence/COMMON_EGG_PROMPT_GEOMETRY.json",
+      "sha256": "c7dde75de55ad557f3f4cd329f6340684703c2961c71147deb1b3d0d115344ba"
+    },
+    {
+      "file": "docs/local-feature-studio-evidence/MYSTERY_GIFT_RECHECK.md",
+      "sha256": "56f742fd64ff4ce9b2c2d9b51f994e0a4a69c8064fc5dc1ab43f8c398dfdba0b"
+    },
+    {
+      "file": "docs/local-feature-studio-evidence/README.md",
+      "sha256": "57f052cc6b2cf7cd1095d18da908ec7b1fd22eee68d8d147bb633628aa28a408"
+    },
+    {
+      "file": "docs/research/replicatedstorage/DATA_SCHEMAS.md",
+      "sha256": "1e4737e18e8847aa7da4e0e95a8542b46a6c18fa7a338db47c25fe8a9d61d072"
+    },
+    {
+      "file": "docs/research/replicatedstorage/DOCUMENTATION_VALIDATION.json",
+      "sha256": "01752fc4722d4470a7bdde7aa12a74724c34a40bb55656229506056ba07b005e"
+    },
+    {
+      "file": "docs/research/replicatedstorage/ECONOMY_AND_ROI.md",
+      "sha256": "18ac09f607af9a58e81348111fe239015f46896e0f5358ff140f192ae24655b9"
+    },
+    {
+      "file": "docs/research/replicatedstorage/ECONOMY_REVIEW_NOTES.md",
+      "sha256": "4d5c7264d44d696c25b03cc8bdddb96bfed1cd48f5c82a414baa83bfe4da2d7b"
+    },
+    {
+      "file": "docs/research/replicatedstorage/ECONOMY_SOURCE_LEDGER.md",
+      "sha256": "3ccca24135894427c423a650a43962e1d5dfbe5c8c38976c3ff35005f5022845"
+    },
+    {
+      "file": "docs/research/replicatedstorage/EGGS_AND_PETS.md",
+      "sha256": "9cfbeffd6f2c8263677dbd8e218e57f8cdebe1fee4a1e7415a16d138824f98b5"
+    },
+    {
+      "file": "docs/research/replicatedstorage/FISHING_AND_MINIGAMES.md",
+      "sha256": "15fc57652157b3dc16946591141e555225fbeda09bd0a12b7626ed519a2e1d8a"
+    },
+    {
+      "file": "docs/research/replicatedstorage/FISHING_MINIGAMES_SOURCE_LEDGER.md",
+      "sha256": "3a33f4c2b036b16ec17487940518d8859ec6c5129454de6eae272d3e90d19d06"
+    },
+    {
+      "file": "docs/research/replicatedstorage/INVENTORY_METHOD.md",
+      "sha256": "894a02afc4b136db50269f15594371114116728a94574b1e8d84c679e12aca06"
+    },
+    {
+      "file": "docs/research/replicatedstorage/LOCAL_ARCHITECTURE_EVIDENCE.md",
+      "sha256": "b00cd9cd27d6aaa9d2809c2a92918685bc80e02dce697e0070ef28e5e004bcfe"
+    },
+    {
+      "file": "docs/research/replicatedstorage/MASTERY_AND_UPGRADES.md",
+      "sha256": "f92fecb28f66b33af804d7ac4a70ae5bc0be983181eed073047ac0067ec4e6e7"
+    },
+    {
+      "file": "docs/research/replicatedstorage/MODULE_INDEX.md",
+      "sha256": "33c82fb966c54814aaf9086d03bd2c18d61ef79b70c88a12aa8261fba79ff467"
+    },
+    {
+      "file": "docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS.md",
+      "sha256": "ea83cc17af4a8832c4c1c55203e140d18ae4274027dae1874fed25811a015c76"
+    },
+    {
+      "file": "docs/research/replicatedstorage/NATIVE_ACTION_CONTRACTS_NAVIGATION.md",
+      "sha256": "8f8ae7f37e1ce2e61b973d163a5f6489b80915aea99b5d17ac6a0f8c4df579f2"
+    },
+    {
+      "file": "docs/research/replicatedstorage/NAVIGATION_FISHING_SOURCE_COVERAGE.jsonl",
+      "sha256": "0f12eb9e9f973fef994aa9463ad05cefed5e5b564034b12f19e6b83d1d108d41"
+    },
+    {
+      "file": "docs/research/replicatedstorage/NAVIGATION_SOURCE_LEDGER.md",
+      "sha256": "d8ad69e1dcc27570d7008428f5a175e76843d3560b031e44152391f6b1f41e83"
+    },
+    {
+      "file": "docs/research/replicatedstorage/OC_BRAIN_INTEGRATION_MAP.md",
+      "sha256": "d48a6470d3d0f8e6521ac2c4b983371fb79cff5adb98498fe949b82dfc7f3d4d"
+    },
+    {
+      "file": "docs/research/replicatedstorage/PRESERVATION_BASELINE.json",
+      "sha256": "b456d27f4bdc78ef3b8b7f6f0c64f6b3400a06afc1a21c3e419f1620906bb53b"
+    },
+    {
+      "file": "docs/research/replicatedstorage/README.md",
+      "sha256": "1a3a99408fc29445e46c77d5ea7f071363b48aa4b5b0adac48f67144e7769e86"
+    },
+    {
+      "file": "docs/research/replicatedstorage/RESEARCH_PROGRESS.md",
+      "sha256": "74eee1880906b8b56989aba0a65ce870c9888cd7e5735ab7c749011861f132df"
+    },
+    {
+      "file": "docs/research/replicatedstorage/REWARDS_QUESTS_AND_EVENTS.md",
+      "sha256": "fbc5ed0528dfdf3f9f5c3bed0ce09f711fe587fc923d3f45c290dc421d7c4e73"
+    },
+    {
+      "file": "docs/research/replicatedstorage/ROOT_SOURCE_LEDGER.md",
+      "sha256": "15e1b3ce1efe7b0856a5925adae99a233679e827f06d75b992b531f334bfc0c1"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SHOPS_QUESTS_AND_CONSUMABLES.md",
+      "sha256": "f720cec90484ce68b1385cfe64c0a4d05e79e5443cce775b7095304d2d3c0899"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SOURCE_COVERAGE.jsonl",
+      "sha256": "4bd90af08a41f0c08ac9bb0670d1108341ec976acd1ed11d21a6b9d1e1b2f6fd"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SOURCE_COVERAGE_ARCHITECTURE_NATIVE.jsonl",
+      "sha256": "99a7a778db664aa3dbbb13fce01ef4f2029650c5b210a59641c259c5e81bf640"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SOURCE_COVERAGE_METHOD.md",
+      "sha256": "3782db9a399bc6e79bd2da0e0ffea3d0df9fa5f1fd1069b11a524718553dc150"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SOURCE_COVERAGE_SUMMARY.json",
+      "sha256": "5c0b8c45fa50c305f49e1249a68a8caf939b127965d339fffe6571d57cbef80a"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SPECIALTY_AND_SEASONAL_SYSTEMS.md",
+      "sha256": "c669568cf0fb331c3d515fdde0c8b59e623d717cd00b5e5202d0f25d63e1c2ab"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SPECIALTY_SOURCE_LEDGER.md",
+      "sha256": "f6bee0d36594003769e30ad2b90b784abfaf2b70383d7c38a501cef9c89d1deb"
+    },
+    {
+      "file": "docs/research/replicatedstorage/STAT_DEPENDENCY_EXTENSIONS.md",
+      "sha256": "d89380964c598d3dbd7c3cca70f7614c52ac3bff7111e531d8b3e037b6baec6a"
+    },
+    {
+      "file": "docs/research/replicatedstorage/SYSTEM_DEPENDENCIES.md",
+      "sha256": "9b2ee660dda17ef2be1ebefc1facaf89852e23c34e383cba0e41516efe5abee8"
+    },
+    {
+      "file": "docs/research/replicatedstorage/UNKNOWN_AND_SERVER_ONLY_RULES.md",
+      "sha256": "34f6d6dc9b1a1f6866abd1d586ae24e55c5db7701a2b7f55a022de55b6d4c880"
+    },
+    {
+      "file": "docs/research/replicatedstorage/WORLD_AND_NAVIGATION.md",
+      "sha256": "043087683999220b9a52faeb8859fef103a7b0300114433dbcbe774b649b708a"
+    },
+    {
+      "file": "docs/research/replicatedstorage/catalogs/CURRENCY_FACTS.jsonl",
+      "sha256": "a77791bf04a6dca7b97dc46dd3a624bcbc66fd3643b6da039768a44849618ebf"
+    },
+    {
+      "file": "docs/research/replicatedstorage/catalogs/ECONOMY_SOURCE_COVERAGE.jsonl",
+      "sha256": "fd7cfeeefd0952ea4b5261342e5cf0126cc1069a29eaa6478070a0fa10b45b3e"
+    },
+    {
+      "file": "docs/research/replicatedstorage/catalogs/EGG_FACTS.jsonl",
+      "sha256": "5e117b21a5ab5ceec24fd51a29f9d205ce478478441796283c160305d09bdc9f"
+    },
+    {
+      "file": "docs/research/replicatedstorage/catalogs/PET_BASE_STATS.jsonl",
+      "sha256": "872ec8dc4c607f8eaafbdf467a4dc71654aaa4480c0ff27aca0c90c37556facb"
+    },
+    {
+      "file": "docs/research/replicatedstorage/catalogs/README.md",
+      "sha256": "7ee64a71feb076893ed3954d8498d98993c072c1c6e4c15f33c2fd6da1aea8b4"
+    },
+    {
+      "file": "docs/research/replicatedstorage/catalogs/SOURCE_COVERAGE_ROOT.jsonl",
+      "sha256": "ced87b54b550877e1bc2bc16bf4cef2c9dabecd150aca02bf6d5b50900b2bd7b"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/Assets.jsonl",
+      "sha256": "2c61da4388f1246bb3bf2c9f87d2ae24a31200499caabea098f95ce6f37e2fbb"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/Client.jsonl",
+      "sha256": "558d5caeac4e847d74f31d651e783d34f805bd69c1fc1c866d8ce37b4f8fee84"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/DEPENDENCY_REFERENCES.jsonl",
+      "sha256": "7a7b8c4f19e09c6de4922dcf62ba85f12a5dca270534574c1aa16a64112bc6fc"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/FastFlags.jsonl",
+      "sha256": "d34580d832c363723630721a67ef4db5f0d08893689fe32f7982a8f53a2c8707"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/REMAINING_SEMANTIC_REVIEW.jsonl",
+      "sha256": "78f5573401892efe3c162f3dafa1f92ea84392e2906c62c327805ea6d2d50cc7"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/Remotes.jsonl",
+      "sha256": "c813a678b9091947006e0deadf5032044cf34795b28fcf99a68af60072f3abe4"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/SOURCE_METADATA_METHOD.md",
+      "sha256": "d6a672382ed7950ff628508d8e39e046815d76557ee2a595582ab1d4f865d015"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/Shared.jsonl",
+      "sha256": "90322fcbc0f95472ee3317a4ddfc34213da50d477889b4e1e8b7c230c2fc8427"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_001-100.jsonl",
+      "sha256": "8852fc89c28c5b562cb29ca997849b83700050219db7d2a1557f88bc5ff8a0c8"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_101-200.jsonl",
+      "sha256": "15baa973f929eb47da9bec250c329189313a40faecbb4a881e88d777c467e260"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_201-300.jsonl",
+      "sha256": "09cb272aae9f2c2d917dfb961fa98c31971fbb77a9355f8da1a99a457f87da81"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_301-400.jsonl",
+      "sha256": "2e41e6c5fbf5fe95dd0225833ed7358087cec2dc11334180631087e16f58dcff"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_401-500.jsonl",
+      "sha256": "746f5cb493a3c3ce52cc795088f2c22e665a74b5d728660266698414f4c02a79"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_501-600.jsonl",
+      "sha256": "93912f321447132283c7d41b1cace6fd6277c5af620dc190dd7d22c3bf1579d0"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_601-700.jsonl",
+      "sha256": "04303ed48b0246b3d1363ebe4c7385bdf67f3a7408fc9ee4f12a14ba1a76ac7c"
+    },
+    {
+      "file": "docs/research/replicatedstorage/inventory/source_metadata_701-701.jsonl",
+      "sha256": "d298e1a86a546dc808513a84e95da1306fe1a513c89cce02b6522be1e55ae358"
+    },
+    {
+      "file": "docs/research/replicatedstorage/observations/FISHING_CATALOG_FACTS.json",
+      "sha256": "5d6ff609594ff0dfc7dab87eb9203ddc4b161a0a83893ad8c0c9a1803e878f4b"
+    },
+    {
+      "file": "docs/research/replicatedstorage/observations/FISHING_MINIGAMES_SCENE.json",
+      "sha256": "5ccc0fbf21ea05d937019820d01bbd3f4096912b9550f61d0931a27667a8fcf1"
+    },
+    {
+      "file": "docs/research/replicatedstorage/observations/MINIGAME_AND_OBBY_WEIGHT_FACTS.json",
+      "sha256": "858b0c1f24a4015ffd0d57ed7db8cc1d4be04453a3b3c610c859ca31c110c29e"
+    },
+    {
+      "file": "docs/research/replicatedstorage/observations/NAVIGATION_SCENE.json",
+      "sha256": "137026c4a4652b5060e3c2b7d76d4a108530e5aa54ffcf29a1a928206185a016"
+    },
+    {
+      "file": "docs/research/replicatedstorage/observations/OBBY_SCENE.json",
+      "sha256": "0dbb3a4fa68b362f975e098c7ddadacf2021a38d289b3e06ce04cb6a38509546"
+    },
+    {
+      "file": "docs/research/wiki/BACKUP_MANIFEST.json",
+      "sha256": "fe1c152eeea53968b8e00383582fa7cf16835006483b41369b526f1b4fd2c319"
+    },
+    {
+      "file": "docs/research/wiki/CLAIMS_LEDGER.md",
+      "sha256": "c8042655327ba70102b380ac9f593d36587129af8e298c5603d9c1ebb67bc28e"
+    },
+    {
+      "file": "docs/research/wiki/COMMUNITY_STRATEGIES.md",
+      "sha256": "330a35197463fdd767cb0644823262505833e0dafac73571037a18d6f9ef4350"
+    },
+    {
+      "file": "docs/research/wiki/COVERAGE_REVIEW.md",
+      "sha256": "43f93dc1f1943b4b1e2a15a1dcba961ba97e1bd7fc40fc7c8ca2c2f1de50b354"
+    },
+    {
+      "file": "docs/research/wiki/DOCUMENTATION_VALIDATION.json",
+      "sha256": "5cff63b00c58946f10d2904fa099ffedc9eb533f6ab8c8c42804bb902be73ec2"
+    },
+    {
+      "file": "docs/research/wiki/EGG_PROBABILITY_RESEARCH.md",
+      "sha256": "9cd9979b350c50fd10a720cc39d1f0de76257fdb9b5615cd8d1bee59f04cd78f"
+    },
+    {
+      "file": "docs/research/wiki/EGG_PROGRESS.md",
+      "sha256": "0b0675622311e3c06d9faa8ba2d9a65ac09064fedca1a6b594bd076c6becae08"
+    },
+    {
+      "file": "docs/research/wiki/FISHING_MINIGAMES_AND_OBBY_STRATEGIES.md",
+      "sha256": "f769020c948c48e7ae05331ef9f341132d6d4b24f5eb7df169b90d186d941538"
+    },
+    {
+      "file": "docs/research/wiki/FUTURE_OC_IMPROVEMENTS.md",
+      "sha256": "df31fe081757d0ace4b5fbe94db521eab5ca2d95a682a014d858890e808c12b4"
+    },
+    {
+      "file": "docs/research/wiki/GUILD_RUNE_AND_CURRENCY_RECONCILIATION.md",
+      "sha256": "7707348630e8c5b577478b25b3caaf4a0a7259ae08872d908513846d2e7fdc67"
+    },
+    {
+      "file": "docs/research/wiki/INDEPENDENT_ARCHITECTURE_REVIEW.md",
+      "sha256": "142efe5500bdbc087afaeffaed8094c00c74b819692b615c5c03ac1d0efac104"
+    },
+    {
+      "file": "docs/research/wiki/INDEPENDENT_ECONOMY_REVIEW.md",
+      "sha256": "3034452f2a3412cdc6d274504b5aecacde61083c546465c26c863f26889ecf53"
+    },
+    {
+      "file": "docs/research/wiki/KNOWLEDGE_GAPS.md",
+      "sha256": "f033a03b220be9f9a2f4fae978c39a1869cfd1915e870f24fc4da712e9987cb5"
+    },
+    {
+      "file": "docs/research/wiki/MASTERY_PROGRESS.md",
+      "sha256": "4dba9cf1820793a4ce7ea2922c9b8f03fcc337309033d94d1159e55ee31ceba2"
+    },
+    {
+      "file": "docs/research/wiki/MASTERY_ROI_RESEARCH.md",
+      "sha256": "97f0c7441bb7d38231234d7d541df48edf14dceccda67fdd1355687cd374dd24"
+    },
+    {
+      "file": "docs/research/wiki/MATH_VALIDATION.json",
+      "sha256": "730184d03a1ad2f24dd564efbc5bd66e9999d9e84b71cdc52b539ed01c82fa6d"
+    },
+    {
+      "file": "docs/research/wiki/MATH_VALIDATION.md",
+      "sha256": "1395bd749eb010b22697607935b62c6eccfbde40b5027e768fbfb8f73fb5788e"
+    },
+    {
+      "file": "docs/research/wiki/NATIVE_VS_WIKI_CONFLICTS.md",
+      "sha256": "b0b88326fd4e52d8d26743621d45b81be069258dd588aef4a2b5fb070c4f8533"
+    },
+    {
+      "file": "docs/research/wiki/NOTION_ACCESS.md",
+      "sha256": "d5bebc787d777afe8ba70ef6654fb2f4e7f70d67f7aed2536e4d6ba406f75b09"
+    },
+    {
+      "file": "docs/research/wiki/PET_TEAM_AND_ENCHANT_STRATEGY.md",
+      "sha256": "4cfa41fedd0e8cd898d98f77c032d311a77b549a1a5fa14e92707dbdd14747f6"
+    },
+    {
+      "file": "docs/research/wiki/PRESERVATION_BASELINE.json",
+      "sha256": "d9ac965bd4f3364e66f65a507dc9a8fc8e7b6b1e5bc3c6ed36785f87e6437da5"
+    },
+    {
+      "file": "docs/research/wiki/PRESERVATION_REPORT.json",
+      "sha256": "77378730016905beea64f7481a0c611cbf88bfcd3568b739c1433b80c4910d5f"
+    },
+    {
+      "file": "docs/research/wiki/PRIMARY_EVIDENCE_VALIDATION.json",
+      "sha256": "33b8cefce61e7408b48aad6b6482c484a4d8b51a7b0de666535dafacf1e40d32"
+    },
+    {
+      "file": "docs/research/wiki/PRIMARY_EVIDENCE_VALIDATION.md",
+      "sha256": "371e0a5421ca661ce448c89cd7465c39432e7f1acd70dc45ad3cea6dfec0cf8e"
+    },
+    {
+      "file": "docs/research/wiki/QUALITY_REVIEW.md",
+      "sha256": "62f76fda9ec131f1c83fe4dc97ad20183a70d604318fab34cd06811fcf164c2a"
+    },
+    {
+      "file": "docs/research/wiki/README.md",
+      "sha256": "969c8059fe06666110ef9d4d838756bc6aa016f5dfa9dde7b81909efc80ed5a2"
+    },
+    {
+      "file": "docs/research/wiki/RESEARCH_PROGRESS.md",
+      "sha256": "fc5d4e4eb8d9413248dd118a4274442e809de70cf1c1bf7d9c0fe237587cdf99"
+    },
+    {
+      "file": "docs/research/wiki/REWARDS_SHOPS_AND_QUEST_STRATEGIES.md",
+      "sha256": "018385a6391c5ce0070488f9e214b64c3539f5d401003dbc5b230bc74fa603d7"
+    },
+    {
+      "file": "docs/research/wiki/RIFTS_EVENTS_AND_OPPORTUNITIES.md",
+      "sha256": "73ee4e6cef401874e05a9f6c32f01a4c414c49650966d7f20cc35cbf1e33734c"
+    },
+    {
+      "file": "docs/research/wiki/ROI_DECISION_FRAMEWORK.md",
+      "sha256": "55b703721f670269d4cdadf46a60d5dc9108ce01d6cc6ea22939bb6eb9ee3f32"
+    },
+    {
+      "file": "docs/research/wiki/SOURCE_INDEX.md",
+      "sha256": "3554fcced1d86bd88e88961d82e72595feaa67eeac1081d3a6fb28ee13367dc0"
+    },
+    {
+      "file": "docs/research/wiki/WORLD_PROGRESS.md",
+      "sha256": "8535d7f042f19ee1e99825b63124622425af8cc51bdddd9107258e30dac62db8"
+    },
+    {
+      "file": "docs/research/wiki/WORLD_PROGRESSION_STRATEGIES.md",
+      "sha256": "2be4a36d8392b5a5d650bbcbd920bbb8a111dda08a6f5fc960c914ce6bb9baeb"
+    },
+    {
+      "file": "docs/research/wiki/evidence/ALL_CLAIMS.jsonl",
+      "sha256": "44ee737daf0d2ee0c25c104394adfdbbc71ec84b17473e4bf92c600449afbed9"
+    },
+    {
+      "file": "docs/research/wiki/evidence/ALL_SOURCES.jsonl",
+      "sha256": "d0bcfcb8c17f70d72beaa82967b42e36cde6548b7733d9a832564c480740bfc3"
+    },
+    {
+      "file": "docs/research/wiki/evidence/EGG_CLAIMS.jsonl",
+      "sha256": "4fd80fbb5d30667e61b1adcbc4435972bbee1d30b87d75728affde2efdf6afac"
+    },
+    {
+      "file": "docs/research/wiki/evidence/EGG_SOURCES.jsonl",
+      "sha256": "77d6618794b203ff8c74a508670d519ea94e4aee730d072a3e0c5e5f8a006b2a"
+    },
+    {
+      "file": "docs/research/wiki/evidence/MASTERY_CLAIMS.jsonl",
+      "sha256": "c4a7dedfd08491b38369426855da79a095141ce5fad0a2465b334490d5f87c8a"
+    },
+    {
+      "file": "docs/research/wiki/evidence/MASTERY_SOURCES.jsonl",
+      "sha256": "b67f3b6ba3f09a7959e37db7ceb5ac46315acfced69bee8fb301d3e17f772c47"
+    },
+    {
+      "file": "docs/research/wiki/evidence/RESEARCH_COUNTS.json",
+      "sha256": "3400e96724d4f56b8217742ee84d7f8bf4b442991c8ef83c3574fe171ac471cc"
+    },
+    {
+      "file": "docs/research/wiki/evidence/ROOT_CLAIMS.jsonl",
+      "sha256": "d114b4cbbe5785c5af92132b5588c0ca1572591a4a43681ca863cd4c5191c897"
+    },
+    {
+      "file": "docs/research/wiki/evidence/ROOT_SOURCES.jsonl",
+      "sha256": "0d747d67e5ba8b93069c1bd5bb7914b372e9781d69efa94eb1b32a781c4834d9"
+    },
+    {
+      "file": "docs/research/wiki/evidence/WORLD_CLAIMS.jsonl",
+      "sha256": "e482c6a145dc2b982028153df80526d6a5b50eaea99e84b2b69a31f93b09877a"
+    },
+    {
+      "file": "docs/research/wiki/evidence/WORLD_SOURCES.jsonl",
+      "sha256": "460f19960dfe2eed25a9fa3e31ebb1d33e065297f698f88e9f7a29cb24e50d0e"
+    },
+    {
+      "file": "docs/verification/README.md",
+      "sha256": "b723770022ca450bc5487256c6a721623520eb72a19295ad2ab3a7f40b3c892a"
+    },
+    {
+      "file": "docs/verification/local-features-studio-recheck-2026-10-11.txt",
+      "sha256": "384bbf8f093fabf4109ace66092b9fc71b7788266167246e656afc8e5d0978c2"
+    },
+    {
+      "file": "docs/verification/migration-regression-2026-10-12.txt",
+      "sha256": "131561b5f71a5d5e62345f128925d0c4a825055b40164e31bb53246631fde3c2"
+    },
+    {
+      "file": "docs/verification/phase3-historical-last-test.txt",
+      "sha256": "83a4ea19df132ae3240767fa31d1a81c3ec3cc4203c9b8cafb19e7d797c97462"
+    },
+    {
+      "file": "docs/verification/phase4-live-hatch-movement-plan-preservation.txt",
+      "sha256": "71c38b98b14596031e41c1518598431361ae1b1f6df427423b0be297c06460be"
+    },
+    {
+      "file": "docs/verification/phase4-standing-diagonal-safety-gate.txt",
+      "sha256": "2383b92074d1402978eba4380127ef912ccafe3e029105b462027860d54376a2"
+    },
+    {
+      "file": "docs/verification/phase4-standing-footprint-proposal.txt",
+      "sha256": "d6c3d5ec48594d71f8ebe95e3eb039222391dc1a1f2dfebc591acd32116893eb"
+    },
+    {
+      "file": "examples/CombinedFarming.luau",
+      "sha256": "823fb494f1e6674ddcc5af6e9874feec7fcbf50d97433c056a040a0d0a0d23a6"
+    },
+    {
+      "file": "examples/EggAnalysis.luau",
+      "sha256": "2d38898aa76acf357801c7ebf9b57c4df8b7fd25b69f9ea921489b2c708f20b7"
+    },
+    {
+      "file": "examples/HatchOnceTest.luau",
+      "sha256": "7073c5802f03995739498d3c0b8e51d3ef61629d060aa917f7f97e82546a7a03"
+    },
+    {
+      "file": "examples/Loader.luau",
+      "sha256": "823fb494f1e6674ddcc5af6e9874feec7fcbf50d97433c056a040a0d0a0d23a6"
+    },
+    {
+      "file": "examples/LocalFeatureTests.luau",
+      "sha256": "25396071db495e0c1fd35f748eb9ec23cf770c1eeb40edb88714a47e0fa3132b"
+    },
+    {
+      "file": "examples/MigrationVerify.luau",
+      "sha256": "de54f50cd1e3bc298b156fc859c14514235980ec11c052a9f74aecc97c7ef426"
+    },
+    {
+      "file": "examples/PetEquipTest.luau",
+      "sha256": "6f196586ce8f42d3c6142867d660b1fee0d860d66b6e189009284b1dfa52e1f4"
+    },
+    {
+      "file": "examples/Pets.luau",
+      "sha256": "1d6c74333e4ca4a22951fb20f28a797901888739baea53546e14fa3786a492e5"
+    },
+    {
+      "file": "examples/Phase4AutoOnce.luau",
+      "sha256": "09ff6e439d9b584b13aecf6053af12dc56be6b3bfb09583961186b4def0fcb45"
+    },
+    {
+      "file": "examples/Phase4CommonFunctionalDisabled.luau",
+      "sha256": "57779f5ea89b9ea67b87e0ba032c5fdd46989f4c39fdcfa9493ee6d5da8cc411"
+    },
+    {
+      "file": "examples/Phase4MovementOnly.luau",
+      "sha256": "ca6c62bfc4b9caf96c14766c68a58b7ecc5e6b6a3b98d284e1cb5abfce75fe60"
+    },
+    {
+      "file": "examples/Phase4OneHatchPrepared.luau",
+      "sha256": "45dfd608a05394fdad1c96c5e614089d5ffd195f054cb2d9afec6172334708cc"
+    },
+    {
+      "file": "examples/Phase4OwnerDirectEggTeleport.luau",
+      "sha256": "53185da6b52e560b0f789077fa9cb9aa7e38f2b8346a9e118d38152d97f71de5"
+    },
+    {
+      "file": "examples/Phase4TestBOneHatch.luau",
+      "sha256": "eba0b0660f498954774731cec3350056111f9335cc0cc7dd00242989e790205d"
+    },
+    {
+      "file": "examples/Phase4TestBPreflight.luau",
+      "sha256": "6c92811f082b3bd359b5316b13e2f65c72bf9c78fd6f5e1c58c474e6df908f3f"
+    },
+    {
+      "file": "examples/Phase4TravelOnly.luau",
+      "sha256": "0a0acbe7bdedc80ac132a1ac05594ba4166f3dfab6a6a697e49c2781467f6fcc"
+    },
+    {
+      "file": "examples/Phase5FreeWheelTicketDisabled.luau",
+      "sha256": "7ae4a8335f872c63600bbe268544b85baf9bd25076c9b307a2bc948b3790cd77"
+    },
+    {
+      "file": "examples/Phase5FreeWheelTicketPreflight.luau",
+      "sha256": "8a4d2b041e5e210207fa6253980567ac722953f2401b4f4a720b88d1fc891ce8"
+    },
+    {
+      "file": "examples/Phase5MasteryReadOnly.luau",
+      "sha256": "690758c6fe0ec53e07a62093e62809ed5cb3cffdcaab7d5fc7ab8972d05f8313"
+    },
+    {
+      "file": "examples/Phase5RewardsReadOnly.luau",
+      "sha256": "f183e3aee532f14e910b013e8b05350b156f5a7ae273658b8185bc066c74fa51"
+    },
+    {
+      "file": "examples/PickupOnly.luau",
+      "sha256": "823fb494f1e6674ddcc5af6e9874feec7fcbf50d97433c056a040a0d0a0d23a6"
+    },
+    {
+      "file": "examples/Progression.luau",
+      "sha256": "253d0bbf70154f5a00d667b2f61f751a304825b1ff8073165e9261f0e29fe236"
+    },
+    {
+      "file": "examples/StationaryOnly.luau",
+      "sha256": "823fb494f1e6674ddcc5af6e9874feec7fcbf50d97433c056a040a0d0a0d23a6"
+    },
+    {
+      "file": "examples/UpgradeTest.luau",
+      "sha256": "39f626e073c4d249279fb83e7178ced2a4a956971bf046190746ca2a543b297c"
+    },
+    {
+      "file": "tests/anti-afk.luau",
+      "sha256": "340844f695da053f53050e44231ecfe92bbe385c9b850f96ebba90de027e4241"
+    },
+    {
+      "file": "tests/discovery.luau",
+      "sha256": "29d23b463a30914d9cf806b7173673a77c3c2d54200956fd6d8cc34d8ce76dd4"
+    },
+    {
+      "file": "tests/economics.luau",
+      "sha256": "076c9c605461ea5864d785337501c03c0b5f4fb61420e6b82ad404aee08c64da"
+    },
+    {
+      "file": "tests/egg-travel.luau",
+      "sha256": "bad0edb47a6a5c313d37d3b7828ffbb05b1bd052f14fec554a792cf7f2d373ea"
+    },
+    {
+      "file": "tests/farming.luau",
+      "sha256": "c0b7f71f978ae0b5a3e3f72ccf64dcee5e84a331cd34ae7e92b27f6af3982984"
+    },
+    {
+      "file": "tests/foundation.luau",
+      "sha256": "d3a8e56936d552608366c61345f8ed28ae0364dbe7e6d1c0e5f838a92d9eafd2"
+    },
+    {
+      "file": "tests/goal-driven.luau",
+      "sha256": "e4d76b46e1f3131982da2a5b65c4ddd19c88bff0b2717cb57213cee5216244c5"
+    },
+    {
+      "file": "tests/integration.luau",
+      "sha256": "258acb25c424f1c619c57010cb1209306f707c1e2e596e64c944bb25ac5c8069"
+    },
+    {
+      "file": "tests/local-features.luau",
+      "sha256": "bf8072ac97cf3267503e9b89cb058e6662bf3de429f474b2b6785242b1e81ca4"
+    },
+    {
+      "file": "tests/logging.luau",
+      "sha256": "0445ac82120f40aa2fb53ebafd28ffe671f4b5b868da1a3f3a5a140b3997dd8c"
+    },
+    {
+      "file": "tests/pets.luau",
+      "sha256": "9bb097dd9b42bc046d4e2097f4a993d89ae74b353901a569416689101ece0095"
+    },
+    {
+      "file": "tests/phase2-fixes.luau",
+      "sha256": "6b6eb4d94c91b775e54b2a46b491090201d226ceadab140a8c761b8201987063"
+    },
+    {
+      "file": "tests/phase4-approved-final-standing.mjs",
+      "sha256": "01351c90dcd0048675edc9c656563a447b933b01a957de48e059ccc9f80626c5"
+    },
+    {
+      "file": "tests/phase4-approved-functional.mjs",
+      "sha256": "a2e28cc47a1c3f0c28f82f2675df38616c521600df917ed05018c8244a38bf9c"
+    },
+    {
+      "file": "tests/phase4-approved-membership.mjs",
+      "sha256": "7851ffe169062bfbc8ef16c77dc08199bd26a29811ea80dcdd04da0f7618b54b"
+    },
+    {
+      "file": "tests/phase4-approved-owner-direct.mjs",
+      "sha256": "fb9f89e904b6c857c3f789c6caa6762910793ab370bdb3520dfcdf2a27ca09b5"
+    },
+    {
+      "file": "tests/phase4-approved-standing.mjs",
+      "sha256": "f8c3f7b053379858c5788b5f71dfcd65ccc5071ec01842f79a8c3e1480f31ede"
+    },
+    {
+      "file": "tests/phase4-benchmark-fixes.luau",
+      "sha256": "f080b7f17f8347fdb1b63c164c61064aea1fbbb8b8bc408f59bb3708b7574785"
+    },
+    {
+      "file": "tests/phase4-controller-integration.luau",
+      "sha256": "71df06e8c31a9b9470bf0b89ad063170c110c71e15ebfe7925abb44a4e15109a"
+    },
+    {
+      "file": "tests/phase4-egg-identity.luau",
+      "sha256": "8e08e016f5c250c3e92587f2f5a859a1bef4442c232b59e47f280ab032961669"
+    },
+    {
+      "file": "tests/phase4-egg-location.luau",
+      "sha256": "a73526d558282f24c7e16e3d43db2b5960845ce43d52df7c7db69486f35cd0da"
+    },
+    {
+      "file": "tests/phase4-final-standing-validation.luau",
+      "sha256": "d7f2c8c11be240c897901ab997459654a87cbd59b814f559be6fbff4fc210e75"
+    },
+    {
+      "file": "tests/phase4-functional-hatch-proposal.luau",
+      "sha256": "caddd8111fb56253083bcb47188f00c114d0a1981b0343ec7f78b7c25ce68014"
+    },
+    {
+      "file": "tests/phase4-hatch-integration.luau",
+      "sha256": "84133eceb2feee96fe9cfadb5e7ac7c370c4d3d809a9f071189ddd9b30ad8659"
+    },
+    {
+      "file": "tests/phase4-location-logging.luau",
+      "sha256": "2050da13b441b7ba7b870350b83f958d906a1068291b33421c9c4cd05c0f4188"
+    },
+    {
+      "file": "tests/phase4-owner-allowance.luau",
+      "sha256": "c746fc0de52ec1b82c3acd4b4861c26b243fa62018970ff7a687e924bbca1c68"
+    },
+    {
+      "file": "tests/phase4-owner-direct-teleport.luau",
+      "sha256": "50b1c47951e797577e40031b33c329916260eda426d239f7dd535e21161066de"
+    },
+    {
+      "file": "tests/phase4-pickups.luau",
+      "sha256": "1c3522e9ad787553735bf08718f8791e8e43796cbbea35aeafac16271381f539"
+    },
+    {
+      "file": "tests/phase4-position-guards.luau",
+      "sha256": "f9078276617dc7d75ca74298d406d555894e46aafd6dff8f6bb84eeeb8dc6e2c"
+    },
+    {
+      "file": "tests/phase4-registration-preservation.mjs",
+      "sha256": "f85ad3a2b37427501f49050d2334be7798a1553e28198b779a665d8937ecd615"
+    },
+    {
+      "file": "tests/phase4-roi.luau",
+      "sha256": "053d981e141981180c60671281f3d476aaa9de8e502d9e9664387485a4e559c5"
+    },
+    {
+      "file": "tests/phase4-standing-location.luau",
+      "sha256": "237120474a917835c66e52b0148dc792e3d87d16d0207ce3c0deb88a5a7861aa"
+    },
+    {
+      "file": "tests/phase4-standing-safety-gate.luau",
+      "sha256": "d5f3456c805eef2fcf8efff6be56452161ba0d7032f9b6f0ae79223b42d0519c"
+    },
+    {
+      "file": "tests/phase4-test-b-interaction.luau",
+      "sha256": "708f3d05f370e804fd4216119401b64813ec0d2569b0d29d0e72d70805c71e33"
+    },
+    {
+      "file": "tests/phase4-travel-integration.luau",
+      "sha256": "6e53bf5af10f7ba8daa56e5bf97c3d9a19b42ccdc2612f75026fc90a586e53bc"
+    },
+    {
+      "file": "tests/phase4-travel-logging.luau",
+      "sha256": "b1a0db85d853d5e61f161c9a36e5ed59a8f22d0352548e6f57a917a677bdfb34"
+    },
+    {
+      "file": "tests/phase4-travel-only.luau",
+      "sha256": "4c166d201ef85384158b1d9fddb8924e2801d745297069e1725f33e85336169a"
+    },
+    {
+      "file": "tests/phase5-free-wheel-ticket.luau",
+      "sha256": "381d400f968ae7309f30868e630eac2de31c1f0b4e79b116f00702d27c14244a"
+    },
+    {
+      "file": "tests/phase5-mastery.luau",
+      "sha256": "825d8bb635c732291a5fcd8d192603cf8978c5ee91ca813a5f5b6f631f3aa6d0"
+    },
+    {
+      "file": "tests/phase5-rewards.luau",
+      "sha256": "f62c0c2667e6ba62354480df030eb82ccfa5969230e6e1e6b0b81a042127b4a4"
+    },
+    {
+      "file": "tests/phase5-wheel-preflight.luau",
+      "sha256": "f591f95f69cca3f2269de8d7cce16f32803e7467288459c568f4d58b3fde90e9"
+    },
+    {
+      "file": "tests/pickup-first.luau",
+      "sha256": "5d104275c884244168a01963d39bd867a0475dc921e6c193bd2a108a8c2b7168"
+    },
+    {
+      "file": "tests/progression.luau",
+      "sha256": "d19311027a1257d7d8d24b46fb81780a208b6a15eec3e68d40eb41fa72df7cff"
+    },
+    {
+      "file": "tests/rewards.luau",
+      "sha256": "f4f82a94be40eda3a6929271283f260ccf657ce0a2cd01b233d1818b701dc2ca"
+    },
+    {
+      "file": "tests/stationary.luau",
+      "sha256": "4bd6cdf9db6691a497952d4c861d8585efcbac312e20d44ca9a5ef7fb22923b1"
+    }
+  ],
+  "releasePins": [
+    {
+      "tag": "migration-005f77211830",
+      "commit": "742357c29edb5aa36f34c270984dc74350495593"
+    },
+    {
+      "tag": "phase4-auto-890d4713edad",
+      "commit": "3604395a593f8e78035a25a03197cc0f7075b860"
+    },
+    {
+      "tag": "phase4-direct-1d27e2a74ae5",
+      "commit": "4db553f3e2ce21bd1e822c9f1414a1933c8d30cb"
+    },
+    {
+      "tag": "phase4-hatch-08074c7b88c3",
+      "commit": "114caa4e18e05ba8881a4a93e83470b993273ecc"
+    },
+    {
+      "tag": "phase4-hatch-100f2c1907ae",
+      "commit": "aae628d9ac8f1941f9b0b92aaedc365be22fa6af"
+    },
+    {
+      "tag": "phase4-hatch-59c475d125c2",
+      "commit": "358bd6b22a2158ad4be14a7a9adc1561566697b2"
+    },
+    {
+      "tag": "phase4-hatch-6dfccccdf6cf",
+      "commit": "478ce3710ba2ece46d46653d4372ededc3638e2f"
+    },
+    {
+      "tag": "phase4-hatch-926bc78d88af",
+      "commit": "d864a3ec269f2bb1702b47244f3026300ec2ce29"
+    },
+    {
+      "tag": "phase4-hatch-d068765b64fd",
+      "commit": "7272bbbb8e7a3acfdbf4d300d1bb8c813d02c7b0"
+    },
+    {
+      "tag": "phase4-hatch-f4e10f71c317",
+      "commit": "55bf4cf437cccd826180519c482bdc6edbbbb51b"
+    },
+    {
+      "tag": "phase4-tests-141b7608bedf",
+      "commit": "7197c1342bfcb42a1f4a7eec4137e1db14938ffc"
+    },
+    {
+      "tag": "phase4-travel-0d5caa499c8c",
+      "commit": "25890f224f0448f148d009e65514c129aeb4f59c"
+    },
+    {
+      "tag": "phase4-travel-79273e3c1cc9",
+      "commit": "3844cf80515808238a1babdada18ba8e85ae3c2c"
+    },
+    {
+      "tag": "phase4-travel-a0ee412ac828",
+      "commit": "53ef279f92fd9b37a5df18261ce423b2d7955a59"
+    },
+    {
+      "tag": "phase4-travel-fec9bed3bd3f",
+      "commit": "e939f07f7ae898f3491e089615da802d7a07b9e5"
+    },
+    {
+      "tag": "phase5-free-wheel-ticket-668d0af6f157",
+      "commit": "f4c495e2c3d313ed6666ff94dd34c384cc8a0631"
+    },
+    {
+      "tag": "phase5-mastery-60e794e0fe87",
+      "commit": "7e833f94a1d2ff4011be3bdc74fcea0d10e30efc"
+    },
+    {
+      "tag": "phase5-rewards-7d374c2879a3",
+      "commit": "701eafb1c2cfaaa73237235d0c255b59b2a3ef52"
+    },
+    {
+      "tag": "phase5-wheel-preflight-668d0af6f157",
+      "commit": "08f1c5c6586ae504ac62924f6dbc13c6216a9f84"
+    }
+  ],
+  "acceptance": "Offline preservation only. Native animation, ticket debit and grant still need a separately authorized owner live test. Uncertain receipts remain unresolved barriers."
+}

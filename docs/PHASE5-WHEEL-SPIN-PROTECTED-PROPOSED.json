@@ -1,0 +1,57 @@
+{
+  "status": "UNAPPLIED_REQUIRES_SEPARATE_PROTECTED_METHOD_APPROVAL",
+  "baselineCommit": "918f8a58096c59f592fe94fd0d71fe5487f423d8",
+  "patch": "docs/PHASE5-WHEEL-SPIN-PROTECTED-PROPOSED.patch",
+  "patchSha256": "06382c6dbbe8191aea636bba4c8a80a73785f9caf4b640443e5646f51448b3d1",
+  "scope": "Exactly five existing-method integration hooks for a disabled one native WheelSpin/button animation/conditional native queue settlement; appended helpers have separate implementation records. No existing free-wheel helper, Brain, scheduler, reader, guard, movement or gameplay method changed outside these hooks.",
+  "existingFiles": [
+    {
+      "file": "src/OCFoundation/RewardsManager.luau",
+      "beforeSha256": "1caddfb1006c8be879176fc3ef092befdea41fd0dbbd8765bfd9c25d64537e6a",
+      "proposedSha256": "5820166d3fd2dcf1594f548f06eb5a703b0995b0c8b31571048528948282915d",
+      "changedMethods": [
+        {
+          "method": "RewardsManager.new",
+          "beforeSha256": "2525160e8f31e8a1882e9d2d182f5814ba6d17ce95bd95867b30de9776072f76",
+          "proposedSha256": "d01c7ced27d10e9fc3666586c29df6966a9f01c390db2f86e44563de8e61ce81"
+        },
+        {
+          "method": "RewardsManager:Observe",
+          "beforeSha256": "82fd8c0c69b483a4afe4f2bcdcfd2802ecc380121017b6648c3289fabf12a9a8",
+          "proposedSha256": "2a644d84d60addca0151d9ceb66334dc04146f2d0673ee7616928badf3370735"
+        },
+        {
+          "method": "RewardsManager:Select",
+          "beforeSha256": "9872e03bc1da9576c70f88dc58976404ba0f7095f67bb85da1a8ba33bd3a8245",
+          "proposedSha256": "192b2fb0b1f4ac4c74ac193ea0365174aaf3b808066ca77c3d92ab0be843d0f4"
+        },
+        {
+          "method": "RewardsManager:Definition",
+          "beforeSha256": "a9b9c35841fbc81475a62d502b43199d5a09e0f76e54f796e423f81a4c9984dc",
+          "proposedSha256": "279afc32b5931e90632992b536aea9f403a7b4b9fc450c8481f6d7ced10e7db3"
+        }
+      ]
+    },
+    {
+      "file": "src/OCFoundation/GameMechanics.luau",
+      "beforeSha256": "6505179be127fe2b0d8e7431df884eaa16cab0e9ee1d7620c050a35b0ec588c8",
+      "proposedSha256": "5b8b386e3f61dc57abdf67c9a2f6088a610e61d4cd915c50a11fb00ad092cb5d",
+      "changedMethods": [
+        {
+          "method": "GameMechanics:RewardAction",
+          "beforeSha256": "ce14b92003f99375badbbc0451a88e66fb050ac7c3a3427442bfe25bf78ccbcb",
+          "proposedSha256": "8416ccd63b07ee40c6b18a9a1a1a31b4f530a2ddd74da0060c4620f96e5e47eb"
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "officialLuauCompilation": "PASS_TEMPORARY_PROPOSED_HOOK_FILES_ONLY",
+    "gitApplyCheck": "PASS_UNAPPLIED",
+    "changedExistingMethods": 5,
+    "otherMethodExtraction": "BYTE_EXACT",
+    "productionSource": "UNCHANGED",
+    "runtimeContract": "NOT_VALIDATED_BY_HOOK_SYNTAX_TEST",
+    "liveActions": "NONE"
+  }
+}

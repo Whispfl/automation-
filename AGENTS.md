@@ -53,9 +53,16 @@ existing instructions remain in force.
 7. Keep documentation concise: record essential evidence, implementation decisions, limitations and release pins.
 8. Run required compilation, regressions and safety tests before publishing.
 9. Offline tests never count as live gameplay acceptance. The owner alone performs Roblox live tests.
-10. Ask for approval when a new protected-method change or previously unauthorized gameplay action requires it. Never assume permission for spending, purchases, destructive actions or repeated attempts.
+10. The owner gives standing approval for necessary source-code changes, including existing methods, within features explicitly requested. Inspect native behavior read-only, implement directly, compile/build/test, investigate failures and iterate autonomously. Preserve working features, regressions, one Brain/scheduler, duplicate-action prevention and pending receipts. Do not request another protected-method approval for routine changes within the authorized feature. Live spending, ticket consumption, pet deletion, purchases and uncertain retries still require separate explicit owner authorization.
 11. After verification, provide a complete usable loader and clear owner-test instructions whenever a live test is authorized.
 12. Avoid planning-only milestones, speculative investigations and unnecessary diagnostic builds unless a demonstrated blocker requires them.
 13. Report concisely: what works, what failed, what was published, and the next concrete action.
 
 **Priority:** Get OC reliably performing useful gameplay actions while maintaining necessary safety and verification.
+
+If missing RemoteSpy evidence genuinely blocks implementation, ask for the specific
+remote and explain the action to capture. Reuse known commands and completed research.
+Publish validated builds with new gameplay actions disabled by default, provide a
+usable script and simple BGSI test instructions, and let the owner perform the live
+test. Fix observed failures and prepare the next controlled test without repeated
+source-method approval requests. Never infer live action permission from code approval.
